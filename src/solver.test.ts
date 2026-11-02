@@ -6,7 +6,7 @@ import { canComplete } from './solver';
 describe('canComplete', () => {
   it('finds a solution for every generated matrix', () => {
     for (const size of [...Object.values(SIZES), ...SPRINTS[5]]) {
-      for (let seed = 1; seed <= 30; seed++) {
+      for (let seed = 1; seed <= 60; seed++) {
         expect(canComplete(newRun(), generate(seed, size), Infinity)).toBe(true);
       }
     }

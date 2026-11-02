@@ -11,7 +11,12 @@ describe('generate sizes', () => {
         expect(p.grid).toHaveLength(size.n);
         p.grid.forEach((row) => expect(row).toHaveLength(size.n));
         expect(p.targets.map((t) => t.length)).toEqual(size.lens);
-        expect(p.l).toBe(size.l);
+        const sum = size.lens.reduce((a, b) => a + b, 0);
+        expect(size.links.map((k) => sum - k + size.slack)).toContain(p.l);
+        // Every required link exists: some target ends with the code another one starts with.
+        const links = sum + size.slack - p.l;
+        const pairs = p.targets.flatMap((a, i) => p.targets.filter((b, j) => i !== j && a[a.length - 1] === b[0]));
+        if (links > 0) expect(pairs.length).toBeGreaterThan(0);
       }
     });
   }

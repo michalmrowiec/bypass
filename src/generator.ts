@@ -1,11 +1,13 @@
 export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 
-// n: grid side, l: buffer length, lens: target lengths (sum <= l). Small grids get one spare slot; bigger ones none.
-export interface Size { n: number; l: number; lens: number[] }
+// n: grid side, lens: target lengths. links: how many targets get chained (one's last code starts the next),
+// picked at random from the list. The buffer fits the chained sequence plus `slack` spare slots, so with
+// slack 0 every link is required to win.
+export interface Size { n: number; lens: number[]; links: number[]; slack: number }
 export const SIZES = {
-  easy: { n: 5, l: 8, lens: [2, 2, 3] },
-  normal: { n: 6, l: 8, lens: [2, 3, 3] },
-  hard: { n: 7, l: 10, lens: [3, 3, 4] },
+  easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
+  normal: { n: 6, lens: [2, 3, 3], links: [0, 1, 1, 2], slack: 0 },
+  hard: { n: 7, lens: [3, 3, 4], links: [2], slack: 1 },
 } satisfies Record<string, Size>;
 export type SizeKey = keyof typeof SIZES;
 
@@ -35,12 +37,13 @@ export function rng(seed: number): () => number {
   };
 }
 
-export function generate(seed: number, { n: N, l: L, lens }: Size = SIZES.normal): Puzzle {
+export function generate(seed: number, { n: N, lens, links: linkOpts, slack }: Size = SIZES.normal): Puzzle {
   const r = rng(seed);
   const pick = <T>(a: T[]): T => a[Math.floor(r() * a.length)];
-  const planted = lens.reduce((a, b) => a + b, 0);
+  const links = Math.min(pick(linkOpts), lens.length - 1);
+  const planted = lens.reduce((a, b) => a + b, 0) - links;
   for (;;) {
-    // Walk a random legal path long enough for all targets back to back, then plant them along it.
+    // Walk a random legal path long enough for the chained targets, then plant them along it.
     const path: [number, number][] = [[0, Math.floor(r() * N)]];
     let horiz = false;
     let ok = true;
@@ -56,13 +59,21 @@ export function generate(seed: number, { n: N, l: L, lens }: Size = SIZES.normal
       horiz = !horiz;
     }
     if (!ok) continue;
-    const targets = lens.map((n) => Array.from({ length: n }, () => pick(CODES)));
+    // Targets keep the lens order on screen but are planted in a shuffled order; `linked` holds the planted
+    // positions j whose target starts with the last code of the target planted just before it.
+    const order = lens.map((_, i) => i).sort(() => r() - 0.5);
+    const linked = new Set(order.slice(1).map((_, j) => j + 1).sort(() => r() - 0.5).slice(0, links));
+    const targets: string[][] = [];
+    order.forEach((ti, j) => {
+      const t = Array.from({ length: lens[ti] }, () => pick(CODES));
+      if (linked.has(j)) { const prev = targets[order[j - 1]]; t[0] = prev[prev.length - 1]; }
+      targets[ti] = t;
+    });
     if (new Set(targets.map((t) => t.join(' '))).size < targets.length) continue;
     if (targets.some((t) => t.every((c) => c === t[0]))) continue;
-    const order = targets.map((_, i) => i).sort(() => r() - 0.5);
-    const seq = order.flatMap((i) => targets[i]);
+    const seq = order.flatMap((ti, j) => (linked.has(j) ? targets[ti].slice(1) : targets[ti]));
     const grid = Array.from({ length: N }, () => Array.from({ length: N }, () => pick(CODES)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
-    return { grid, targets, l: L };
+    return { grid, targets, l: planted + slack };
   }
 }

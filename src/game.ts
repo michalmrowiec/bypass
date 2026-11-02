@@ -3,10 +3,10 @@ import { hashStr, type Puzzle, type Size, type SizeKey } from './generator';
 export const MAX_TRIES = 3;
 // Sprint: matrices against the clock, ramping from one target to three; ms is the per-matrix time limit.
 type Stage = Size & { ms: number };
-const ONE: Stage = { n: 5, l: 4, lens: [3], ms: 10_000 };
-const TWO: Stage = { n: 5, l: 6, lens: [2, 3], ms: 15_000 };
-const TWO_LONG: Stage = { n: 5, l: 7, lens: [3, 3], ms: 20_000 };
-const THREE: Stage = { n: 6, l: 8, lens: [2, 3, 3], ms: 30_000 };
+const ONE: Stage = { n: 5, lens: [3], links: [0], slack: 1, ms: 10_000 };
+const TWO: Stage = { n: 5, lens: [2, 3], links: [1], slack: 1, ms: 15_000 };
+const TWO_LONG: Stage = { n: 5, lens: [3, 3], links: [1], slack: 0, ms: 20_000 };
+const THREE: Stage = { n: 6, lens: [2, 3, 3], links: [1], slack: 0, ms: 30_000 };
 export const SPRINTS = { 3: [ONE, TWO, THREE], 5: [ONE, TWO, TWO_LONG, THREE, THREE] };
 export type SprintLen = keyof typeof SPRINTS;
 
