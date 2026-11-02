@@ -1,6 +1,14 @@
-import { L, N, type Puzzle } from './generator';
+import { hashStr, type Puzzle, type Size, type SizeKey } from './generator';
 
 export const MAX_TRIES = 3;
+// Sprint: matrices against the clock, ramping from one target to three; ms is the per-matrix time limit.
+type Stage = Size & { ms: number };
+const ONE: Stage = { n: 5, l: 4, lens: [3], ms: 10_000 };
+const TWO: Stage = { n: 5, l: 6, lens: [2, 3], ms: 15_000 };
+const TWO_LONG: Stage = { n: 5, l: 7, lens: [3, 3], ms: 20_000 };
+const THREE: Stage = { n: 6, l: 8, lens: [2, 3, 3], ms: 30_000 };
+export const SPRINTS = { 3: [ONE, TWO, THREE], 5: [ONE, TWO, TWO_LONG, THREE, THREE] };
+export type SprintLen = keyof typeof SPRINTS;
 
 export interface Run {
   buffer: string[];
@@ -28,10 +36,10 @@ export function partial(buf: string[], t: string[]): number {
   return 0;
 }
 
-export function targetProgress(buf: string[], t: string[], over: boolean) {
+export function targetProgress(buf: string[], t: string[], l: number, over: boolean) {
   if (contains(buf, t)) return { done: true, k: t.length, fail: false };
   const k = partial(buf, t);
-  return { done: false, k, fail: t.length - k > L - buf.length || over };
+  return { done: false, k, fail: t.length - k > l - buf.length || over };
 }
 
 export function isLegal(run: Run, r: number, c: number): boolean {
@@ -39,8 +47,8 @@ export function isLegal(run: Run, r: number, c: number): boolean {
   return run.axis === 'row' ? r === run.idx : c === run.idx;
 }
 
-export function anyLegal(run: Run): boolean {
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (isLegal(run, r, c)) return true;
+export function anyLegal(run: Run, n: number): boolean {
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (isLegal(run, r, c)) return true;
   return false;
 }
 
@@ -53,5 +61,25 @@ export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
 
 export const score = (buf: string[], targets: string[][]) => targets.filter((t) => contains(buf, t)).length;
 
-export const isFinished = (run: Run, puzzle: Puzzle) =>
-  score(run.buffer, puzzle.targets) === puzzle.targets.length || run.buffer.length === L || !anyLegal(run);
+export const isFinished = (run: Run, p: Puzzle) =>
+  score(run.buffer, p.targets) === p.targets.length || run.buffer.length === p.l || !anyLegal(run, p.grid.length);
+
+
+// Each sprint matrix gets its own seed derived from the run's seed, so one link reproduces the whole run.
+export const stageSeed = (seed: number, stage: number) => hashStr(seed + '/' + stage);
+
+// What a shared link points at: a training matrix of some size, or a whole sprint run.
+export type ChallengeKind = SizeKey | 'sprint3' | 'sprint5';
+export interface Challenge { kind: ChallengeKind; seed: number; time: number | null }
+
+// Parses ?c=<kind>.<seed>&t=<ms> from a shared link; anything malformed is ignored.
+export function parseChallenge(search: string): Challenge | null {
+  const q = new URLSearchParams(search);
+  const m = /^(easy|normal|hard|sprint3|sprint5)\.(\d{1,10})$/.exec(q.get('c') ?? '');
+  if (!m) return null;
+  const t = Number(q.get('t'));
+  return { kind: m[1] as ChallengeKind, seed: Number(m[2]), time: Number.isInteger(t) && t > 0 && t < 36e5 ? t : null };
+}
+
+export const challengeQuery = (kind: ChallengeKind, seed: number, time: number | null) =>
+  '?c=' + kind + '.' + seed + (time ? '&t=' + time : '');

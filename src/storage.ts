@@ -6,6 +6,21 @@ export function save(k: string, v: unknown): void {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ }
 }
 
+// First clear time per matrix/sprint id, so replays can't improve a shared score.
+const PLAYED = 'bypass:played';
+const PLAYED_MAX = 500;
+export const firstResult = (id: string): number | undefined => load<Record<string, number>>(PLAYED)?.[id];
+// Saves the time if this id has none yet; returns whether it did. Oldest ids are dropped past PLAYED_MAX.
+export function recordFirst(id: string, time: number): boolean {
+  const all = load<Record<string, number>>(PLAYED) ?? {};
+  if (id in all) return false;
+  all[id] = time;
+  const ids = Object.keys(all);
+  for (const old of ids.slice(0, Math.max(0, ids.length - PLAYED_MAX))) delete all[old];
+  save(PLAYED, all);
+  return true;
+}
+
 // Daily puzzles are keyed by UTC date so everyone worldwide gets the same one.
 export const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 

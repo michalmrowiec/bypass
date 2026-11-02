@@ -1,10 +1,18 @@
 export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
-export const N = 6;
-export const L = 8;
+
+// n: grid side, l: buffer length, lens: target lengths (sum <= l). Small grids get one spare slot; bigger ones none.
+export interface Size { n: number; l: number; lens: number[] }
+export const SIZES = {
+  easy: { n: 5, l: 8, lens: [2, 2, 3] },
+  normal: { n: 6, l: 8, lens: [2, 3, 3] },
+  hard: { n: 7, l: 10, lens: [3, 3, 4] },
+} satisfies Record<string, Size>;
+export type SizeKey = keyof typeof SIZES;
 
 export interface Puzzle {
   grid: string[][];
   targets: string[][];
+  l: number;
 }
 
 export function hashStr(s: string): number {
@@ -27,15 +35,16 @@ export function rng(seed: number): () => number {
   };
 }
 
-export function generate(seed: number): Puzzle {
+export function generate(seed: number, { n: N, l: L, lens }: Size = SIZES.normal): Puzzle {
   const r = rng(seed);
   const pick = <T>(a: T[]): T => a[Math.floor(r() * a.length)];
+  const planted = lens.reduce((a, b) => a + b, 0);
   for (;;) {
-    // Walk a random legal path of length L, then plant the targets along it.
+    // Walk a random legal path long enough for all targets back to back, then plant them along it.
     const path: [number, number][] = [[0, Math.floor(r() * N)]];
     let horiz = false;
     let ok = true;
-    while (path.length < L) {
+    while (path.length < planted) {
       const [pr, pc] = path[path.length - 1];
       const opts: [number, number][] = [];
       for (let i = 0; i < N; i++) {
@@ -47,13 +56,13 @@ export function generate(seed: number): Puzzle {
       horiz = !horiz;
     }
     if (!ok) continue;
-    const targets = [2, 3, 3].map((n) => Array.from({ length: n }, () => pick(CODES)));
-    if (new Set(targets.map((t) => t.join(' '))).size < 3) continue;
+    const targets = lens.map((n) => Array.from({ length: n }, () => pick(CODES)));
+    if (new Set(targets.map((t) => t.join(' '))).size < targets.length) continue;
     if (targets.some((t) => t.every((c) => c === t[0]))) continue;
-    const order = [0, 1, 2].sort(() => r() - 0.5);
+    const order = targets.map((_, i) => i).sort(() => r() - 0.5);
     const seq = order.flatMap((i) => targets[i]);
     const grid = Array.from({ length: N }, () => Array.from({ length: N }, () => pick(CODES)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
-    return { grid, targets };
+    return { grid, targets, l: L };
   }
 }

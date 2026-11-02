@@ -5,33 +5,44 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Bypass Daily</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div>
+  <header class="bar">
+    <div class="brand">
       <h1>BYPASS</h1>
       <div class="meta" id="meta">Daily #001</div>
     </div>
     <div class="modes" role="group" aria-label="Mode">
-      <button class="btn" id="modeDaily" aria-pressed="true">Daily</button>
-      <button class="btn" id="modeTrain" aria-pressed="false">Training</button>
+      <button class="btn" id="modeDaily" aria-pressed="true">0:daily</button>
+      <button class="btn" id="modeTrain" aria-pressed="false">1:training</button>
+      <button class="btn" id="modeSprint" aria-pressed="false">2:sprint</button>
     </div>
   </header>
 
   <div class="board">
-    <section>
-      <p class="label" id="laneLabel">Pick a code in the top row</p>
-      <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>
-    </section>
+    <section class="pane">
+      <p class="label">matrix</p>
+      <div class="modes sizes" id="sizes" role="group" aria-label="Size" hidden>
+        <button class="btn" data-size="easy">easy 5×5</button>
+        <button class="btn" data-size="normal">normal 6×6</button>
+        <button class="btn" data-size="hard">hard 7×7</button>
+      </div>
+      <div class="modes sizes" id="sprintLen" role="group" aria-label="Sprint length" hidden>
+        <button class="btn" data-len="3">3 matrices</button>
+        <button class="btn" data-len="5">5 matrices</button>
+      </div>
+      <div class="timebar" id="timebar" hidden><i></i></div>
+      <p class="hint" id="laneLabel">Pick a code in the top row</p>
+      <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>    </section>
     <section class="side">
-      <div>
-        <p class="label">Buffer</p>
+      <div class="pane">
+        <p class="label">buffer</p>
         <div class="buffer" id="buffer"></div>
       </div>
-      <div>
-        <p class="label">Targets</p>
+      <div class="pane">
+        <p class="label">targets</p>
         <div class="targets" id="targets"></div>
       </div>
       <div class="status" id="status"></div>
@@ -39,14 +50,15 @@
     </section>
   </div>
 
-  <details>
-    <summary>How to play</summary>
+  <details class="pane">
+    <summary>how to play</summary>
     <ol>
       <li>Start anywhere in the top row.</li>
       <li>Your next pick must be in the same column. The one after that, in the same row. Keep alternating.</li>
       <li>Each cell works once. Every pick goes into the buffer.</li>
       <li>A target counts when its codes sit side by side in the buffer, in order.</li>
       <li>Upload all three targets before the buffer fills. Daily puzzle: three tries.</li>
+      <li>Sprint: three or five matrices against the clock, from one target up to three. Each matrix has a time limit; fail one or run out of time and the run is over.</li>
     </ol>
   </details>
 </div>
