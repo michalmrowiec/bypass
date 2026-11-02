@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bypass Daily</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>BYPASS</h1>
+      <div class="meta" id="meta">Daily #001</div>
+    </div>
+    <div class="modes" role="group" aria-label="Mode">
+      <button class="btn" id="modeDaily" aria-pressed="true">Daily</button>
+      <button class="btn" id="modeTrain" aria-pressed="false">Training</button>
+    </div>
+  </header>
+
+  <div class="board">
+    <section>
+      <p class="label" id="laneLabel">Pick a code in the top row</p>
+      <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>
+    </section>
+    <section class="side">
+      <div>
+        <p class="label">Buffer</p>
+        <div class="buffer" id="buffer"></div>
+      </div>
+      <div>
+        <p class="label">Targets</p>
+        <div class="targets" id="targets"></div>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="result" id="result" hidden></div>
+    </section>
+  </div>
+
+  <details>
+    <summary>How to play</summary>
+    <ol>
+      <li>Start anywhere in the top row.</li>
+      <li>Your next pick must be in the same column. The one after that, in the same row. Keep alternating.</li>
+      <li>Each cell works once. Every pick goes into the buffer.</li>
+      <li>A target counts when its codes sit side by side in the buffer, in order.</li>
+      <li>Upload all three targets before the buffer fills. Daily puzzle: three tries.</li>
+    </ol>
+  </details>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

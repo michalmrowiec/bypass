@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bypass Daily</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one amber-phosphor terminal. Grid left, buffer + targets right; stacks on phones. Single dark theme by choice. */
+:root{
+  color-scheme:dark;
+  --bg:#0d0c0a;
+  --panel:#15130f;
+  --line:#3a2f1c;
+  --amber:#ffb547;
+  --amber-dim:#8a6a36;
+  --ink:#f3dcb0;
+  --done:#7fe0c4;
+  --bad:#e5675e;
+  --display:"VT323","IBM Plex Mono",ui-monospace,monospace;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(255,181,71,.035) 0 1px,transparent 1px 3px)}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px}
+h1{font-family:var(--display);font-weight:400;font-size:64px;line-height:.8;margin:0;color:var(--amber);letter-spacing:.06em;text-shadow:0 0 18px rgba(255,181,71,.35)}
+.meta{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber-dim);font-variant-numeric:tabular-nums}
+.modes{display:flex;gap:6px}
+.btn{font:inherit;font-size:12px;letter-spacing:.12em;text-transform:uppercase;background:transparent;color:var(--amber);
+  border:1px solid var(--amber-dim);padding:8px 12px;cursor:pointer}
+.btn:hover{border-color:var(--amber)}
+.btn[aria-pressed="true"]{background:var(--amber);color:var(--bg);border-color:var(--amber)}
+.btn:focus-visible,.cell:focus-visible{outline:2px solid var(--done);outline-offset:2px}
+.board{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:720px){.board{grid-template-columns:minmax(0,1fr)}}
+.label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber-dim);margin:0 0 8px}
+.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:10px;border:1px solid var(--line);background:var(--panel);
+  width:min(100%,400px)}
+.cell{aspect-ratio:1;max-width:100%;font-family:var(--display);font-size:clamp(24px,7vw,34px);background:transparent;color:var(--ink);
+  border:1px solid transparent;cursor:default;position:relative;padding:0}
+.cell.lane{background:rgba(255,181,71,.07)}
+.cell.ok{cursor:pointer;color:var(--amber)}
+.cell.ok:hover{border-color:var(--amber);background:rgba(255,181,71,.16)}
+.cell.used{color:transparent}
+.cell.used::after{content:"[ ]";position:absolute;inset:0;display:grid;place-items:center;color:var(--line);font-size:.7em}
+.cell.flash{animation:flash .35s}
+@keyframes flash{from{background:var(--amber);color:var(--bg)}}
+.side{display:flex;flex-direction:column;gap:22px;min-width:0}
+.buffer{display:flex;flex-wrap:wrap;gap:6px}
+.slot{width:44px;height:44px;border:1px dashed var(--amber-dim);display:grid;place-items:center;font-family:var(--display);font-size:26px;color:var(--amber)}
+.slot.filled{border-style:solid;border-color:var(--amber)}
+.targets{display:flex;flex-direction:column;gap:10px}
+.target{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);background:var(--panel)}
+.target .codes{display:flex;gap:10px;font-family:var(--display);font-size:28px;color:var(--amber-dim)}
+.target .codes .hit{color:var(--amber)}
+.target .state{margin-left:auto;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber-dim)}
+.target.done{border-color:var(--done)}
+.target.done .codes span{color:var(--done)}
+.target.done .state{color:var(--done)}
+.target.fail{opacity:.55}
+.target.fail .state{color:var(--bad)}
+.status{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber-dim);font-variant-numeric:tabular-nums}
+.status b{color:var(--ink);font-weight:500}
+.result{border:1px solid var(--amber);padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--panel)}
+.result h2{font-family:var(--display);font-weight:400;font-size:40px;line-height:1;margin:0;color:var(--amber)}
+.result.win h2{color:var(--done)}
+.result pre{margin:0;font-family:var(--mono);font-size:13px;white-space:pre-wrap;color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+details{border-top:1px solid var(--line);padding-top:14px;max-width:65ch}
+summary{cursor:pointer;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;gap:6px}
+#copyFallback{width:100%;min-height:80px;background:var(--bg);color:var(--ink);border:1px solid var(--line);font:inherit;font-size:13px}
+@media (prefers-reduced-motion:reduce){.cell.flash{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>BYPASS</h1>
+      <div class="meta" id="meta">Daily #001</div>
+    </div>
+    <div class="modes" role="group" aria-label="Mode">
+      <button class="btn" id="modeDaily" aria-pressed="true">Daily</button>
+      <button class="btn" id="modeTrain" aria-pressed="false">Training</button>
+    </div>
+  </header>
+
+  <div class="board">
+    <section>
+      <p class="label" id="laneLabel">Pick a code in the top row</p>
+      <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>
+    </section>
+    <section class="side">
+      <div>
+        <p class="label">Buffer</p>
+        <div class="buffer" id="buffer"></div>
+      </div>
+      <div>
+        <p class="label">Targets</p>
+        <div class="targets" id="targets"></div>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="result" id="result" hidden></div>
+    </section>
+  </div>
+
+  <details>
+    <summary>How to play</summary>
+    <ol>
+      <li>Start anywhere in the top row.</li>
+      <li>Your next pick must be in the same column. The one after that, in the same row. Keep alternating.</li>
+      <li>Each cell works once. Every pick goes into the buffer.</li>
+      <li>A target counts when its codes sit side by side in the buffer, in order.</li>
+      <li>Upload all three targets before the buffer fills. Daily puzzle: three tries.</li>
+    </ol>
+  </details>
+</div>
+
+<script>
+(function(){
+const CODES=["4B","7F","C9","1D","E5"];
+const N=6, L=8, MAX_TRIES=3;
+const $=id=>document.getElementById(id);
+
+function hashStr(s){let h=1779033703^s.length;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19}return h>>>0}
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+function generate(seed){
+  const r=rng(seed), pick=a=>a[Math.floor(r()*a.length)];
+  for(;;){
+    // walk a legal path of length L
+    let path=[[0,Math.floor(r()*N)]], horiz=false, ok=true;
+    while(path.length<L){
+      const [pr,pc]=path[path.length-1];
+      const opts=[];
+      for(let i=0;i<N;i++){const cell=horiz?[pr,i]:[i,pc];if(!path.some(p=>p[0]===cell[0]&&p[1]===cell[1]))opts.push(cell)}
+      if(!opts.length){ok=false;break}
+      path.push(pick(opts));horiz=!horiz;
+    }
+    if(!ok)continue;
+    const lens=[2,3,3], targets=lens.map(n=>Array.from({length:n},()=>pick(CODES)));
+    const keys=targets.map(t=>t.join(" "));
+    if(new Set(keys).size<3)continue;
+    if(targets.some(t=>t.every(c=>c===t[0])))continue;
+    const order=[0,1,2].sort(()=>r()-.5);
+    const seq=order.flatMap(i=>targets[i]);
+    const grid=Array.from({length:N},()=>Array.from({length:N},()=>pick(CODES)));
+    path.forEach(([pr,pc],i)=>grid[pr][pc]=seq[i]);
+    return {grid,targets};
+  }
+}
+
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dayNumber(){const d=new Date();return Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(2026,10,1))/864e5)+1}
+function load(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+const S={mode:"daily",puzzle:null,buffer:[],used:new Set(),axis:"row",idx:0,tries:1,start:0,elapsed:0,timer:null,over:false,trainSeed:0};
+const dailyKey="bypass:"+today();
+
+function contains(buf,t){for(let i=0;i+t.length<=buf.length;i++){if(t.every((c,j)=>buf[i+j]===c))return true}return false}
+function partial(buf,t){for(let k=Math.min(t.length-1,buf.length);k>0;k--){let m=true;for(let j=0;j<k;j++)if(buf[buf.length-k+j]!==t[j]){m=false;break}if(m)return k}return 0}
+function targetState(t){
+  if(contains(S.buffer,t))return {done:true,k:t.length};
+  const k=partial(S.buffer,t), need=t.length-k, left=L-S.buffer.length;
+  return {done:false,k,fail:need>left||S.over};
+}
+function legal(r,c){if(S.over||S.used.has(r+","+c))return false;return S.axis==="row"?r===S.idx:c===S.idx}
+function anyLegal(){for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(legal(r,c))return true;return false}
+function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+function now(){return S.start?(S.over?S.elapsed:Date.now()-S.start):0}
+
+function render(){
+  const g=$("grid");g.innerHTML="";
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const b=document.createElement("button");b.className="cell";b.id="c"+r+c;b.textContent=S.puzzle.grid[r][c];
+    const inLane=!S.over&&(S.axis==="row"?r===S.idx:c===S.idx);
+    if(inLane)b.classList.add("lane");
+    if(S.used.has(r+","+c))b.classList.add("used");
+    if(legal(r,c)){b.classList.add("ok");b.setAttribute("aria-label","Pick "+S.puzzle.grid[r][c]+" at row "+(r+1)+" column "+(c+1));b.onclick=()=>choose(r,c)}
+    else{b.tabIndex=-1;b.setAttribute("aria-disabled","true")}
+    g.appendChild(b);
+  }
+  $("laneLabel").textContent=S.over?"Session closed":S.buffer.length===0?"Pick a code in the top row":(S.axis==="row"?"Pick in row "+(S.idx+1):"Pick in column "+"ABCDEF"[S.idx]);
+  const buf=$("buffer");buf.innerHTML="";
+  for(let i=0;i<L;i++){const s=document.createElement("div");s.className="slot"+(S.buffer[i]?" filled":"");s.textContent=S.buffer[i]||"";buf.appendChild(s)}
+  const tg=$("targets");tg.innerHTML="";
+  S.puzzle.targets.forEach((t,i)=>{
+    const st=targetState(t), el=document.createElement("div");
+    el.className="target"+(st.done?" done":st.fail?" fail":"");
+    el.innerHTML='<div class="codes">'+t.map((c,j)=>'<span class="'+(j<st.k?"hit":"")+'">'+c+"</span>").join("")+'</div><div class="state">'+(st.done?"Uploaded":st.fail?"Failed":"Target "+(i+1))+"</div>";
+    tg.appendChild(el);
+  });
+  $("status").innerHTML="<span>Time <b id='clock'>"+fmt(now())+"</b></span>"+(S.mode==="daily"?"<span>Try <b>"+S.tries+"/"+MAX_TRIES+"</b></span>":"<span>Training</span>");
+}
+
+function score(){return S.puzzle.targets.filter(t=>contains(S.buffer,t)).length}
+
+function choose(r,c){
+  if(!legal(r,c))return;
+  if(!S.start){S.start=Date.now();S.timer=setInterval(()=>{const el=$("clock");if(el)el.textContent=fmt(now())},250)}
+  S.buffer.push(S.puzzle.grid[r][c]);S.used.add(r+","+c);
+  if(S.axis==="row"){S.axis="col";S.idx=c}else{S.axis="row";S.idx=r}
+  const sc=score();
+  if(sc===3||S.buffer.length===L||!anyLegal())finish(sc);
+  render();
+  const b=$("c"+r+c);if(b){b.classList.add("flash")}
+  const next=document.querySelector(".cell.ok");if(next&&document.activeElement&&document.activeElement.classList.contains("cell"))next.focus();
+}
+
+function finish(sc){
+  S.over=true;S.elapsed=Date.now()-S.start;clearInterval(S.timer);
+  const res=$("result");res.hidden=false;
+  const win=sc===3;
+  res.className="result"+(win?" win":"");
+  let html="";
+  if(S.mode==="daily"){
+    const final=win||S.tries>=MAX_TRIES;
+    if(final){
+      const rec={score:sc,tries:S.tries,time:S.elapsed};save(dailyKey,rec);
+      html=resultHtml(rec);
+    }else{
+      html="<h2>"+sc+"/3 uploaded</h2><p>"+(MAX_TRIES-S.tries)+" "+(MAX_TRIES-S.tries===1?"try":"tries")+" left on today's matrix.</p><div class='row'><button class='btn' id='retry'>Try again</button></div>";
+    }
+  }else{
+    html="<h2>"+(win?"Access granted":sc+"/3 uploaded")+"</h2><p>Time "+fmt(S.elapsed)+"</p><div class='row'><button class='btn' id='again'>Retry this one</button><button class='btn' id='next'>New matrix</button></div>";
+  }
+  res.innerHTML=html;wireResult();
+}
+
+function shareText(rec){
+  const bars="▮".repeat(rec.score)+"▯".repeat(3-rec.score);
+  return "BYPASS #"+String(dayNumber()).padStart(3,"0")+"\n"+bars+" "+rec.score+"/3 · try "+rec.tries+"/"+MAX_TRIES+" · "+fmt(rec.time);
+}
+function resultHtml(rec){
+  return "<h2>"+(rec.score===3?"Access granted":"Locked out")+"</h2><pre id='shareTxt'>"+shareText(rec)+"</pre><div class='row'><button class='btn' id='share'>Copy result</button><button class='btn' id='toTrain'>Play training</button></div><p class='meta'>New matrix tomorrow.</p>";
+}
+function wireResult(){
+  const on=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
+  on("retry",()=>{S.tries++;resetRun()});
+  on("again",()=>resetRun());
+  on("next",()=>{S.trainSeed=Math.floor(Math.random()*1e9);S.puzzle=generate(S.trainSeed);resetRun()});
+  on("toTrain",()=>setMode("train"));
+  on("share",async()=>{
+    const txt=$("shareTxt").textContent;
+    try{await navigator.clipboard.writeText(txt);$("share").textContent="Copied"}
+    catch(e){if(!$("copyFallback")){const ta=document.createElement("textarea");ta.id="copyFallback";ta.value=txt;$("result").appendChild(ta)}$("copyFallback").select()}
+  });
+}
+
+function resetRun(){
+  clearInterval(S.timer);
+  Object.assign(S,{buffer:[],used:new Set(),axis:"row",idx:0,start:0,elapsed:0,over:false});
+  $("result").hidden=true;render();
+}
+
+function setMode(m){
+  S.mode=m;$("modeDaily").setAttribute("aria-pressed",m==="daily");$("modeTrain").setAttribute("aria-pressed",m==="train");
+  if(m==="daily"){
+    $("meta").textContent="Daily #"+String(dayNumber()).padStart(3,"0")+" · "+today();
+    S.puzzle=generate(hashStr("bypass-"+today()));S.tries=1;resetRun();
+    const rec=load(dailyKey);
+    if(rec){S.over=true;render();const res=$("result");res.hidden=false;res.className="result"+(rec.score===3?" win":"");res.innerHTML=resultHtml(rec);wireResult()}
+  }else{
+    $("meta").textContent="Training · unlimited";
+    S.trainSeed=Math.floor(Math.random()*1e9);S.puzzle=generate(S.trainSeed);S.tries=1;resetRun();
+  }
+}
+$("modeDaily").onclick=()=>setMode("daily");
+$("modeTrain").onclick=()=>setMode("train");
+setMode("daily");
+})();
+</script>
+
+</body>
+</html>
