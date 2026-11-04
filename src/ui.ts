@@ -1,10 +1,12 @@
 import { generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
-  MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
+  MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
   stageSeed, targetProgress,
 } from './game';
 import { canComplete } from './solver';
-import { RUN_MATRIX } from './roguelike';
+import {
+  DATA_BY_LEN, endMatrix, MATRICES, matrixData, newRunState, nextSection, SECTIONS, sectionMatrix, type MatrixOutcome, type RunState,
+} from './roguelike';
 import { dayNumber, firstResult, load, recordFirst, save, utcDate } from './storage';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
@@ -29,6 +31,7 @@ const S = {
   dealing: false, // between sprint matrices: input blocked, stage timer paused
   challenge: null as number | null,
 };
+let R: RunState = newRunState(0);
 // Targets already shown as uploaded, so the upload effect plays only once.
 const doneSeen = new Set<number>();
 // Cell under the mouse or keyboard focus, for the crosshair highlight.
@@ -100,7 +103,7 @@ function render() {
     const el = document.createElement('div');
     el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '');
     el.innerHTML = '<div class="codes">' + t.map((c, j) => '<span class="' + (j < st.k ? 'hit' : '') + '">' + c + '</span>').join('')
-      + '</div><div class="state">' + (st.done ? 'Uploaded' : st.fail ? 'Failed' : 'Target ' + (i + 1)) + '</div>';
+      + '</div><div class="state">' + (st.done ? 'Uploaded' : st.fail ? 'Failed' : S.mode === 'run' ? '+' + DATA_BY_LEN[t.length] + ' data' : 'Target ' + (i + 1)) + '</div>';
     tg.appendChild(el);
     if (st.done && !doneSeen.has(i)) {
       doneSeen.add(i);
@@ -111,10 +114,29 @@ function render() {
   const extra = S.mode === 'daily' ? '<span>Try <b>' + S.tries + '/' + MAX_TRIES + '</b></span>'
     : (S.mode === 'sprint' ? '<span>Matrix <b>' + Math.min(S.stage + 1, stages().length) + '/' + stages().length + '</b></span>' : '')
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
-  $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + extra;
+  $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? runStatus() : extra);
+  document.getElementById('restartMatrix')?.addEventListener('click', () => { R.restarts--; dealMatrix(); });
+  document.getElementById('disconnect')?.addEventListener('click', () => { finish(score(S.run.buffer, S.puzzle.targets)); render(); });
   $('timebar').hidden = S.mode !== 'sprint' || S.over;
   updateBar();
   applyCross();
+}
+
+// Data shows the live total with the current matrix's uploads; once the matrix is over they are banked in R.data.
+function runStatus() {
+  const live = S.over ? 0 : matrixData(S.run.buffer, S.puzzle.targets);
+  const restart = !S.start && !S.over && R.restarts ? "<button class='btn' id='restartMatrix'>Restart matrix (" + R.restarts + ')</button>' : '';
+  // Ending early keeps the empty slots, which pay credits.
+  const disconnect = live ? "<button class='btn' id='disconnect'>Disconnect</button>" : '';
+  return '<span>Data <b>' + (R.data + live) + '/' + SECTIONS[R.section].quota + '</b></span>'
+    + '<span>Matrix <b>' + (R.played + (S.over ? 0 : 1)) + '/' + MATRICES + '</b></span>'
+    + '<span>Credits <b>' + R.credits + '</b></span>' + restart + disconnect;
+}
+
+function dealMatrix() {
+  $('meta').textContent = 'Run · ' + SECTIONS[R.section].name + ' ' + (R.section + 1) + '/' + SECTIONS.length;
+  S.puzzle = generate(stageSeed(R.seed, R.matrix++), sectionMatrix(R.section));
+  resetRun();
 }
 
 function applyCross() {
@@ -182,7 +204,11 @@ function choose(r: number, c: number) {
   if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 31); }
   pick(S.run, S.puzzle, r, c);
   // A dead end (targets no longer reachable) ends the round right away.
-  if (isFinished(S.run, S.puzzle) || !canComplete(S.run, S.puzzle)) {
+  // Run mode only stops once no remaining target can still be uploaded; the others need all of them.
+  const stuck = S.mode === 'run'
+    ? !S.puzzle.targets.some((t) => !contains(S.run.buffer, t) && canComplete(S.run, { ...S.puzzle, targets: [t] }))
+    : !canComplete(S.run, S.puzzle);
+  if (isFinished(S.run, S.puzzle) || stuck) {
     const sc = score(S.run.buffer, S.puzzle.targets);
     if (S.mode === 'sprint') {
       if (sc < S.puzzle.targets.length) endSprint('Locked out');
@@ -236,7 +262,21 @@ function finish(sc: number) {
         + " left on today's matrix.</p><div class='row'><button class='btn' id='retry'>Try again</button></div>";
     }
   } else if (S.mode === 'run') {
-    html = '<h2>' + sc + '/' + S.puzzle.targets.length + " uploaded</h2><div class='row'><button class='btn' id='next'>New matrix</button></div>";
+    const got = matrixData(S.run.buffer, S.puzzle.targets);
+    const before = R.credits;
+    const out = endMatrix(R, got, S.puzzle.l - S.run.buffer.length);
+    const gained = R.credits - before;
+    const sec = SECTIONS[R.section];
+    const [title, btn, label] = ({
+      continue: ['+' + got + ' data', 'runNext', 'Next matrix'],
+      section: [sec.name + ' breached', 'runSection', 'Next section'],
+      win: ['Contract complete', 'runNew', 'New run'],
+      lose: ['Run over', 'runNew', 'New run'],
+    } as Record<MatrixOutcome, string[]>)[out];
+    const info = sec.name + ' ' + R.data + '/' + sec.quota + (gained ? ' · +' + gained + (gained > 1 ? ' credits' : ' credit') : '');
+    showResult(out === 'win' || out === 'section' || (out === 'continue' && got > 0),
+      '<h2>' + title + '</h2><p>' + info + "</p><div class='row'><button class='btn' id='" + btn + "'>" + label + '</button></div>');
+    return;
   } else {
     const c = settle(win);
     html = '<h2>' + (win ? 'Access granted' : sc + '/3 uploaded') + '</h2><p>Time ' + fmt(S.elapsed) + '</p>' + c.info
@@ -341,7 +381,10 @@ function showResult(win: boolean, html: string) {
   const on = (id: string, fn: () => void) => { const e = document.getElementById(id); if (e) e.onclick = fn; };
   on('retry', () => { S.tries++; resetRun(); });
   on('again', () => resetRun());
-  on('next', () => setMode(S.mode === 'run' ? 'run' : 'train'));
+  on('next', () => setMode('train'));
+  on('runNext', dealMatrix);
+  on('runSection', () => { nextSection(R); dealMatrix(); });
+  on('runNew', () => setMode('run'));
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
   on('retrySprint', () => setMode('sprint', S.seed, S.challenge));
@@ -380,10 +423,9 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
     S.puzzle = generate(seed, SIZES[S.size]);
     resetRun();
   } else if (m === 'run') {
-    $('meta').textContent = 'Run · prototype';
     S.seed = seed;
-    S.puzzle = generate(seed, RUN_MATRIX);
-    resetRun();
+    R = newRunState(seed);
+    dealMatrix();
   } else {
     $('meta').textContent = sprintMeta() + (challenge ? ' · challenge' : '');
     S.seed = seed;
