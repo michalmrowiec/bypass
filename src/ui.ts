@@ -37,7 +37,7 @@ const sprintBestKey = () => 'bypass:sprintBestMs:' + S.sprintLen;
 const stages = () => SPRINTS[S.sprintLen];
 const challengeKind = (): ChallengeKind => (S.mode === 'sprint' ? (('sprint' + S.sprintLen) as ChallengeKind) : S.size);
 
-const fmt = (ms: number) => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const fmt = (ms: number) => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + '.' + String(Math.floor(ms) % 1000).padStart(3, '0'); };
 const now = () => (S.start ? (S.over ? S.elapsed : Date.now() - S.start) : 0);
 const clockText = () => fmt(now());
 const legal = (r: number, c: number) => !S.over && !S.dealing && isLegal(S.run, r, c);
@@ -178,7 +178,7 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 
 function choose(r: number, c: number) {
   if (!legal(r, c)) return;
-  if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 100); }
+  if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 31); }
   pick(S.run, S.puzzle, r, c);
   // A dead end (targets no longer reachable) ends the round right away.
   if (isFinished(S.run, S.puzzle) || !canComplete(S.run, S.puzzle)) {
