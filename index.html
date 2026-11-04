@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Bypass Daily</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap">
 </head>
 <body>
 <div class="wrap">
@@ -22,6 +22,11 @@
     </div>
   </header>
 
+  <div class="pane" id="steps" hidden>
+    <p class="label">contract</p>
+    <div class="steplist" id="stepList"></div>
+  </div>
+
   <div class="board">
     <section class="pane">
       <p class="label">matrix</p>
@@ -36,7 +41,8 @@
       </div>
       <div class="timebar" id="timebar" hidden><i></i></div>
       <p class="hint" id="laneLabel">Pick a code in the top row</p>
-      <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>    </section>
+      <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>
+      <p class="hint" id="peek" aria-live="polite"></p>    </section>
     <section class="side">
       <div class="pane">
         <p class="label">buffer</p>
@@ -45,6 +51,11 @@
       <div class="pane">
         <p class="label">targets</p>
         <div class="targets" id="targets"></div>
+      </div>
+      <div class="pane" id="daemonPane" hidden>
+        <p class="label" id="daemonLabel">daemons</p>
+        <div class="scorebar" id="scoreLine"></div>
+        <div class="daemons" id="daemons"></div>
       </div>
       <div class="status" id="status"></div>
       <div class="result" id="result" hidden></div>

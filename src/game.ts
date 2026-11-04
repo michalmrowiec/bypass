@@ -13,11 +13,12 @@ export type SprintLen = keyof typeof SPRINTS;
 export interface Run {
   buffer: string[];
   used: Set<string>;
+  path: [number, number][]; // picked cells in order
   axis: 'row' | 'col';
   idx: number;
 }
 
-export const newRun = (): Run => ({ buffer: [], used: new Set(), axis: 'row', idx: 0 });
+export const newRun = (): Run => ({ buffer: [], used: new Set(), path: [], axis: 'row', idx: 0 });
 
 export function contains(buf: string[], t: string[]): boolean {
   for (let i = 0; i + t.length <= buf.length; i++) {
@@ -55,6 +56,7 @@ export function anyLegal(run: Run, n: number): boolean {
 export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
   run.buffer.push(puzzle.grid[r][c]);
   run.used.add(r + ',' + c);
+  run.path.push([r, c]);
   if (run.axis === 'row') { run.axis = 'col'; run.idx = c; }
   else { run.axis = 'row'; run.idx = r; }
 }

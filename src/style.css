@@ -11,6 +11,8 @@
   --muted:#6b767c;
   --pink:#ff3d8b;
   --cyan:#3dd9ff;
+  --data:#2ee6d6;
+  --boost:#ff3d8b;
   --done:#5af2a8;
   --bad:#ff3d8b;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -92,6 +94,51 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .slot.filled{border-color:var(--mint-dim)}
 .slot.new{animation:glitch .4s steps(1)}
 .targets{display:flex;flex-direction:column;gap:6px}
+/* Daemon hints: rule markers on the board and buffer, never the route itself. */
+.cell.corner::before{content:"";position:absolute;inset:3px;border:1px dashed var(--mint-dim);pointer-events:none}
+.slot{position:relative}
+.slot[data-bonus]:not(.filled)::before{content:attr(data-bonus);font-size:10px;font-weight:400;color:var(--mint-dim)}
+.slot.half::after{content:"";position:absolute;right:-4px;top:-4px;bottom:-4px;border-right:1px dashed var(--cyan)}
+.slot.shared{border-color:var(--cyan);color:var(--cyan)}
+#peek{min-height:1.55em;margin:8px 0 0;color:var(--cyan)}
+.daemons{display:flex;flex-direction:column;gap:6px}
+/* Score = data (turquoise) × boost (pink). */
+.vd{color:var(--data)}
+.vm{color:var(--boost)}
+.scorebar{margin:0 0 12px;font-size:21px;font-weight:800;line-height:1.2;color:var(--muted);font-variant-numeric:tabular-nums}
+.scorebar b{color:var(--ink)}
+.scorebar small{display:block;margin-top:4px;font-size:11px;font-weight:400}
+.calc small{margin-left:8px;font-size:11px;color:var(--muted)}
+.daemon{padding:6px 10px;border-left:2px solid var(--line);background:var(--panel);font-size:12px;color:var(--muted)}
+.daemon b{color:var(--ink);font-weight:600}
+.fam{display:inline-block;margin-left:8px;padding:0 5px;border:1px solid currentColor;font-size:10px;line-height:1.5;text-transform:uppercase;letter-spacing:.08em;vertical-align:1px}
+.fam-splicer{color:var(--cyan)}
+.fam-ghost{color:#b9a6ff}
+.fam-runner{color:#f0b35a}
+.daemon i{font-style:normal;float:right;opacity:.7}
+.daemon span{display:block}
+.daemon.on{border-left-color:var(--mint);background:var(--mint-faint)}
+.daemon.on b,.daemon.on i{color:var(--mint);opacity:1}
+/* Contract stepper: rooms with one box per matrix. */
+.steplist{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.step{display:grid;grid-template-columns:auto auto;gap:4px 12px;align-items:baseline;opacity:.45}
+.step.now,.step.done{opacity:1}
+.sname{font-size:12px;color:var(--ink)}
+.step.now .sname{color:var(--mint)}
+.squota{font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.step.done .squota{color:var(--mint)}
+.boxes{grid-column:1/-1;display:flex;gap:4px}
+.box{min-width:36px;height:22px;padding:0 4px;border:1px solid var(--line);display:grid;place-items:center;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.box.ok{border-color:var(--mint-dim);color:var(--mint)}
+.box.zero{border-color:var(--pink);color:var(--pink)}
+.box.live{border-color:var(--mint);color:var(--ink);background:var(--mint-faint)}
+.sarrow{color:var(--muted)}
+.calc{border-collapse:collapse;font-size:13px;width:100%}
+.calc td{padding:2px 0;color:var(--muted)}
+.calc td+td{text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.calc .sum td{border-top:1px solid var(--line);padding-top:6px;color:var(--mint)}
+.result .pick{display:block;width:100%;text-align:left;padding:8px 10px;line-height:1.4}
+.result .pick span:not(.fam){color:var(--muted);font-size:12px}
 .target{display:flex;align-items:center;gap:12px;padding:7px 10px;border-left:2px solid var(--line);background:var(--panel)}
 .target .codes{display:flex;gap:10px;font-weight:500;font-size:15px;color:var(--muted)}
 .target .codes .hit{color:var(--mint)}
@@ -104,6 +151,8 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .target.fail .state{color:var(--bad)}
 .status{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--muted);text-transform:lowercase;font-variant-numeric:tabular-nums}
 .status b{color:var(--mint);font-weight:600}
+.status .btn.act{border:1px solid var(--mint-dim);color:var(--mint);padding:3px 10px}
+.status .btn.act:hover{border-color:var(--mint);background:var(--mint-faint)}
 
 .result{border:1px solid var(--pink);padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--panel);animation:glitch .5s steps(1)}
 .result h2{font-size:20px;font-weight:700;line-height:1.2;margin:0;color:var(--pink);text-transform:uppercase;letter-spacing:.06em}

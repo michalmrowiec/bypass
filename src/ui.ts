@@ -5,7 +5,8 @@ import {
 } from './game';
 import { canComplete } from './solver';
 import {
-  DATA_BY_LEN, endMatrix, MATRICES, matrixData, newRunState, nextSection, SECTIONS, sectionMatrix, type MatrixOutcome, type RunState,
+  coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, isCorner, movePreview, newRunState, nextSection, offerDaemons, scoreMatrix,
+  SECTIONS, sectionMatrix, type DaemonId, type Effect, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
 } from './roguelike';
 import { dayNumber, firstResult, load, recordFirst, save, utcDate } from './storage';
 
@@ -32,6 +33,8 @@ const S = {
   challenge: null as number | null,
 };
 let R: RunState = newRunState(0);
+// Daemons on offer; while non-empty the board is visible but locked.
+let offer: DaemonId[] = [];
 // Targets already shown as uploaded, so the upload effect plays only once.
 const doneSeen = new Set<number>();
 // Cell under the mouse or keyboard focus, for the crosshair highlight.
@@ -44,7 +47,7 @@ const challengeKind = (): ChallengeKind => (S.mode === 'sprint' ? (('sprint' + S
 const fmt = (ms: number) => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + '.' + String(Math.floor(ms) % 1000).padStart(3, '0'); };
 const now = () => (S.start ? (S.over ? S.elapsed : Date.now() - S.start) : 0);
 const clockText = () => fmt(now());
-const legal = (r: number, c: number) => !S.over && !S.dealing && isLegal(S.run, r, c);
+const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length && isLegal(S.run, r, c);
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
 
@@ -73,6 +76,7 @@ function render() {
     b.textContent = grid[r][c];
     if (!S.over && (axis === 'row' ? r === idx : c === idx)) b.classList.add('lane');
     if (used.has(r + ',' + c)) b.classList.add('used');
+    if (S.mode === 'run' && R.daemons.includes('corner') && isCorner([r, c], n)) b.classList.add('corner');
     if (legal(r, c)) {
       b.classList.add('ok');
       b.setAttribute('aria-label', 'Pick ' + grid[r][c] + ' at row ' + (r + 1) + ' column ' + (c + 1));
@@ -85,13 +89,17 @@ function render() {
   }
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
-  $('laneLabel').textContent = S.over ? 'session closed'
+  $('laneLabel').textContent = offer.length ? 'choose a daemon' : S.over ? 'session closed'
     : axis === 'row' ? 'pick in row ' + addr(idx) : 'pick in col +' + idx;
   const buf = $('buffer');
   buf.innerHTML = '';
+  const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
+  const cover = has('chain') || has('compressor') ? coverage(buffer, targets) : [];
   for (let i = 0; i < l; i++) {
     const s = document.createElement('div');
-    s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '');
+    s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '')
+      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '');
+    if (has('overflow')) s.dataset.bonus = '+.5';
     s.textContent = buffer[i] ?? '';
     buf.appendChild(s);
     if (s.classList.contains('new')) scramble(s, buffer[i], 1, 1, 40);
@@ -102,13 +110,15 @@ function render() {
     const st = targetProgress(buffer, t, l, S.over);
     const el = document.createElement('div');
     el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '');
+    const worth = S.mode === 'run' ? ' +' + DATA_BY_LEN[t.length] : '';
+    const state = st.done ? 'Uploaded' + worth : st.fail ? 'Failed' : worth ? worth.trim() + ' data' : 'Target ' + (i + 1);
     el.innerHTML = '<div class="codes">' + t.map((c, j) => '<span class="' + (j < st.k ? 'hit' : '') + '">' + c + '</span>').join('')
-      + '</div><div class="state">' + (st.done ? 'Uploaded' : st.fail ? 'Failed' : S.mode === 'run' ? '+' + DATA_BY_LEN[t.length] + ' data' : 'Target ' + (i + 1)) + '</div>';
+      + '</div><div class="state">' + state + '</div>';
     tg.appendChild(el);
     if (st.done && !doneSeen.has(i)) {
       doneSeen.add(i);
       el.classList.add('just');
-      scramble(el.querySelector<HTMLElement>('.state')!, 'Uploaded', 2, 1, 40);
+      scramble(el.querySelector<HTMLElement>('.state')!, state, 2, 1, 40);
     }
   });
   const extra = S.mode === 'daily' ? '<span>Try <b>' + S.tries + '/' + MAX_TRIES + '</b></span>'
@@ -116,21 +126,94 @@ function render() {
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
   $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? runStatus() : extra);
   document.getElementById('restartMatrix')?.addEventListener('click', () => { R.restarts--; dealMatrix(); });
-  document.getElementById('disconnect')?.addEventListener('click', () => { finish(score(S.run.buffer, S.puzzle.targets)); render(); });
+  document.getElementById('disconnect')?.addEventListener('click', () => { finish(score(S.run.buffer, S.puzzle.targets), true); render(); });
+  if (S.mode === 'run') { renderDaemons(); renderSteps(); }
   $('timebar').hidden = S.mode !== 'sprint' || S.over;
   updateBar();
   applyCross();
 }
 
-// Data shows the live total with the current matrix's uploads; once the matrix is over they are banked in R.data.
+const runCtx = (): MatrixCtx =>
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length });
+
+// Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
 function runStatus() {
-  const live = S.over ? 0 : matrixData(S.run.buffer, S.puzzle.targets);
-  const restart = !S.start && !S.over && R.restarts ? "<button class='btn' id='restartMatrix'>Restart matrix (" + R.restarts + ')</button>' : '';
+  const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
+  const restart = !S.start && !S.over && !offer.length && R.restarts ? "<button class='btn act' id='restartMatrix'>Restart matrix (" + R.restarts + ')</button>' : '';
   // Ending early keeps the empty slots, which pay credits.
-  const disconnect = live ? "<button class='btn' id='disconnect'>Disconnect</button>" : '';
+  const pay = Math.floor((S.puzzle.l - S.run.buffer.length) / SLOTS_PER_CREDIT) + (R.daemons.includes('silent') ? 2 : 0);
+  const disconnect = live ? "<button class='btn act' id='disconnect'>Disconnect" + (pay ? ' · +' + pay + (pay > 1 ? ' credits' : ' credit') : '') + '</button>' : '';
   return '<span>Data <b>' + (R.data + live) + '/' + SECTIONS[R.section].quota + '</b></span>'
-    + '<span>Matrix <b>' + (R.played + (S.over ? 0 : 1)) + '/' + MATRICES + '</b></span>'
     + '<span>Credits <b>' + R.credits + '</b></span>' + restart + disconnect;
+}
+
+// Score reads as data × boost: data = target data + flat bonuses, boost = (1 + additive boosts) × multipliers.
+const num = (x: number) => String(Number(x.toFixed(2)));
+const scoreHtml = (sc: Score) => "<span class='vd'>" + (sc.base + sc.flat) + "</span> × <span class='vm'>"
+  + num((1 + sc.boost) * sc.mult) + '</span> = <b>' + sc.total + '</b>' + (sc.base ? '' : '<small>upload a target to score</small>');
+
+const fmtEffect = (e: Effect) => [e.flat && "<span class='vd'>+" + e.flat + ' data</span>',
+  e.boost && "<span class='vm'>+" + e.boost + ' boost</span>', e.mult && "<span class='vm'>×" + e.mult + '</span>'].filter(Boolean).join(' ');
+
+const shownScore: string[] = [];
+
+// Owned daemons; one that counts toward the current matrix lights up and shows what it adds.
+function renderDaemons() {
+  const sc = scoreMatrix(runCtx(), R);
+  const fired = new Map(sc.fired);
+  $('scoreLine').innerHTML = scoreHtml(sc);
+  // Changed numbers "decrypt" into place: data and boost settle first, the total keeps computing and lands last.
+  const els = [...$('scoreLine').querySelectorAll<HTMLElement>('.vd, .vm, b')];
+  const vals = els.map((el) => el.textContent ?? '');
+  if (vals.some((v, i) => v !== shownScore[i])) {
+    for (const i of [0, 1]) if (vals[i] !== shownScore[i]) scramble(els[i], vals[i], 4, 3, 45);
+    scramble(els[2], vals[2], 7 + 3 * Math.max(vals[0].length, vals[1].length), 3, 45);
+  }
+  shownScore.splice(0, 3, ...vals);
+  $('daemonLabel').textContent = 'daemons ' + R.daemons.length + '/' + DAEMON_SLOTS;
+  $('daemons').innerHTML = R.daemons.map((id) => {
+    const d = DAEMONS[id];
+    const e = fired.get(id);
+    const extra = id === 'cache' && R.cache ? ' (now +' + R.cache + ')' : '';
+    return "<div class='daemon" + (e ? ' on' : '') + "'><b>" + d.name + '</b>' + famTag(d.family) + (e ? '<i>' + fmtEffect(e) + '</i>' : '') + '<span>'
+      + d.text + extra + '</span></div>';
+  }).join('') || "<p class='hint'>none yet</p>";
+}
+
+// Contract stepper: rooms in order, one box per matrix with the score it banked; the live box is the matrix in play.
+function renderSteps() {
+  const live = S.over ? null : scoreMatrix(runCtx(), R).total;
+  $('stepList').innerHTML = SECTIONS.map((sec, i) => {
+    const got = R.scores[i];
+    const state = i < R.section ? 'done' : i === R.section ? 'now' : '';
+    const boxes = Array.from({ length: sec.matrices }, (_, j) => {
+      if (j < got.length) return "<span class='box " + (got[j] ? 'ok' : 'zero') + "'>" + got[j] + '</span>';
+      return i === R.section && j === got.length && live !== null ? "<span class='box live'>" + (live || '··') + '</span>' : "<span class='box'></span>";
+    }).join('');
+    const total = i === R.section ? R.data + (live ?? 0) : got.reduce((a, b) => a + b, 0);
+    return "<div class='step " + state + "'><span class='sname'>" + sec.name + "</span><span class='squota'>"
+      + (state ? total + '/' : 'quota ') + sec.quota + "</span><div class='boxes'>" + boxes + '</div></div>';
+  }).join("<span class='sarrow' aria-hidden='true'>›</span>");
+}
+
+// Matrix bill: the uploads, each daemon that fired and what it added, then the formula.
+const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><span class='vd'>" + sc.base + ' data</span></td></tr>'
+  + sc.fired.map(([id, e]) => '<tr><td>' + DAEMONS[id].name + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
+  + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
+
+const famTag = (f: string) => "<span class='fam fam-" + f.toLowerCase() + "'>" + f + '</span>';
+
+function showOffer() {
+  offer = offerDaemons(R);
+  if (!offer.length) return;
+  render();
+  showResult(true, '<h2>Choose a daemon</h2><p class="meta">Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS + '</p>'
+    + offer.map((id) => "<button class='btn pick' id='pick-" + id + "'><b>" + DAEMONS[id].name
+    + '</b>' + famTag(DAEMONS[id].family) + '<br><span>' + DAEMONS[id].text + '</span></button>').join('')
+    + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
+  const close = () => { offer = []; $('result').hidden = true; render(); focusGrid(); };
+  for (const id of offer) $('pick-' + id).onclick = () => { R.daemons.push(id); close(); };
+  $('skipDaemon').onclick = close;
 }
 
 function dealMatrix() {
@@ -142,6 +225,9 @@ function dealMatrix() {
 function applyCross() {
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) =>
     el.classList.toggle('x', !!cursor && (+el.id[1] === cursor[0] || +el.id[2] === cursor[1])));
+  const peek = cursor && S.mode === 'run' && legal(cursor[0], cursor[1])
+    ? movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons) : [];
+  $('peek').textContent = peek.join(' · ');
   // Echo the code under the cursor in the targets, but only for a cell that can be picked right now.
   const code = cursor && legal(cursor[0], cursor[1]) ? S.puzzle.grid[cursor[0]]?.[cursor[1]] : undefined;
   document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((s) => s.classList.toggle('peek', s.textContent === code));
@@ -247,7 +333,7 @@ function stopClock() {
   clearInterval(S.timer);
 }
 
-function finish(sc: number) {
+function finish(sc: number, disconnected = false) {
   stopClock();
   const win = sc === S.puzzle.targets.length;
   let html: string;
@@ -262,20 +348,18 @@ function finish(sc: number) {
         + " left on today's matrix.</p><div class='row'><button class='btn' id='retry'>Try again</button></div>";
     }
   } else if (S.mode === 'run') {
-    const got = matrixData(S.run.buffer, S.puzzle.targets);
-    const before = R.credits;
-    const out = endMatrix(R, got, S.puzzle.l - S.run.buffer.length);
-    const gained = R.credits - before;
+    const { score: bill, out } = finishMatrix(R, runCtx(), disconnected);
     const sec = SECTIONS[R.section];
     const [title, btn, label] = ({
-      continue: ['+' + got + ' data', 'runNext', 'Next matrix'],
+      continue: ['+' + bill.total + ' data', 'runNext', 'Next matrix'],
       section: [sec.name + ' breached', 'runSection', 'Next section'],
       win: ['Contract complete', 'runNew', 'New run'],
       lose: ['Run over', 'runNew', 'New run'],
     } as Record<MatrixOutcome, string[]>)[out];
-    const info = sec.name + ' ' + R.data + '/' + sec.quota + (gained ? ' · +' + gained + (gained > 1 ? ' credits' : ' credit') : '');
-    showResult(out === 'win' || out === 'section' || (out === 'continue' && got > 0),
-      '<h2>' + title + '</h2><p>' + info + "</p><div class='row'><button class='btn' id='" + btn + "'>" + label + '</button></div>');
+    const credits = R.earned.map(([why, n]) => "<p class='meta'>+" + n + (n > 1 ? ' credits' : ' credit') + ' · ' + why + '</p>').join('');
+    showResult(out === 'win' || out === 'section' || (out === 'continue' && bill.total > 0),
+      '<h2>' + title + '</h2>' + billHtml(bill) + '<p>' + sec.name + ' ' + R.data + '/' + sec.quota + '</p>' + credits
+      + "<div class='row'><button class='btn' id='" + btn + "'>" + label + '</button></div>');
     return;
   } else {
     const c = settle(win);
@@ -383,7 +467,7 @@ function showResult(win: boolean, html: string) {
   on('again', () => resetRun());
   on('next', () => setMode('train'));
   on('runNext', dealMatrix);
-  on('runSection', () => { nextSection(R); dealMatrix(); });
+  on('runSection', () => { nextSection(R); dealMatrix(); showOffer(); });
   on('runNew', () => setMode('run'));
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
@@ -394,6 +478,7 @@ function showResult(win: boolean, html: string) {
 function resetRun() {
   clearInterval(S.timer);
   Object.assign(S, { run: newRun(), start: 0, elapsed: 0, over: false, stage: 0, dealing: false });
+  offer = [];
   doneSeen.clear();
   $('result').hidden = true;
   pour();
@@ -409,6 +494,8 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
   $('modeRun').setAttribute('aria-pressed', String(m === 'run'));
   $('sizes').hidden = m !== 'train';
   $('sprintLen').hidden = m !== 'sprint';
+  $('daemonPane').hidden = m !== 'run';
+  $('steps').hidden = m !== 'run';
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.size === S.size)));
   document.querySelectorAll<HTMLElement>('[data-len]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.len! === S.sprintLen)));
   if (m === 'daily') {
