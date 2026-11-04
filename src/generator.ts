@@ -2,8 +2,8 @@ export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 
 // n: grid side, lens: target lengths. links: how many targets get chained (one's last code starts the next),
 // picked at random from the list. The buffer fits the chained sequence plus `slack` spare slots, so with
-// slack 0 every link is required to win.
-export interface Size { n: number; lens: number[]; links: number[]; slack: number }
+// slack 0 every link is required to win. codes: the pool cells and targets are drawn from (default CODES).
+export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[] }
 export const SIZES = {
   easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
   normal: { n: 6, lens: [2, 3, 3], links: [0, 1, 1, 2], slack: 0 },
@@ -37,7 +37,9 @@ export function rng(seed: number): () => number {
   };
 }
 
-export function generate(seed: number, { n: N, lens, links: linkOpts, slack }: Size = SIZES.normal): Puzzle {
+export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES }: Size = SIZES.normal): Puzzle {
+  // One code can't make distinct, non-uniform targets: the retry loop would never end.
+  if (new Set(codes).size < 2) throw new Error('code pool needs at least 2 distinct codes');
   const r = rng(seed);
   const pick = <T>(a: T[]): T => a[Math.floor(r() * a.length)];
   const links = Math.min(pick(linkOpts), lens.length - 1);
@@ -65,14 +67,14 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack }: S
     const linked = new Set(order.slice(1).map((_, j) => j + 1).sort(() => r() - 0.5).slice(0, links));
     const targets: string[][] = [];
     order.forEach((ti, j) => {
-      const t = Array.from({ length: lens[ti] }, () => pick(CODES));
+      const t = Array.from({ length: lens[ti] }, () => pick(codes));
       if (linked.has(j)) { const prev = targets[order[j - 1]]; t[0] = prev[prev.length - 1]; }
       targets[ti] = t;
     });
     if (new Set(targets.map((t) => t.join(' '))).size < targets.length) continue;
     if (targets.some((t) => t.every((c) => c === t[0]))) continue;
     const seq = order.flatMap((ti, j) => (linked.has(j) ? targets[ti].slice(1) : targets[ti]));
-    const grid = Array.from({ length: N }, () => Array.from({ length: N }, () => pick(CODES)));
+    const grid = Array.from({ length: N }, () => Array.from({ length: N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
     return { grid, targets, l: planted + slack };
   }

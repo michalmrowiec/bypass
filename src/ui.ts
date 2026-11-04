@@ -4,9 +4,10 @@ import {
   stageSeed, targetProgress,
 } from './game';
 import { canComplete } from './solver';
+import { RUN_MATRIX } from './roguelike';
 import { dayNumber, firstResult, load, recordFirst, save, utcDate } from './storage';
 
-type Mode = 'daily' | 'train' | 'sprint';
+type Mode = 'daily' | 'train' | 'sprint' | 'run';
 interface DailyRecord { score: number; tries: number; time: number }
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -234,6 +235,8 @@ function finish(sc: number) {
       html = '<h2>' + sc + "/3 uploaded</h2><p>" + left + ' ' + (left === 1 ? 'try' : 'tries')
         + " left on today's matrix.</p><div class='row'><button class='btn' id='retry'>Try again</button></div>";
     }
+  } else if (S.mode === 'run') {
+    html = '<h2>' + sc + '/' + S.puzzle.targets.length + " uploaded</h2><div class='row'><button class='btn' id='next'>New matrix</button></div>";
   } else {
     const c = settle(win);
     html = '<h2>' + (win ? 'Access granted' : sc + '/3 uploaded') + '</h2><p>Time ' + fmt(S.elapsed) + '</p>' + c.info
@@ -338,7 +341,7 @@ function showResult(win: boolean, html: string) {
   const on = (id: string, fn: () => void) => { const e = document.getElementById(id); if (e) e.onclick = fn; };
   on('retry', () => { S.tries++; resetRun(); });
   on('again', () => resetRun());
-  on('next', () => setMode('train'));
+  on('next', () => setMode(S.mode === 'run' ? 'run' : 'train'));
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
   on('retrySprint', () => setMode('sprint', S.seed, S.challenge));
@@ -360,6 +363,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
   $('modeDaily').setAttribute('aria-pressed', String(m === 'daily'));
   $('modeTrain').setAttribute('aria-pressed', String(m === 'train'));
   $('modeSprint').setAttribute('aria-pressed', String(m === 'sprint'));
+  $('modeRun').setAttribute('aria-pressed', String(m === 'run'));
   $('sizes').hidden = m !== 'train';
   $('sprintLen').hidden = m !== 'sprint';
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.size === S.size)));
@@ -374,6 +378,11 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
     $('meta').textContent = challenge ? 'Training · challenge' : 'Training · unlimited';
     S.seed = seed;
     S.puzzle = generate(seed, SIZES[S.size]);
+    resetRun();
+  } else if (m === 'run') {
+    $('meta').textContent = 'Run · prototype';
+    S.seed = seed;
+    S.puzzle = generate(seed, RUN_MATRIX);
     resetRun();
   } else {
     $('meta').textContent = sprintMeta() + (challenge ? ' · challenge' : '');
@@ -431,6 +440,7 @@ export function init() {
   $('modeDaily').onclick = () => setMode('daily');
   $('modeTrain').onclick = () => setMode('train');
   $('modeSprint').onclick = () => setMode('sprint');
+  $('modeRun').onclick = () => setMode('run');
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => {
     b.onclick = () => { S.size = b.dataset.size as SizeKey; setMode('train'); };
   });

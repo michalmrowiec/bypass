@@ -42,3 +42,15 @@ describe('challenge links', () => {
     expect(parseChallenge('?c=easy.1&t=<script>')?.time).toBeNull();
   });
 });
+
+describe('generate code pool', () => {
+  it('draws cells and targets only from the pool', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const p = generate(seed, { ...SIZES.normal, codes: ['AA', 'BB'] });
+      expect(new Set([...p.grid.flat(), ...p.targets.flat()])).toEqual(new Set(['AA', 'BB']));
+    }
+  });
+  it('rejects a pool with fewer than 2 codes', () => {
+    expect(() => generate(1, { ...SIZES.normal, codes: ['AA', 'AA'] })).toThrow();
+  });
+});
