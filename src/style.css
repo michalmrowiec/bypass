@@ -502,3 +502,30 @@ button.chip:hover{border-color:var(--gold)}
 .savefile{margin:0;text-align:center;font-size:12px;color:var(--muted)}
 .savelink{background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .savelink:hover,.savelink:focus-visible{color:var(--ink)}
+/* Run briefing: art beside the text, stacked on narrow screens. */
+.brief{display:grid;grid-template-columns:180px 1fr;gap:20px;align-items:center;text-align:left}
+.brief p{margin:0 0 10px}
+.hacker{width:100%;height:auto}
+.hk-cloth{fill:url(#hkCloth);stroke:var(--mint);stroke-opacity:.28;stroke-width:1.2}
+.hk-fold{fill:none;stroke:#000;stroke-opacity:.45;stroke-width:1.5}
+.hk-void{fill:#030404}
+.hk-rim{fill:none;stroke:var(--mint);stroke-opacity:.4;stroke-width:1.2}
+.hk-lens{fill:var(--mint);fill-opacity:.12;stroke:var(--mint);stroke-opacity:.7;stroke-width:1}
+.hk-frame{stroke:var(--mint);stroke-opacity:.5;stroke-width:1.2}
+.hk-refl rect{fill:var(--mint);opacity:.8}
+.hk-str{stroke:#3a4247;stroke-width:1.4}
+.hk-tip{fill:#4a545a}
+.hk-lid{fill:#0d1012;stroke:var(--mint-dim);stroke-width:1.2}
+.hk-edge{stroke:var(--mint);stroke-width:2;filter:drop-shadow(0 -2px 4px var(--mint))}
+.hk-logo{fill:none;stroke:var(--pink);stroke-opacity:.8;stroke-width:1.2}
+.hk-hex{font:600 10px var(--mono,monospace);fill:var(--mint);filter:drop-shadow(0 0 3px var(--mint))}
+.hk-hex.glitch{fill:var(--pink);filter:drop-shadow(0 0 3px var(--pink))}
+.hk-refl{animation:hkRefl 2.4s linear infinite}
+.hk-edge{animation:hkPulse 3s ease-in-out infinite}
+.hk-body{animation:hkGlitch 8s steps(1) infinite}
+@keyframes hkRefl{to{transform:translateY(-10px)}}
+@keyframes hkPulse{50%{opacity:.6}}
+@keyframes hkGlitch{94%{transform:translateX(2px);opacity:.85}95%{transform:translateX(-1px)}96%{transform:none;opacity:1}}
+@media (max-width:560px){.brief{grid-template-columns:1fr}.hacker{width:140px;margin:0 auto}}
+@media (prefers-reduced-motion:reduce){.hk-refl,.hk-edge,.hk-body{animation:none}}
+.ibadge{display:inline-grid;place-items:center;width:15px;height:15px;margin-right:7px;border:1px solid currentColor;border-radius:50%;font-size:10px;font-weight:700;line-height:1;vertical-align:2px}

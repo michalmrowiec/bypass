@@ -1,10 +1,10 @@
-import { BLOCK, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
+import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
   stageSeed, targetProgress, WILD, fits, inLane, burning,
 } from './game';
 import { gear } from './gear';
-import { logo } from './logos';
+import { hacker, logo } from './logos';
 import { canComplete } from './solver';
 import {
   buy, coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
@@ -559,13 +559,14 @@ function showCompanies(seed: number, back: Mode) {
     + Array.from({ length: n }, (_, i) => firmCard(shown(i), i)).join('')
     + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div>"
     + "<div class='row'>" + (import.meta.env.DEV ? "<button class='btn devbtn' id='devUnlock'>dev · " + (breached().length ? 'lock all' : 'unlock all') + '</button>' : '')
-    + "<button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
+    + "<button class='btn' id='briefing'><span class='ibadge' aria-hidden='true'>i</span>Briefing</button><button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
   document.getElementById('devUnlock')?.addEventListener('click', () => {
     setBreached(breached().length ? [] : COMPANIES.map((c) => c.id));
     showCompanies(seed, back);
   });
   const close = () => setMode(back === 'run' ? 'daily' : back);
   $('closeFirms').onclick = close;
+  $('briefing').onclick = () => showBriefing(seed, back);
   const cards = [...$('modalBox').querySelectorAll<HTMLElement>('.fcard')];
   const place = () => {
     cards.forEach((c, i) => {
@@ -630,6 +631,67 @@ function disconnect() {
   logAct({ d: 1 });
   finish(score(S.run.buffer, S.puzzle.targets), true);
   render();
+}
+
+// First visit to run mode: what a run is, before the company carousel.
+const BRIEFED = 'bypass:briefed';
+function showBriefing(seed: number, back: Mode) {
+  R = newRunState(seed);
+  dealMatrix();
+  showResult(true, "<p class='meta'>3:run · contract mode</p><h2>Briefing</h2><div class='brief'>" + hacker + '<div>'
+    + "<p>You're a pentester: the good kind of hacker. Companies hire you to break in before someone worse does.</p>"
+    + '<p>Each contract is a building. Breach it room by room, hitting every data quota, up to the <b>SOC</b>, where security waits with its ICE.</p>'
+    + '<p>Clear the SOC and the company patches up and tries to stop you again: higher quotas, new ICE. Get through <b>' + LOOPS
+    + ' iterations</b> and it is breached, and the next contract opens.</p>'
+    + "<p class='meta'>Between rooms pick daemons and buy hardware. The late rooms are out of reach without a build.</p>"
+    + "</div></div><div class='row'><button class='btn' id='closeBrief'>Close</button><button class='btn go' id='toTargets'>Show targets ›</button></div>");
+  const close = () => setMode(back === 'run' ? 'daily' : back);
+  $('closeBrief').onclick = close;
+  $('toTargets').onclick = () => { save(BRIEFED, true); showCompanies(seed, back); };
+  $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
+  $('toTargets').focus();
+  hackerFx($('modalBox').querySelector<SVGGElement>('.hk-fx')!);
+}
+
+// Codes rise off the laptop's corners at a steady beat, sides taking turns, and drift outward around the face, now and then
+// glitching; stops once the art is gone.
+function hackerFx(fx: SVGGElement) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+  const any = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
+  // at: how far into its flight a code starts, so the first ones are already up when the briefing opens.
+  let n = 0;
+  const spawn = (at = 0) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('class', 'hk-hex');
+    const side = n++ % 2 ? 1 : -1; // left or right of the face, never across it
+    t.setAttribute('x', String(100 + side * rnd(30, 42) - 6));
+    t.setAttribute('y', '150');
+    t.textContent = any(CODES);
+    fx.appendChild(t);
+    // Narrow speed range so codes on one side don't catch up and overlap.
+    const dx = side * rnd(30, 50), dy = rnd(-105, -125), ms = rnd(5200, 5800), o = rnd(0.75, 1);
+    const a = t.animate([{ transform: 'translate(0,0)', opacity: 0 }, { opacity: o, offset: 0.12 }, { opacity: o, offset: 0.7 },
+      { transform: 'translate(' + dx + 'px,' + dy + 'px)', opacity: 0 }], { duration: ms, easing: 'ease-out' });
+    a.currentTime = at * ms;
+    a.onfinish = () => t.remove();
+  };
+  // Every 8 ticks (~0.9 s) a new code; the opening ones are spread over the same beat, already in flight.
+  for (let i = 6; i > 0; i--) spawn((i * 8 * 110) / 5500);
+  let tick = 0;
+  const id = setInterval(() => {
+    if (!fx.isConnected) return clearInterval(id);
+    if (++tick % 8 === 0) spawn();
+    // Glitch: a random live code flips to another code, turns pink and jumps aside for a beat.
+    const live = fx.children;
+    if (live.length && Math.random() < 0.25) {
+      const t = any([...live]) as SVGTextElement, code = t.textContent!;
+      t.textContent = any(CODES);
+      t.classList.add('glitch');
+      t.setAttribute('dx', String(rnd(-4, 4)));
+      setTimeout(() => { t.textContent = code; t.classList.remove('glitch'); t.removeAttribute('dx'); }, rnd(60, 160));
+    }
+  }, 110);
 }
 
 // Entering run mode with a saved run: resume it, or abandon it for the company carousel.
@@ -1090,7 +1152,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
       showResume(sv, seed, back);
     } catch {
       if (sv) dropRun();
-      showCompanies(seed, back);
+      if (load(BRIEFED)) showCompanies(seed, back); else showBriefing(seed, back);
     }
   } else {
     $('meta').textContent = sprintMeta() + (challenge ? ' · challenge' : '');
