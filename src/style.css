@@ -163,6 +163,46 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dcard.just{animation:ignite .7s ease-out}
 @keyframes ignite{0%{filter:brightness(1.8) drop-shadow(0 0 14px var(--fc))}}
 button.dcard{cursor:pointer}
+/* Shop items: each a piece of hardware on a shelf; hovering an .hw element runs its drawing's animation. */
+.wares{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:18px;margin:6px 0 4px}
+.ware{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:center}
+button.ware{cursor:pointer}
+.ware:focus-visible{outline:1px solid var(--mint);outline-offset:4px}
+.ware .stage{position:relative;width:170px;height:104px;display:grid;place-items:center}
+.ware .stage::after{content:"";position:absolute;bottom:4px;left:30px;right:30px;height:10px;border-radius:50%;background:rgba(0,0,0,.55);filter:blur(4px)}
+.gear{position:relative;z-index:1;width:150px;height:84px;overflow:visible;transition:transform .3s}
+.ware:is(:hover,:focus-visible) .gear{transform:translateY(-6px)}
+.ware b{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+.ware small{font-size:10px;color:var(--muted)}
+.ware p{margin:0;max-width:190px;min-height:3em;font-size:11px;color:var(--muted)}
+.ware .price{border:1px solid var(--mint-dim);padding:0 8px;font-size:12px;color:var(--mint)}
+.ware.poor{opacity:.42;cursor:not-allowed}
+.deck{display:flex;flex-direction:column;gap:8px}
+.deckitem{display:flex;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--line);font-size:11px;color:var(--muted)}
+.deckitem .gear{flex:none;width:70px;height:40px}
+.deckitem b{display:block;font-size:12px;color:var(--ink)}
+.g-pcb{fill:#0e1814;stroke:#2f5a45}
+.g-chip{fill:#08090a;stroke:#39424a}
+.g-pin{fill:#9aa5ab}
+.g-led{fill:var(--mint-dim)}
+.g-silk{fill:var(--mint-dim);font:600 6px var(--mono)}
+.g-steel{fill:#1c2226;stroke:#9aa5ab;stroke-width:1.2}
+.g-hole{fill:var(--bg);stroke:#9aa5ab;stroke-width:1.2}
+.g-cut{stroke:var(--pink);stroke-width:1.2;stroke-dasharray:3 2}
+.g-tip{opacity:.8;transform-origin:96px 34px;transition:transform .5s cubic-bezier(.5,0,.8,.4),opacity .5s}
+.g-plug{fill:#1a2024;stroke:#9aa5ab;stroke-width:1.2}
+.g-contact{stroke:var(--mint-dim)}
+.g-wire{fill:none;stroke:#2f5a45;stroke-width:4;stroke-linecap:round}
+.g-pulse{fill:none;stroke:var(--mint);stroke-width:2;stroke-linecap:round;stroke-dasharray:10 200;stroke-dashoffset:210;opacity:0}
+.hw:is(:hover,:focus-visible) .g-led{animation:rgbled 1.2s linear infinite}
+.hw:is(:hover,:focus-visible) .g-tip{transform:translate(6px,16px) rotate(28deg);opacity:.25}
+.hw:is(:hover,:focus-visible) .g-pulse{opacity:1;animation:pulseflow 1s linear infinite}
+.hw:is(:hover,:focus-visible) .g-pulse.late{animation-delay:.5s}
+@keyframes rgbled{0%,100%{fill:var(--mint)}33%{fill:var(--cyan)}66%{fill:var(--pink)}}
+@keyframes pulseflow{to{stroke-dashoffset:0}}
+.tabs{display:flex;gap:8px;margin:0 0 12px}
+.result .tabs .btn[aria-pressed="true"]{border-color:var(--mint);color:var(--bg)}
+.ware b small{font-size:inherit;color:inherit;text-transform:none}
 
 /* Contract stepper: rooms with one box per matrix. */
 .steplist{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
@@ -181,6 +221,7 @@ button.dcard{cursor:pointer}
 .calc{border-collapse:collapse;font-size:13px;width:100%}
 .calc td{padding:2px 0;color:var(--muted)}
 .calc td+td{text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.calc .dfile{color:var(--ink);font-weight:600}
 .calc .sum td{border-top:1px solid var(--line);padding-top:6px;color:var(--mint)}
 .target{display:flex;align-items:center;gap:12px;padding:7px 10px;border-left:2px solid var(--line);background:var(--panel)}
 .target .codes{display:flex;gap:10px;font-weight:500;font-size:15px;color:var(--muted)}

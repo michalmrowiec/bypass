@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { generate } from './generator';
 import {
-  DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  scoreMatrix, sectionMatrix, SECTIONS,
-  type DaemonId,
+  buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
+  removeDaemon, scoreMatrix, sectionMatrix, SECTIONS, SHELF, stockShop,
+  type DaemonId, type ItemId,
 } from './roguelike';
 
 describe('roguelike run', () => {
@@ -125,5 +126,52 @@ describe('daemons', () => {
     expect(movePreview(path, [4, 4], 5, [])).toEqual([]);
     expect(movePreview([[0, 1], [3, 1]], [3, 0], 5, ['zigzag'])).toEqual([]);
     expect(movePreview([[0, 1], [1, 1]], [1, 4], 5, ['zigzag', 'corner'])).toEqual(['zigzag +0.5 boost']);
+  });
+});
+
+describe('shop', () => {
+  const rich = (credits: number, items: ItemId[] = []) => ({ ...newRunState(7), credits, items });
+
+  it('stocks the same shelf for the same seed, without v2.0 for non-owners', () => {
+    const s = rich(10);
+    stockShop(s);
+    expect(s.shelf).toHaveLength(SHELF);
+    expect(s.shelf).not.toContain('buffer2');
+    const t = rich(10);
+    stockShop(t);
+    expect(t.shelf).toEqual(s.shelf);
+  });
+
+  it('a v2.0 is sold over its v1.0 and replaces it', () => {
+    const s = rich(10, ['buffer1']);
+    expect(forSale(s)).toContain('buffer2');
+    s.shelf = ['buffer2'];
+    expect(buy(s, 'buffer2')).toBe(true);
+    expect([s.items, s.credits, s.shelf]).toEqual([['buffer2'], 6, []]);
+    expect(forSale(s)).not.toContain('buffer1');
+  });
+
+  it('charges for items, rerolls and daemon removal', () => {
+    const s = { ...rich(3), shelf: ['buffer1'] as ItemId[], daemons: ['chain'] as DaemonId[] };
+    expect(buy(s, 'buffer1')).toBe(false);
+    expect(stockShop(s, true)).toBe(true);
+    expect(removeDaemon(s, 'chain')).toBe(true);
+    expect([s.daemons, s.credits]).toEqual([[], 0]);
+    expect(stockShop(s, true)).toBe(false);
+  });
+
+  it('items reshape the room matrix', () => {
+    expect(sectionMatrix(0, ['buffer2']).slack).toBe(2);
+    expect(sectionMatrix(0, ['shortkey'])).toMatchObject({ lens: [2, 2, 2], slack: 1 });
+    expect(sectionMatrix(0, ['linker1']).links).toEqual([2]);
+    expect(SECTIONS[0].size.lens).toEqual([2, 2, 3]);
+  });
+
+  it('Linker v2.0 overlaps one link on 2 codes', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const p = generate(seed, sectionMatrix(2, ['linker2']));
+      expect(p.l).toBe(3 + 3 + 4 - 2 - 1);
+      expect(p.targets.some((a) => p.targets.some((b) => a !== b && a.slice(-2).join() === b.slice(0, 2).join()))).toBe(true);
+    }
   });
 });

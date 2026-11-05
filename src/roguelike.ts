@@ -17,8 +17,17 @@ export const SURPLUS_PER_CREDIT = 20;
 export const SECTION_CREDIT = 1;
 export const SLOTS_PER_CREDIT = 2;
 
-// Run buffers have no spare slots; extra buffer will come from the shop.
-export const sectionMatrix = (section: number): Size => ({ ...SECTIONS[section].size, slack: 0, codes: RUN_POOL });
+// Run buffers have no spare slots of their own; shop items add buffer, links and shorter targets.
+export function sectionMatrix(section: number, items: ItemId[] = []): Size {
+  const size = SECTIONS[section].size;
+  const has = (id: ItemId) => items.includes(id);
+  const lens = [...size.lens];
+  let slack = has('buffer2') ? 2 : has('buffer1') ? 1 : 0;
+  // Short key trims the longest target but keeps the buffer, so the cut code becomes a spare slot.
+  if (has('shortkey')) { lens[lens.indexOf(Math.max(...lens))]--; slack++; }
+  const links = has('linker1') || has('linker2') ? size.links.map((k) => k + 1) : size.links;
+  return { ...size, lens, slack, links, deep: has('linker2') ? 1 : 0, codes: RUN_POOL };
+}
 
 export interface RunState {
   seed: number;
@@ -31,11 +40,14 @@ export interface RunState {
   earned: [string, number][]; // credits from the last finished matrix, by source
   daemons: DaemonId[];
   cache: number; // boost banked by the Cache daemon
+  items: ItemId[]; // shop items owned, kept for the run
+  shelf: ItemId[]; // what the shop offers on this visit
+  rerolls: number; // shelf rerolls on this visit
 }
 
 export const newRunState = (seed: number): RunState =>
   ({
-    seed, matrix: 0, section: 0, data: 0, scores: SECTIONS.map(() => []), restarts: RESTARTS, credits: 0, earned: [], daemons: [], cache: 0,
+    seed, matrix: 0, section: 0, data: 0, scores: SECTIONS.map(() => []), restarts: RESTARTS, credits: 0, earned: [], daemons: [], cache: 0, items: [], shelf: [], rerolls: 0,
   });
 
 export const played = (s: RunState) => s.scores[s.section].length;
@@ -177,10 +189,13 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
 export function offerDaemons(s: RunState): DaemonId[] {
   if (s.daemons.length >= DAEMON_SLOTS) return [];
   const r = rng(hashStr(s.seed + '/offer/' + s.section));
-  const pool = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id));
-  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  return pool.slice(0, 3);
+  return shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id)), r).slice(0, 3);
 }
+
+const shuffled = <T>(a: T[], r: () => number) => {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
 
 // What the owned path daemons would make of picking `cell` next. Shown for the cell under the cursor only,
 // so the player still plans the route.
@@ -193,4 +208,52 @@ export function movePreview(path: Cell[], cell: Cell, n: number, daemons: Daemon
   if (prev && daemons.includes('longjump') && moveLen(prev, cell) === n - 1) out.push('long jump +5');
   if (before && daemons.includes('zigzag') && moveLen(prev, cell) > moveLen(before, prev)) out.push('zigzag +0.5 boost');
   return out;
+}
+
+// Shop items: hardware bought with credits and kept for the run. Daemons change the scoring; items change the matrix
+// or the rules, with no family, so any of them can feed any build. A v2.0 is sold only to owners of its v1.0 and replaces it.
+interface Item { name: string; ver: string; kind: string; price: number; text: string; needs?: string }
+export const ITEMS = {
+  buffer1: { name: 'Buffer', ver: '1.0', kind: 'memory module', price: 4, text: '+1 buffer slot in every matrix' },
+  buffer2: { name: 'Buffer', ver: '2.0', kind: 'dual channel', price: 4, text: 'Upgrades v1.0 with one more slot: +2 in every matrix', needs: 'buffer1' },
+  shortkey: { name: 'Short key', ver: '1.0', kind: 'cut key', price: 3, text: 'The longest target is 1 code shorter; the buffer keeps its size' },
+  linker1: { name: 'Linker', ver: '1.0', kind: 'patch cable', price: 4, text: 'One more target starts with the last code of another' },
+  linker2: { name: 'Linker', ver: '2.0', kind: 'twin cable', price: 4, text: 'Upgrades v1.0: one link also shares 2 codes (targets of 3+ codes)', needs: 'linker1' },
+} satisfies Record<string, Item>;
+export type ItemId = keyof typeof ITEMS;
+export const SHELF = 3;
+export const REROLL_COST = 1;
+export const REMOVE_COST = 2;
+
+const item = (id: ItemId): Item => ITEMS[id];
+
+// Not owned, v1.0 not yet replaced, v2.0 only over its v1.0.
+export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter((id) => !s.items.includes(id)
+  && (!item(id).needs || s.items.includes(item(id).needs as ItemId)) && !s.items.some((o) => item(o).needs === id));
+
+// Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
+export function stockShop(s: RunState, reroll = false): boolean {
+  if (reroll) {
+    if (s.credits < REROLL_COST) return false;
+    s.credits -= REROLL_COST;
+    s.rerolls++;
+  } else s.rerolls = 0;
+  s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + s.section + '/' + s.rerolls))).slice(0, SHELF);
+  return true;
+}
+
+export function buy(s: RunState, id: ItemId): boolean {
+  const it = item(id);
+  if (!s.shelf.includes(id) || s.credits < it.price) return false;
+  s.credits -= it.price;
+  s.items = s.items.filter((o) => o !== it.needs).concat(id);
+  s.shelf = s.shelf.filter((o) => o !== id);
+  return true;
+}
+
+export function removeDaemon(s: RunState, id: DaemonId): boolean {
+  if (s.credits < REMOVE_COST || !s.daemons.includes(id)) return false;
+  s.credits -= REMOVE_COST;
+  s.daemons = s.daemons.filter((d) => d !== id);
+  return true;
 }

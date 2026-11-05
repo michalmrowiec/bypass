@@ -3,10 +3,12 @@ import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
   stageSeed, targetProgress,
 } from './game';
+import { gear } from './gear';
 import { canComplete } from './solver';
 import {
-  coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, isCorner, movePreview, newRunState, nextSection, offerDaemons, scoreMatrix,
-  SECTIONS, sectionMatrix, type DaemonId, type Effect, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
+  buy, coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
+  offerDaemons, REMOVE_COST, removeDaemon, REROLL_COST, scoreMatrix, SECTIONS, sectionMatrix, stockShop,
+  type DaemonId, type Effect, type ItemId, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
 } from './roguelike';
 import { dayNumber, firstResult, load, recordFirst, save, utcDate } from './storage';
 
@@ -224,22 +226,39 @@ function renderDaemons() {
   }).join('');
   lastFired = [...fired.keys()];
   tilt($('daemons'));
+  $('items').innerHTML = R.items.map((id) => "<div class='deckitem hw'>" + gear(id) + '<span><b>' + ITEMS[id].name + ' v' + ITEMS[id].ver
+    + '</b>' + ITEMS[id].text + '</span></div>').join('') || "<div class='dslot empty'>empty · buy hardware between rooms</div>";
 }
 
 // An installed Cache also shows its current stack.
 const daemonText = (id: DaemonId) =>
   DAEMONS[id].text + (id === 'cache' && R.daemons.includes(id) ? ' · stack now +' + R.cache + ' boost' : '');
 
-// Every daemon as a card, also a dev aid; installed ones show what they add to the live matrix.
+// Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
+const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
+  const it = ITEMS[id];
+  return '<' + tag + " class='ware hw" + cls + "'><span class='stage'>" + gear(id) + '</span><b>' + it.name + ' <small>v' + it.ver + '</small></b><small>' + it.kind
+    + '</small><p>' + it.text + "</p><span class='price'>" + foot + '</span></' + tag + '>';
+};
+
+let catalogTab: 'daemons' | 'items' = 'daemons';
+
+// Every daemon and item, also a dev aid; installed daemons show what they add to the live matrix.
 function showCatalog() {
   const fired = new Map(scoreMatrix(runCtx(), R).fired);
-  const ids = Object.keys(DAEMONS) as DaemonId[];
-  showResult(true, '<h2>Daemon catalog</h2><p class="meta">' + ids.length + ' daemons · installed ' + R.daemons.length + '/' + DAEMON_SLOTS + '</p>'
-    + "<div class='dlist'>" + ids.map((id, i) => {
+  const ds = Object.keys(DAEMONS) as DaemonId[], its = Object.keys(ITEMS) as ItemId[];
+  const tab = (t: typeof catalogTab) => "<button class='btn' id='tab-" + t + "' aria-pressed='" + (catalogTab === t) + "'>" + t + '</button>';
+  const body = catalogTab === 'daemons'
+    ? '<p class="meta">' + ds.length + ' daemons · installed ' + R.daemons.length + '/' + DAEMON_SLOTS + "</p><div class='dlist'>" + ds.map((id, i) => {
       const e = fired.get(id);
       return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : R.daemons.includes(id) ? 'standby' : 'not installed', e ? ' on' : '');
-    }).join('') + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
+    }).join('') + '</div>'
+    : '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
+      + its.map((id) => ware(id, 'div', R.items.includes(id) ? 'in deck' : ITEMS[id].price + ' cr')).join('') + '</div>';
+  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + '</div>' + body
+    + "<div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
+  for (const t of ['daemons', 'items'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
   const close = () => { hideResult(); focusGrid(); };
   $('closeCatalog').onclick = close;
   $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
@@ -262,19 +281,55 @@ function renderSteps() {
 }
 
 // Matrix bill: the uploads, each daemon that fired and what it added, then the formula.
+// Daemon file name as on its card, in its family color.
+const dmnName = (id: DaemonId) => {
+  const f = DAEMONS[id].family.toLowerCase();
+  return "<span class='dfile c-" + f + "'><span class='fdir'>" + f + '/</span>' + DAEMONS[id].name.toLowerCase().replace(/ /g, '_') + "<span class='fext'>.dmn</span></span>";
+};
+
 const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><span class='vd'>" + sc.base + ' data</span></td></tr>'
-  + sc.fired.map(([id, e]) => '<tr><td>' + DAEMONS[id].name + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
+  + sc.fired.map(([id, e]) => '<tr><td>' + dmnName(id) + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
 
 
 function showOffer() {
   offer = offerDaemons(R);
-  if (!offer.length) return enterSection();
+  if (!offer.length) return showShop();
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS + '</p>'
     + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, 'install ›')).join('') + '</div>'
     + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
-  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { R.daemons.push(offer[i]); enterSection(); }; });
-  $('skipDaemon').onclick = enterSection;
+  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { R.daemons.push(offer[i]); showShop(); }; });
+  $('skipDaemon').onclick = () => showShop();
+  tilt($('modalBox'));
+}
+
+// Shop between rooms: a seeded shelf of items, a paid reroll and paid daemon removal; Continue opens the next room.
+function showShop(restock = true) {
+  if (restock) stockShop(R);
+  const cr = (n: number) => n + ' cr';
+  const off = (n: number) => (R.credits < n ? ' disabled' : '');
+  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + R.credits + ' · items stay for the whole run</p>'
+    + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price), R.credits < ITEMS[id].price ? ' poor' : '')).join('')
+      || "<div class='dslot empty'>sold out</div>") + "</div><div class='row'>"
+    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST) + '</button>' : '')
+    + (R.daemons.length ? "<button class='btn' id='removeDaemon'" + off(REMOVE_COST) + '>Remove a daemon · ' + cr(REMOVE_COST) + '</button>' : '')
+    + "<button class='btn' id='leaveShop'>Continue ›</button></div>");
+  $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
+    b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
+  });
+  document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
+  document.getElementById('removeDaemon')?.addEventListener('click', showRemove);
+  $('leaveShop').onclick = enterSection;
+}
+
+function showRemove() {
+  showResult(true, '<h2>Remove a daemon</h2><p class="meta">costs ' + REMOVE_COST + ' cr · credits ' + R.credits + '</p>'
+    + "<div class='dlist'>" + R.daemons.map((id, i) => card(id, i, 'button', daemonText(id), 'remove ›')).join('')
+    + "</div><div class='row'><button class='btn' id='backShop'>Back</button></div>");
+  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
+    b.onclick = () => { removeDaemon(R, R.daemons[i]); showShop(false); };
+  });
+  $('backShop').onclick = () => showShop(false);
   tilt($('modalBox'));
 }
 
@@ -296,7 +351,7 @@ function enterSection() {
 
 function dealMatrix() {
   $('meta').textContent = 'Run · ' + SECTIONS[R.section].name + ' ' + (R.section + 1) + '/' + SECTIONS.length;
-  S.puzzle = generate(stageSeed(R.seed, R.matrix++), sectionMatrix(R.section));
+  S.puzzle = generate(stageSeed(R.seed, R.matrix++), sectionMatrix(R.section, R.items));
   resetRun();
 }
 
@@ -588,7 +643,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
   $('modeRun').setAttribute('aria-pressed', String(m === 'run'));
   $('sizes').hidden = m !== 'train';
   $('sprintLen').hidden = m !== 'sprint';
-  $('daemonPane').hidden = m !== 'run';
+  $('daemonPane').hidden = $('itemPane').hidden = m !== 'run';
   $('steps').hidden = m !== 'run';
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.size === S.size)));
   document.querySelectorAll<HTMLElement>('[data-len]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.len! === S.sprintLen)));
