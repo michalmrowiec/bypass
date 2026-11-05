@@ -11,7 +11,9 @@ import {
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, streakOf, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
 } from './roguelike';
-import { breached, dayNumber, firstResult, load, recordBreach, recordFirst, save, setBreached, utcDate } from './storage';
+import {
+  breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
+} from './storage';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
 interface DailyRecord { score: number; tries: number; time: number }
@@ -39,6 +41,22 @@ let R: RunState = newRunState(0);
 // Daemons on offer; while non-empty the board is visible but locked.
 let offer: DaemonId[] = [];
 let endWhy = ''; // why a run matrix ended on its own
+// Run save: R at the last checkpoint, the screen to reopen, and the current matrix's actions, replayed on the same deal.
+type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 };
+type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
+interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
+const RUN_V = 1; // bump when RunState changes shape; older saves are dropped
+let cur: SavedRun | null = null, replaying = false;
+function checkpoint(screen: RunScreen, patch?: Patch) {
+  cur = { v: RUN_V, R: structuredClone(R), screen, patch, log: [] };
+  saveRun(cur);
+}
+function logAct(a: Act) {
+  if (!cur || replaying || S.mode !== 'run') return;
+  cur.log.push(a);
+  saveRun(cur);
+}
+function endSave() { cur = null; dropRun(); }
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
 let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; jumps: number[] } =
   { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, jumps: [] };
@@ -184,8 +202,8 @@ function render() {
     : (S.mode === 'sprint' ? '<span>Matrix <b>' + Math.min(S.stage + 1, stages().length) + '/' + stages().length + '</b></span>' : '')
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
   $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? runStatus() : extra);
-  document.getElementById('restartMatrix')?.addEventListener('click', () => { restartMatrix(R); dealMatrix(); });
-  document.getElementById('disconnect')?.addEventListener('click', () => { finish(score(S.run.buffer, S.puzzle.targets), true); render(); });
+  document.getElementById('restartMatrix')?.addEventListener('click', () => { restartMatrix(R); newMatrix(); });
+  document.getElementById('disconnect')?.addEventListener('click', disconnect);
   if (S.mode === 'run') { renderDaemons(); renderSteps(); }
   $('timebar').hidden = S.mode !== 'sprint' || S.over;
   updateBar();
@@ -361,7 +379,7 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
     };
   });
   $('devCr').onclick = () => { R.credits += 10; refresh(); };
-  $('devDeal').onclick = () => { hideResult(); dealMatrix(); };
+  $('devDeal').onclick = () => { hideResult(); newMatrix(); };
   document.getElementById('devRoom')?.addEventListener('click', () => {
     hideResult();
     const p = nextSection(R);
@@ -433,6 +451,7 @@ const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><sp
 
 // Between iterations: what the company patched; the room it went to shows once you get there.
 function showPatch(p: Patch) {
+  checkpoint('patch', p);
   const hardened = p.ice === 'corruption' && R.patches.filter((x) => x.ice === 'corruption').length > 1;
   showResult(false, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + "</p><h2>Patch notes</h2><ul class='patch'>"
     + '<li>Quotas ×' + QUOTA_GROWTH + ': ' + sections(R).map((_, i) => quota(R, i)).join(' / ') + '</li>'
@@ -457,6 +476,7 @@ const owned = (shop = false) => {
 function showOffer() {
   offer = offerDaemons(R);
   if (!offer.length) return showShop();
+  checkpoint('offer');
   const full = R.daemons.length >= DAEMON_SLOTS;
   const poor = full && R.credits < SWAP_COST;
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
@@ -473,6 +493,7 @@ function showOffer() {
 // Shop between rooms: a seeded shelf of items, a paid reroll and paid daemon removal; Continue opens the next room.
 function showShop(restock = true) {
   if (restock) stockShop(R);
+  checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
   showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + ' · items stay for the whole run</p>' + owned(true)
@@ -603,9 +624,60 @@ function showCompanies(seed: number, back: Mode) {
   place();
 }
 
+const newMatrix = () => { dealMatrix(); checkpoint('matrix'); };
+
+function disconnect() {
+  logAct({ d: 1 });
+  finish(score(S.run.buffer, S.puzzle.targets), true);
+  render();
+}
+
+// Entering run mode with a saved run: resume it, or abandon it for the company carousel.
+function showResume(sv: SavedRun, seed: number, back: Mode) {
+  R = structuredClone(sv.R);
+  R.matrix = -1; // a throwaway board behind the dialog, not the saved one
+  dealMatrix();
+  const rooms = sections(R);
+  showResult(true, "<p class='meta'>saved run</p><h2>Resume contract</h2><p>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS
+    + ' · ' + rooms[R.section].name + ' ' + (R.section + 1) + '/' + rooms.length + "</p><p class='meta'>credits " + money(R.credits) + '</p>' + owned()
+    + "<div class='row'><button class='btn' id='closeResume'>Close</button><button class='btn' id='abandonRun'>Abandon</button>"
+    + "<button class='btn go' id='resumeRun'>Resume ›</button></div>");
+  const close = () => setMode(back === 'run' ? 'daily' : back);
+  $('closeResume').onclick = close;
+  $('abandonRun').onclick = () => { endSave(); showCompanies(seed, back); };
+  $('resumeRun').onclick = () => {
+    try { resumeRun(sv); } catch { endSave(); showCompanies(seed, back); }
+  };
+  $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
+  $('resumeRun').focus();
+}
+
+function resumeRun(sv: SavedRun) {
+  R = structuredClone(sv.R);
+  if (sv.screen === 'intro') { R.matrix--; return enterSection(); }
+  if (sv.screen !== 'matrix') {
+    const keep = R.matrix;
+    R.matrix = -1;
+    dealMatrix();
+    R.matrix = keep;
+    return sv.screen === 'patch' ? showPatch(sv.patch!) : sv.screen === 'offer' ? showOffer() : showShop(false);
+  }
+  R.matrix--; // the checkpoint was taken after the deal
+  dealMatrix();
+  cur = sv;
+  replaying = true;
+  S.dealing = false;
+  try {
+    for (const a of sv.log) {
+      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else disconnect();
+    }
+  } finally { replaying = false; }
+}
+
 // Section intro: the route so far, then the room's brief and terms; the matrix pours in on Breach.
 function enterSection() {
   dealMatrix();
+  checkpoint('intro');
   const rooms = sections(R);
   const sec = rooms[R.section];
   const at = (i: number) => (i < R.section ? ' done' : i === R.section ? ' now' : '');
@@ -615,7 +687,11 @@ function enterSection() {
     + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + ' data</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
-  $('breach').onclick = () => { hideResult(); pour(); };
+  $('breach').onclick = () => {
+    if (cur) { cur.screen = 'matrix'; saveRun(cur); }
+    hideResult();
+    pour();
+  };
 }
 
 function dealMatrix() {
@@ -634,6 +710,7 @@ function dealMatrix() {
 }
 
 function doSplit(i: number, at?: number) {
+  logAct({ s: i, at });
   ({ targets: S.puzzle.targets, worth: M.worth } = splitTarget(S.puzzle.targets, M.worth, i, at));
   M.split = false;
   armed = null;
@@ -738,6 +815,7 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 
 function choose(r: number, c: number) {
   if (!legal(r, c)) return;
+  logAct(armed ? { r, c, t: armed } : { r, c });
   if (armed === 'wild') {
     S.puzzle.grid[r][c] = WILD;
     armed = null;
@@ -819,6 +897,7 @@ function finish(sc: number, disconnected = false) {
     }
   } else if (S.mode === 'run') {
     const { score: bill, out } = finishMatrix(R, runCtx(), disconnected);
+    if (out === 'win' || out === 'lose') endSave();
     const sec = sections(R)[R.section];
     const [title, btn, label] = ({
       continue: ['+' + bill.total + ' data', 'runNext', 'Next matrix'],
@@ -949,7 +1028,7 @@ function showResult(win: boolean, html: string) {
   on('retry', () => { S.tries++; resetRun(); });
   on('again', () => resetRun());
   on('next', () => setMode('train'));
-  on('runNext', dealMatrix);
+  on('runNext', newMatrix);
   on('runSection', () => { nextSection(R); showOffer(); });
   on('runLoop', () => showPatch(nextSection(R)!));
   on('runNew', () => setMode('run'));
@@ -1005,7 +1084,14 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
     resetRun();
   } else if (m === 'run') {
     S.seed = seed;
-    showCompanies(seed, back);
+    const sv = loadRun<SavedRun>();
+    try {
+      if (sv?.v !== RUN_V) throw 0;
+      showResume(sv, seed, back);
+    } catch {
+      if (sv) dropRun();
+      showCompanies(seed, back);
+    }
   } else {
     $('meta').textContent = sprintMeta() + (challenge ? ' · challenge' : '');
     S.seed = seed;
@@ -1064,6 +1150,23 @@ export function init() {
   $('modeSprint').onclick = () => setMode('sprint');
   $('modeRun').onclick = () => setMode('run');
   $('catalogBtn').onclick = showCatalog;
+  $('exportSave').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([exportBackup()], { type: 'application/json' }));
+    a.download = 'bypass-backup-' + utcDate() + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $('importSave').onclick = () => $('importFile').click();
+  $('importFile').onchange = async () => {
+    const input = $('importFile') as HTMLInputElement, f = input.files?.[0];
+    input.value = '';
+    if (!f) return;
+    const data = parseBackup(await f.text());
+    if (!data) return alert('This is not a Bypass save file.');
+    if (!confirm('Replace your current progress with this save?')) return;
+    if (restoreBackup(data)) location.reload(); else alert('Could not write the save.');
+  };
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => {
     b.onclick = () => { S.size = b.dataset.size as SizeKey; setMode('train'); };
   });

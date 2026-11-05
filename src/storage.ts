@@ -39,3 +39,40 @@ export const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 const EPOCH = Date.UTC(2026, 10, 1);
 export const dayNumber = (d = new Date()) =>
   Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - EPOCH) / 864e5) + 1;
+
+// Run mode: the run in progress, so a reload or a later visit can resume it.
+const RUN = 'bypass:run';
+export const loadRun = <T>() => load<T>(RUN);
+export const saveRun = (v: unknown) => save(RUN, v);
+export function dropRun(): void {
+  try { localStorage.removeItem(RUN); } catch { /* ignore */ }
+}
+
+// Backup file: every bypass:* key as stored, so clearing site data doesn't wipe progress.
+const PREFIX = 'bypass:';
+const ownKeys = () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).filter((k) => k.startsWith(PREFIX));
+export function exportBackup(): string {
+  const data: Record<string, string> = {};
+  try { for (const k of ownKeys()) data[k] = localStorage.getItem(k)!; } catch { /* ignore */ }
+  return JSON.stringify({ game: 'bypass', v: 1, data });
+}
+// A user-picked file: only well-formed bypass:* JSON entries pass, anything else rejects the whole file.
+export function parseBackup(text: string): Record<string, string> | null {
+  try {
+    const b = JSON.parse(text);
+    if (b?.game !== 'bypass' || !b.data || typeof b.data !== 'object' || Array.isArray(b.data)) return null;
+    for (const [k, v] of Object.entries(b.data)) {
+      if (!k.startsWith(PREFIX) || typeof v !== 'string') return null;
+      JSON.parse(v);
+    }
+    return b.data;
+  } catch { return null; }
+}
+// Writes the backup first and only then drops keys it lacks, so a failed write loses nothing old.
+export function restoreBackup(data: Record<string, string>): boolean {
+  try {
+    for (const [k, v] of Object.entries(data)) localStorage.setItem(k, v);
+    for (const k of ownKeys()) if (!(k in data)) localStorage.removeItem(k);
+    return true;
+  } catch { return false; }
+}
