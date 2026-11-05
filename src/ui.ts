@@ -415,7 +415,7 @@ function renderSteps() {
   // The room's data tally, big: white until the quota is met, then green.
   const got = R.data + (live ?? 0), goal = quota(R);
   $('stepCr').textContent = 'credits $' + R.credits;
-  $('tally').innerHTML = "<span class='meta'>" + sections(R)[R.section].name.toLowerCase() + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + '</span>';
+  $('tally').innerHTML = "<span class='meta'>" + sections(R)[R.section].name + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + '</span>';
 }
 
 // Matrix bill: the uploads, each daemon that fired and what it added, then the formula.
