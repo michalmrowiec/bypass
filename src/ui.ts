@@ -43,6 +43,8 @@ let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean
 type Tool = 'wild' | 'split' | 'jump' | 'loop';
 const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop' };
 const loopAny = () => R.items.includes('loopback2');
+// One rack unit per item family: a v2.0 replaces its v1.0.
+const RACK_U = Object.values(ITEMS).filter((it) => !('needs' in it)).length;
 let armed: Tool | null = null; // deck tool picked for use before the first move
 // Targets already shown as uploaded, so the upload effect plays only once.
 const doneSeen = new Set<number>();
@@ -262,20 +264,40 @@ function renderDaemons() {
   }).join('');
   lastFired = [...fired.keys()];
   tilt($('daemons'));
-  // Tools usable before the first move glow in the deck; clicking one arms it, clicking again puts it down.
-  $('items').innerHTML = R.items.map((id) => {
-    const t = TOOLS[id];
-    const start = !S.run.path.length;
+  // Deck as a rack of units. A ready tool pulses; clicking it arms it, clicking again puts it down.
+  // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
+  const start = !S.run.path.length;
+  const units = R.items.map((id) => {
+    const it = ITEMS[id], t = TOOLS[id];
     const ready = !!t && !S.over && !offer.length
       && (t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : M.loop && !start);
-    const tag = ready ? 'button' : 'div';
-    const hint = !ready ? '' : '<em>' + (armed !== t ? 'ready · click to use' : t === 'split' ? 'armed · click a target'
-      : t === 'loop' ? 'armed · click a lit used cell' : 'armed · click a free cell') + '</em>';
-    return '<' + tag + " class='deckitem hw" + (ready ? ' ready' : '') + (ready && armed === t ? ' armed' : '') + "'" + (ready ? " data-tool='" + t + "'" : '') + '>'
-      + gear(id) + '<span><b>' + ITEMS[id].name + ' v' + ITEMS[id].ver + '</b>' + ITEMS[id].text + hint + '</span></' + tag + '>';
-  }).join('') || "<div class='dslot empty'>empty · buy hardware between rooms</div>";
-  $('items').querySelectorAll<HTMLElement>('[data-tool]').forEach((b) => {
-    b.onclick = () => { armed = armed === b.dataset.tool ? null : (b.dataset.tool as Tool); render(); };
+    const on = ready && armed === t;
+    const hint = !ready ? '' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
+      : t === 'loop' ? 'armed · click a lit used cell' : 'armed · click a free cell';
+    return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : t ? 'standby' : 'online',
+      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '') };
+  });
+  const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
+  const lcd = on ? on.spec
+    : ready.length ? '<b>&gt; ' + ready.map((u) => ITEMS[u.id].name.toLowerCase()).join(', ') + '</b> ready · click to arm'
+      : units.length ? '<b>&gt;</b> ' + units.length + ' modules installed · point at one to read its spec'
+        : '<b>&gt;</b> no hardware · buy modules between rooms';
+  const rail = (n: number) => "<span class='rail'>" + String(n).padStart(2, '0') + '</span>';
+  $('items').innerHTML = '<header><span>hw rack</span><span>' + units.length + '/' + RACK_U + 'U</span></header>'
+    + Array.from({ length: Math.max(RACK_U, units.length) }, (_, i) => {
+      const u = units[i];
+      if (!u) return rail(i + 1) + "<div class='unit blank' aria-hidden='true'><i class='scr'></i><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
+      const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
+      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
+        + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'><i class='scr'></i>" + gear(u.id)
+        + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + it.kind + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
+        + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
+    }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
+  $('items').querySelectorAll<HTMLElement>('.unit:not(.blank)').forEach((el, i) => {
+    const show = () => { $('lcd').innerHTML = units[i].spec; }, hide = () => { $('lcd').innerHTML = lcd; };
+    el.onpointerenter = el.onfocus = show;
+    el.onpointerleave = el.onblur = hide;
+    if (el.dataset.tool) el.onclick = () => { armed = armed === el.dataset.tool ? null : (el.dataset.tool as Tool); render(); };
   });
 }
 

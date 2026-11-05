@@ -52,8 +52,19 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .label::after{content:" ─"}
 .hint{margin:0 0 10px;font-size:12px;color:var(--muted)}
 .sizes{margin-bottom:12px}
-.board{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:22px;align-items:start}
-@media (max-width:760px){.board{grid-template-columns:minmax(0,1fr)}}
+.board{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);grid-template-rows:auto 1fr;gap:22px;align-items:start}
+/* The matrix spans both rows so the deck sits right under the side column. */
+.board>.pane:first-child{grid-row:span 2}
+#itemPane{grid-column:2}
+/* Wide screens: the run's deck gets its own column left of the matrix, which stays in the middle. */
+@media (min-width:1280px){
+  .wrap:has(#itemPane:not([hidden])){max-width:1260px}
+  .board:has(#itemPane:not([hidden])){grid-template-columns:360px minmax(0,440px) minmax(0,1fr)}
+  .board:has(#itemPane:not([hidden]))>.pane:first-child{grid-column:2;grid-row:1/span 2}
+  .board:has(#itemPane:not([hidden]))>.side{grid-column:3;grid-row:1}
+  #itemPane{grid-column:1;grid-row:1/span 2}
+}
+@media (max-width:760px){.board{grid-template-columns:minmax(0,1fr)}.board>.pane:first-child,#itemPane{grid-row:auto;grid-column:auto}}
 .side{display:flex;flex-direction:column;gap:22px;min-width:0}
 
 /* Hex-dump matrix */
@@ -178,16 +189,41 @@ button.ware{cursor:pointer}
 .ware p{margin:0;max-width:190px;min-height:3em;font-size:11px;color:var(--muted)}
 .ware .price{border:1px solid var(--mint-dim);padding:0 8px;font-size:12px;color:var(--mint)}
 .ware.poor{opacity:.42;cursor:not-allowed}
-.deck{display:flex;flex-direction:column;gap:8px}
-.deckitem{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px;border:1px solid var(--line);background:none;font:inherit;font-size:11px;text-align:left;color:var(--muted)}
-/* A tool usable before the first move pulses until it is armed. */
-button.deckitem{cursor:pointer}
-.deckitem.ready{border-color:var(--mint-dim);animation:ready 1.6s ease-in-out infinite}
-.deckitem.armed{border-color:var(--mint);background:var(--mint-faint);animation:none}
-.deckitem em{display:block;font-style:normal;font-size:10px;color:var(--mint)}
-@keyframes ready{50%{border-color:var(--mint);box-shadow:0 0 10px rgba(90,242,168,.25)}}
-.deckitem .gear{flex:none;width:70px;height:40px}
-.deckitem b{display:block;font-size:12px;color:var(--ink)}
+/* Deck: a rack of hardware units, one U per item family; blanks show the free ones. */
+.rack{display:grid;grid-template-columns:16px minmax(0,1fr) 16px;border:1px solid var(--line);background:#0e1012}
+.rack header{grid-column:1/-1;display:flex;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--line);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.rail{display:grid;place-items:center;background:#14171a;font-size:8px;color:#56626a;font-variant-numeric:tabular-nums}
+.unit{display:flex;align-items:center;gap:8px;min-width:0;height:46px;margin:3px 4px;padding:0 9px;border:1px solid #262d32;background:#171b1e;color:var(--muted);font:inherit;font-size:11px;text-align:left}
+button.unit{cursor:pointer}
+.unit:is(:hover,:focus-visible){border-color:#46525a;outline:none}
+.unit .gear{flex:none;width:56px;height:32px}
+/* Phillips screw heads, so they never read as LEDs. */
+.scr{flex:none;width:9px;height:9px;border-radius:50%;border:1px solid #39434a;
+  background:linear-gradient(#5d6a71,#5d6a71) center/5px 1px no-repeat,linear-gradient(#5d6a71,#5d6a71) center/1px 5px no-repeat,#1c2125}
+.nm{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3;white-space:nowrap}
+.nm b{overflow:hidden;text-overflow:ellipsis;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.nm b small{text-transform:none;letter-spacing:0;color:var(--muted)}
+.nm>small{display:flex;gap:4px;font-size:9px}
+.nm>small span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.nm em{flex:none;font-style:normal;color:#4c575d}
+.led{flex:none;width:6px;height:6px;border-radius:50%;background:#2c363b}
+.unit.online .led{background:var(--mint);opacity:.6;box-shadow:0 0 4px rgba(90,242,168,.3)}
+.unit.standby{opacity:.55}
+.unit.ready{border-color:var(--mint-dim)}
+.unit.armed{border-color:var(--mint);background:var(--mint-faint)}
+.unit:is(.ready,.armed) .nm em{color:var(--mint)}
+.unit:is(.ready,.armed) .led{background:var(--mint);box-shadow:0 0 6px var(--mint)}
+/* Only the LED moves: a ready tool's breathes green. */
+.unit.ready .led{animation:ledpulse 1.6s ease-in-out infinite}
+@keyframes ledpulse{0%,100%{opacity:.35;box-shadow:none}50%{opacity:1;box-shadow:0 0 8px var(--mint)}}
+/* An armed tool blinks amber until it is used or put down. */
+.unit.armed .led{background:#f0b35a;box-shadow:0 0 7px #f0b35a;animation:ledblink .9s steps(1) infinite}
+.unit.armed .nm em{color:#f0b35a}
+@keyframes ledblink{50%{opacity:.2}}
+.unit.blank{background:#121517;border-color:#1d2226}
+.vent{flex:1;height:10px;background:repeating-linear-gradient(90deg,#20262a 0 2px,transparent 2px 7px)}
+.lcd{grid-column:1/-1;margin:6px 8px 8px;padding:6px 9px;min-height:4.6em;border:1px solid #1f3d2f;background:#08120d;font-size:10.5px;line-height:1.45;color:var(--mint-dim)}
+.lcd b{font-weight:600;color:var(--mint)}
 .g-pcb{fill:#0e1814;stroke:#2f5a45}
 .g-chip{fill:#08090a;stroke:#39424a}
 .g-pin{fill:#9aa5ab}
