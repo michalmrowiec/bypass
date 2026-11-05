@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { contains, WILD } from './game';
+import { contains, isLegal, newRun, pick, WILD } from './game';
+import { canComplete } from './solver';
 import { generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  coverage, cutMarks, placeCells, removeDaemon, scoreMatrix, sectionMatrix, SECTIONS, SHELF, splitTarget, stockShop,
+  coverage, cutMarks, placeCells, sideDoor, removeDaemon, scoreMatrix, sectionMatrix, SECTIONS, SHELF, splitTarget, stockShop,
   type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -219,5 +220,40 @@ describe('matrix items', () => {
     expect(splitTarget([['A', 'B', 'C'], ['D', 'E']], [25, 10], 0)).toEqual({ targets: [['A', 'B'], ['C'], ['D', 'E']], worth: [13, 12, 10] });
     expect(splitTarget([['A', 'B', 'C', 'D']], [45], 0, 1).targets).toEqual([['A'], ['B', 'C', 'D']]);
     expect(matrixData(['A', 'B'], [['A', 'B'], ['C']], [13, 12])).toBe(13);
+  });
+});
+
+describe('movement items', () => {
+  const grid = [['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']];
+
+  it('Bridge and Loopback open paths the lanes alone do not', () => {
+    expect(canComplete(newRun(), { grid, targets: [['A', 'I']], l: 2 })).toBe(false);
+    expect(canComplete(newRun(), { grid, targets: [['A', 'I']], l: 2 }, undefined, { jump: true })).toBe(true);
+    expect(canComplete(newRun(), { grid, targets: [['A', 'A']], l: 2 })).toBe(false);
+    expect(canComplete(newRun(), { grid, targets: [['A', 'A']], l: 2 }, undefined, { loop: true })).toBe(true);
+    // A, then down column 0 to G, then back to A: only Loopback v2.0 reaches a used cell off the lane.
+    expect(canComplete(newRun(), { grid, targets: [['A', 'G', 'H', 'A']], l: 4 }, undefined, { loop: true })).toBe(false);
+    expect(canComplete(newRun(), { grid, targets: [['A', 'G', 'H', 'A']], l: 4 }, undefined, { loop: true, loopAny: true })).toBe(true);
+  });
+
+  it('Side door: a side edge goes on along its row, a corner frees the next axis', () => {
+    const p = { grid, targets: [], l: 3 };
+    const side = newRun();
+    pick(side, p, 1, 0);
+    sideDoor(side, 1, 0, 3);
+    expect([side.axis, side.idx]).toEqual(['row', 1]);
+    const corner = newRun();
+    pick(corner, p, 2, 2);
+    sideDoor(corner, 2, 2, 3);
+    expect([isLegal(corner, 2, 0), isLegal(corner, 0, 2), isLegal(corner, 1, 1)]).toEqual([true, true, false]);
+    pick(corner, p, 0, 2);
+    expect([corner.axis, corner.idx, corner.free]).toEqual(['row', 0, undefined]);
+  });
+
+  it('a Bridge jump is no move for daemons', () => {
+    const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
+    const s = { ...newRunState(1), daemons: ['longjump'] as DaemonId[] };
+    expect(scoreMatrix(ctx, s).total).toBe(45);
+    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(40);
   });
 });

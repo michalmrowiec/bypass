@@ -16,7 +16,12 @@ export interface Run {
   path: [number, number][]; // picked cells in order
   axis: 'row' | 'col';
   idx: number;
+  free?: [number, number]; // after a Side door corner: the next pick may take this cell's row or its column
 }
+
+// The lane the next pick comes from: one row or column, or both lines through `free`.
+export const inLane = (run: Run, r: number, c: number) =>
+  run.free ? r === run.free[0] || c === run.free[1] : run.axis === 'row' ? r === run.idx : c === run.idx;
 
 export const newRun = (): Run => ({ buffer: [], used: new Set(), path: [], axis: 'row', idx: 0 });
 
@@ -48,8 +53,7 @@ export function targetProgress(buf: string[], t: string[], l: number, over: bool
 }
 
 export function isLegal(run: Run, r: number, c: number): boolean {
-  if (run.used.has(r + ',' + c)) return false;
-  return run.axis === 'row' ? r === run.idx : c === run.idx;
+  return !run.used.has(r + ',' + c) && inLane(run, r, c);
 }
 
 export function anyLegal(run: Run, n: number): boolean {
@@ -61,7 +65,9 @@ export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
   run.buffer.push(puzzle.grid[r][c]);
   run.used.add(r + ',' + c);
   run.path.push([r, c]);
-  if (run.axis === 'row') { run.axis = 'col'; run.idx = c; }
+  const alongRow = run.free ? r === run.free[0] : run.axis === 'row';
+  run.free = undefined;
+  if (alongRow) { run.axis = 'col'; run.idx = c; }
   else { run.axis = 'row'; run.idx = r; }
 }
 

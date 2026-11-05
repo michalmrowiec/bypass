@@ -223,12 +223,26 @@ button.deckitem{cursor:pointer}
 .hw:is(:hover,:focus-visible) .g-act{animation:gblink .3s steps(1) infinite}
 .hw:is(:hover,:focus-visible) .g-dial{transform:rotate(135deg)}
 @keyframes gspin{to{transform:rotate(360deg)}}
+.g-wrench{fill:none;stroke:#9aa5ab;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.g-shaft{fill:none;stroke:#9aa5ab;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.g-pick{transform-origin:30px 31px}
+.g-wave{fill:none;stroke:var(--mint-dim);stroke-width:1.6;stroke-linecap:round}
+.hw:is(:hover,:focus-visible) .g-pick{animation:grake .3s ease-in-out infinite alternate}
+.hw:is(:hover,:focus-visible) .g-wave{animation:gwave 1.2s ease-out infinite}
+.hw:is(:hover,:focus-visible) .g-wave.w2{animation-delay:.2s}
+.hw:is(:hover,:focus-visible) .g-wave.w3{animation-delay:.4s}
+@keyframes grake{to{transform:translateX(4px) rotate(-3deg)}}
+@keyframes gwave{0%,100%{stroke:var(--mint-dim)}40%{stroke:var(--mint)}}
 @keyframes gblink{50%{fill:var(--data)}}
 /* Item cells: a wildcard flickers in pink, a data node carries its bonus in the corner. */
 .cell.wild,.slot.wild{color:var(--pink);animation:rgb 3s steps(1) infinite}
 .cell .ntag{position:absolute;top:1px;right:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--data);pointer-events:none}
 .cell:has(.ntag){border-color:color-mix(in srgb,var(--data) 45%,transparent)}
 .cell.used .ntag{display:none}
+/* Loopback: used cells show their code greyed out; the ones an armed Loopback can take light up. */
+.cell.used.memo{color:#3e474d}
+.cell.used.memo::after{content:none}
+.cell.used.ok{border-color:var(--mint-dim);color:var(--mint);cursor:pointer}
 /* Split: a cuttable target, or the gaps between its codes. */
 .target.cut{outline:1px dashed var(--pink);outline-offset:2px}
 .target.cut[role=button]{cursor:pointer}

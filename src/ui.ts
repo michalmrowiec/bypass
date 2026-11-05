@@ -1,13 +1,13 @@
 import { generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
-  stageSeed, targetProgress, WILD, fits,
+  stageSeed, targetProgress, WILD, fits, inLane,
 } from './game';
 import { gear } from './gear';
 import { canComplete } from './solver';
 import {
   buy, coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
-  cutMarks, NODE_DATA, offerDaemons, placeCells, REMOVE_COST, removeDaemon, REROLL_COST, scoreMatrix, SECTIONS, sectionMatrix, splitTarget, stockShop,
+  cutMarks, NODE_DATA, offerDaemons, sideDoor, placeCells, REMOVE_COST, removeDaemon, REROLL_COST, scoreMatrix, SECTIONS, sectionMatrix, splitTarget, stockShop,
   type DaemonId, type Effect, type ItemId, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
 } from './roguelike';
 import { dayNumber, firstResult, load, recordFirst, save, utcDate } from './storage';
@@ -38,8 +38,11 @@ let R: RunState = newRunState(0);
 // Daemons on offer; while non-empty the board is visible but locked.
 let offer: DaemonId[] = [];
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
-let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean } = { worth: [], cuts: [], wild: false, split: false };
-type Tool = 'wild' | 'split';
+let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; jumps: number[] } =
+  { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, jumps: [] };
+type Tool = 'wild' | 'split' | 'jump' | 'loop';
+const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop' };
+const loopAny = () => R.items.includes('loopback2');
 let armed: Tool | null = null; // deck tool picked for use before the first move
 // Targets already shown as uploaded, so the upload effect plays only once.
 const doneSeen = new Set<number>();
@@ -55,8 +58,15 @@ const fmt = (ms: number) => { const s = Math.floor(ms / 1000); return Math.floor
 const money = (n: number, sign = '') => "<b class='cr'>" + sign + '$' + n + '</b>';
 const now = () => (S.start ? (S.over ? S.elapsed : Date.now() - S.start) : 0);
 const clockText = () => fmt(now());
-const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length
-  && (armed === 'wild' ? !S.run.used.has(r + ',' + c) && S.puzzle.grid[r][c] !== WILD : isLegal(S.run, r, c));
+const isUsed = (r: number, c: number) => S.run.used.has(r + ',' + c);
+// Side door: before the first pick, any edge cell is open.
+const doorOpen = () => S.mode === 'run' && !S.run.path.length && R.items.includes('sidedoor');
+const onEdge = (r: number, c: number) => { const n = S.puzzle.grid.length; return r === 0 || c === 0 || r === n - 1 || c === n - 1; };
+const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length && (
+  armed === 'wild' ? !isUsed(r, c) && S.puzzle.grid[r][c] !== WILD
+  : armed === 'jump' ? !isUsed(r, c)
+  : armed === 'loop' ? isUsed(r, c) && (loopAny() || inLane(S.run, r, c))
+  : isLegal(S.run, r, c) || (doorOpen() && onEdge(r, c)));
 const isNode = (r: number, c: number) => S.mode === 'run' && M.node?.[0] === r && M.node[1] === c;
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
@@ -77,17 +87,20 @@ function render() {
     g.appendChild(h);
   };
   hx('', false);
-  for (let c = 0; c < n; c++) hx('+' + c, axis === 'col' && c === idx);
+  const free = S.run.free;
+  for (let c = 0; c < n; c++) hx('+' + c, free ? c === free[1] : axis === 'col' && c === idx);
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-    if (c === 0) hx(addr(r), axis === 'row' && r === idx);
+    if (c === 0) hx(addr(r), free ? r === free[0] : axis === 'row' && r === idx);
     const b = document.createElement('button');
     b.className = 'cell';
     b.id = 'c' + r + c;
     b.textContent = grid[r][c];
     if (grid[r][c] === WILD) b.classList.add('wild');
     if (isNode(r, c)) b.insertAdjacentHTML('beforeend', "<i class='ntag'>+" + NODE_DATA + '</i>');
-    if (!S.over && (axis === 'row' ? r === idx : c === idx)) b.classList.add('lane');
+    if (!S.over && (inLane(S.run, r, c) || (doorOpen() && onEdge(r, c)))) b.classList.add('lane');
     if (used.has(r + ',' + c)) b.classList.add('used');
+    // With a Loopback in the deck, used cells keep their code, greyed out, so a re-pick can be planned.
+    if (S.mode === 'run' && R.items.some((id) => TOOLS[id] === 'loop')) b.classList.add('memo');
     if (S.mode === 'run' && R.daemons.includes('corner') && isCorner([r, c], n)) b.classList.add('corner');
     if (legal(r, c)) {
       b.classList.add('ok');
@@ -101,7 +114,9 @@ function render() {
   }
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
-  $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target' : S.over ? 'session closed'
+  $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
+    : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny() ? '' : ' in your lane') : S.over ? 'session closed'
+    : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + addr(free[0]) + ' or col +' + free[1]
     : axis === 'row' ? 'pick in row ' + addr(idx) : 'pick in col +' + idx;
   const buf = $('buffer');
   buf.innerHTML = '';
@@ -157,7 +172,7 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node });
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, jumps: M.jumps });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
 function runStatus() {
@@ -249,10 +264,13 @@ function renderDaemons() {
   tilt($('daemons'));
   // Tools usable before the first move glow in the deck; clicking one arms it, clicking again puts it down.
   $('items').innerHTML = R.items.map((id) => {
-    const t: Tool | null = id === 'wildcard2' ? 'wild' : id === 'split1' || id === 'split2' ? 'split' : null;
-    const ready = !!t && !S.over && !S.run.buffer.length && !offer.length && (t === 'wild' ? M.wild : M.split);
+    const t = TOOLS[id];
+    const start = !S.run.path.length;
+    const ready = !!t && !S.over && !offer.length
+      && (t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : M.loop && !start);
     const tag = ready ? 'button' : 'div';
-    const hint = !ready ? '' : '<em>' + (armed !== t ? 'ready · click to use' : t === 'wild' ? 'armed · click a free cell' : 'armed · click a target') + '</em>';
+    const hint = !ready ? '' : '<em>' + (armed !== t ? 'ready · click to use' : t === 'split' ? 'armed · click a target'
+      : t === 'loop' ? 'armed · click a lit used cell' : 'armed · click a free cell') + '</em>';
     return '<' + tag + " class='deckitem hw" + (ready ? ' ready' : '') + (ready && armed === t ? ' armed' : '') + "'" + (ready ? " data-tool='" + t + "'" : '') + '>'
       + gear(id) + '<span><b>' + ITEMS[id].name + ' v' + ITEMS[id].ver + '</b>' + ITEMS[id].text + hint + '</span></' + tag + '>';
   }).join('') || "<div class='dslot empty'>empty · buy hardware between rooms</div>";
@@ -418,7 +436,7 @@ function dealMatrix() {
   const cells = placeCells(seed, S.puzzle, R.items);
   if (cells.wild) S.puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
   M = { node: cells.node, worth: S.puzzle.targets.map((t) => DATA_BY_LEN[t.length]), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
-    split: R.items.includes('split1') || R.items.includes('split2') };
+    split: R.items.includes('split1') || R.items.includes('split2'), jump: R.items.includes('bridge'), loop: R.items.includes('loopback1') || R.items.includes('loopback2'), jumps: [] };
   armed = null;
   resetRun();
 }
@@ -433,7 +451,8 @@ function doSplit(i: number, at?: number) {
 function applyCross() {
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) =>
     el.classList.toggle('x', !!cursor && (+el.id[1] === cursor[0] || +el.id[2] === cursor[1])));
-  const peek = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? [] : armed === 'wild' ? ['place ** here']
+  const peek = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? [] : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
+    : armed === 'loop' ? ['loopback: ' + S.puzzle.grid[cursor[0]][cursor[1]] + ' again']
     : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons), ...(isNode(cursor[0], cursor[1]) ? ['data node +' + NODE_DATA] : [])];
   $('peek').textContent = peek.join(' · ');
   // Echo the code under the cursor in the targets, but only for a cell that can be picked right now.
@@ -503,14 +522,22 @@ function choose(r: number, c: number) {
     return;
   }
   if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 31); }
+  const door = doorOpen(), tool = armed, offLane = !inLane(S.run, r, c);
   pick(S.run, S.puzzle, r, c);
-  armed = null; // the first move puts any armed tool down
+  if (door) sideDoor(S.run, r, c, S.puzzle.grid.length);
+  if ((tool === 'jump' || tool === 'loop') && offLane) M.jumps.push(S.run.path.length - 1);
+  if (tool === 'jump') M.jump = false;
+  if (tool === 'loop') M.loop = false;
+  armed = null; // a pick puts any armed tool down
   // A dead end (targets no longer reachable) ends the round right away.
   // Run mode only stops once no remaining target can still be uploaded; the others need all of them.
   const stuck = S.mode === 'run'
-    ? !S.puzzle.targets.some((t) => !contains(S.run.buffer, t) && canComplete(S.run, { ...S.puzzle, targets: [t] }))
+    ? !S.puzzle.targets.some((t) => !contains(S.run.buffer, t) && canComplete(S.run, { ...S.puzzle, targets: [t] }, undefined, { ...M, loopAny: loopAny() }))
     : !canComplete(S.run, S.puzzle);
-  if (isFinished(S.run, S.puzzle) || stuck) {
+  // An unused Bridge or Loopback can still move when the lane is spent.
+  const more = S.mode === 'run' && S.run.buffer.length < S.puzzle.l && (M.jump || M.loop);
+  const done = more ? score(S.run.buffer, S.puzzle.targets) === S.puzzle.targets.length : isFinished(S.run, S.puzzle);
+  if (done || stuck) {
     const sc = score(S.run.buffer, S.puzzle.targets);
     if (S.mode === 'sprint') {
       if (sc < S.puzzle.targets.length) endSprint('Locked out');

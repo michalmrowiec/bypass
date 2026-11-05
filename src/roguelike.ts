@@ -1,4 +1,4 @@
-import { contains, fits } from './game';
+import { contains, fits, type Run } from './game';
 import { CODES, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
 
 // Roguelike mode: a run is a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
@@ -81,7 +81,10 @@ export function nextSection(s: RunState): void {
 
 // --- Daemons: passive upgrades. Matrix score = (data + flat) × (1 + boost) × mult; no upload means 0.
 
-export interface MatrixCtx { buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell }
+// jumps: path indices of cells reached off the lane (Bridge, Loopback v2.0); those are no lane moves, so daemons skip them.
+export interface MatrixCtx {
+  buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell; jumps?: number[];
+}
 
 interface Facts {
   done: string[][];
@@ -110,9 +113,9 @@ export function coverage(buf: string[], targets: string[][]): number[] {
   return cover;
 }
 
-function facts({ buf, path, targets, l, n }: MatrixCtx): Facts {
+function facts({ buf, path, targets, l, n, jumps }: MatrixCtx): Facts {
   const done = targets.filter((t) => contains(buf, t));
-  const moves = path.slice(1).map((p, i) => moveLen(path[i], p));
+  const moves = path.slice(1).flatMap((p, i) => (jumps?.includes(i + 1) ? [] : [moveLen(path[i], p)]));
   return {
     done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
     empty: l - buf.length, light: buf.length <= l / 2,
@@ -235,6 +238,10 @@ export const ITEMS = {
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
   split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; the parts share its data' },
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target is cut', needs: 'split1' },
+  sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
+  bridge: { name: 'Bridge', ver: '1.0', kind: 'antenna', price: 5, text: 'Once per matrix, arm it to jump to any free cell off your lane; daemons skip the jump as a move' },
+  loopback1: { name: 'Loopback', ver: '1.0', kind: 'loopback plug', price: 3, text: 'Once per matrix, arm it to pick a used cell in your lane again; its code goes into the buffer once more' },
+  loopback2: { name: 'Loopback', ver: '2.0', kind: 'twin loopback', price: 3, text: 'Upgrades v1.0: the used cell can be anywhere on the matrix; daemons skip that jump as a move', needs: 'loopback1' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 3;
@@ -304,4 +311,11 @@ export function splitTarget(targets: string[][], worth: number[], i: number, at 
     targets: [...targets.slice(0, i), targets[i].slice(0, at), targets[i].slice(at), ...targets.slice(i + 1)],
     worth: [...worth.slice(0, i), Math.ceil(w / 2), Math.floor(w / 2), ...worth.slice(i + 1)],
   };
+}
+
+// Side door, after a first pick on an edge: the left or right edge goes on along its row, a corner frees the next axis.
+export function sideDoor(run: Run, r: number, c: number, n: number): void {
+  const side = c === 0 || c === n - 1, end = r === 0 || r === n - 1;
+  if (side && end) run.free = [r, c];
+  else if (side) { run.axis = 'row'; run.idx = r; }
 }

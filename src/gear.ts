@@ -44,6 +44,19 @@ const splitter = (dial: boolean) => "<path class='g-wire' d='M28 35H58'/>"
   + (dial ? "<g class='g-dial'><circle cx='66' cy='35' r='5'/><path d='M66 35v-5'/></g>" : '')
   + plug(6, false) + plug(144, true, 9) + plug(144, true, 43);
 
+// Lockpick set: a hooked pick over a tension wrench; the pick rakes on hover.
+const lockpick = "<path class='g-wrench' d='M24 60H112V52'/><g class='g-pick'><rect class='g-plug' x='10' y='25' width='40' height='12' rx='4'/>"
+  + "<path class='g-shaft' d='M50 31H118l7-7'/></g>";
+
+// Antenna on a small base; its waves pulse out on hover.
+const antenna = "<rect class='g-plug' x='48' y='58' width='54' height='14' rx='3'/><circle class='g-act' cx='60' cy='65' r='2'/>"
+  + "<path class='g-shaft' d='M75 58V26'/><circle class='g-steel' cx='75' cy='24' r='3'/>"
+  + "<path class='g-wave' d='M67 24a8 8 0 0 1 16 0'/><path class='g-wave w2' d='M61 24a14 14 0 0 1 28 0'/><path class='g-wave w3' d='M55 24a20 20 0 0 1 40 0'/>";
+
+// Loopback plug: the cable leaves the plug and comes straight back into it.
+const loopback = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + plug(22, false);
+const loopback2 = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + cable('M44 35C66 35 84 22 92 34C99 46 70 50 44 37', true) + plug(22, false);
+
 const ART: Record<ItemId, string> = {
   buffer1: ram(0, 6),
   buffer2: ram(10, 0) + ram(-4, 14),
@@ -55,6 +68,10 @@ const ART: Record<ItemId, string> = {
   datanode: ssd,
   split1: splitter(false),
   split2: splitter(true),
+  sidedoor: lockpick,
+  bridge: antenna,
+  loopback1: loopback,
+  loopback2,
 };
 
 export const gear = (id: ItemId) => "<svg class='gear' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';
