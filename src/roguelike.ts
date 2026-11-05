@@ -129,7 +129,7 @@ export const DAEMONS = {
     score: (f) => (f.light ? { mult: 2 } : null) },
   silent: { name: 'Silent', family: 'Ghost', text: '+2 credits each time you end a matrix early with Disconnect',
     end: (s, _f, disconnected) => { if (disconnected) earn(s, 'Silent daemon', 2); } },
-  cache: { name: 'Cache', family: 'Ghost', text: '+0.25 boost for good per matrix with 2+ empty slots; a full buffer resets it',
+  cache: { name: 'Cache', family: 'Ghost', text: 'Stacks +0.25 boost each time a matrix ends with 2+ empty buffer slots; a full buffer resets the stack',
     score: (_f, s) => (s.cache ? { boost: s.cache } : null),
     end: (s, f) => { s.cache = f.empty === 0 ? 0 : f.empty >= 2 ? s.cache + 0.25 : s.cache; } },
   longjump: { name: 'Long jump', family: 'Runner', text: '+5 data per move from one end of a lane to the other',

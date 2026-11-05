@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap">
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="app">
   <header class="bar">
     <div class="brand">
       <h1>BYPASS</h1>
@@ -54,6 +54,7 @@
       </div>
       <div class="pane" id="daemonPane" hidden>
         <p class="label" id="daemonLabel">daemons</p>
+        <button class="btn paneact" id="catalogBtn">[ catalog ]</button>
         <div class="scorebar" id="scoreLine"></div>
         <div class="daemons" id="daemons"></div>
       </div>
@@ -74,6 +75,7 @@
     </ol>
   </details>
 </div>
+<div class="overlay" id="modal" hidden><div id="modalBox" role="dialog" aria-modal="true" aria-labelledby="modalTitle"></div></div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

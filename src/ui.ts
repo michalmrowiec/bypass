@@ -156,8 +156,53 @@ const fmtEffect = (e: Effect) => [e.flat && "<span class='vd'>+" + e.flat + ' da
   e.boost && "<span class='vm'>+" + e.boost + ' boost</span>', e.mult && "<span class='vm'>×" + e.mult + '</span>'].filter(Boolean).join(' ');
 
 const shownScore: string[] = [];
+// Daemons that fired on the previous render, so a newly firing one flashes once.
+let lastFired: DaemonId[] = [];
 
-// Owned daemons; one that counts toward the current matrix lights up and shows what it adds.
+// Line icons (24×24, stroked in the family color).
+const ICONS: Record<DaemonId, string> = {
+  chain: "<rect x='2' y='8' width='12' height='8' rx='4'/><rect x='10' y='8' width='12' height='8' rx='4'/>",
+  compressor: "<rect x='9' y='8' width='6' height='8'/><path d='M2 12h4M4 10l2 2-2 2M22 12h-4M20 10l-2 2 2 2'/>",
+  fullstack: "<path d='M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5'/>",
+  overflow: "<path d='M4 12.5v8h16v-8M12 16.5v-10h7M16 3.5l3 3-3 3'/>",
+  light: "<g transform='translate(-1 0)'><path d='M8.2 11.2C8 9 10.5 8 12.5 8.2C15 8.4 17 9.5 17 12C17 14.5 15.8 16 15.6 18.5C15.4 21 14 22 12.5 22"
+    + "C10.8 22 9.8 20.8 10 19C10.2 17.2 11 16.3 10.6 14.8C10.3 13.6 8.4 13 8.2 11.2Z'/><g class='f'><ellipse cx='8.9' cy='4.7' rx='1.6' ry='2.1'/>"
+    + "<ellipse cx='12.1' cy='3.5' rx='1.1' ry='1.4'/><ellipse cx='14.6' cy='4' rx='1' ry='1.25'/><ellipse cx='16.6' cy='5.5' rx='.9' ry='1.05'/>"
+    + "<ellipse cx='17.9' cy='7.6' rx='.75' ry='.9'/></g></g>",
+  silent: "<path d='M3 10h4l5-4v12l-5-4H3zM16 9l5 6M21 9l-5 6'/>",
+  cache: "<ellipse cx='12' cy='5' rx='7' ry='2.5'/><path d='M5 5v14c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V5M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5'/>",
+  longjump: "<path d='M3 17.5h18M3 15.5v4M21 15.5v4M5 13.5C7 1.5 17 1.5 19 13.5M17 11l2 2.5 1.8-2.8'/>",
+  corner: "<path d='M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'/><circle cx='8' cy='8' r='1.5'/>",
+  // Switchback of alternating row/column moves that widens with each turn, from the start dot.
+  zigzag: "<path d='M8.5 4.75h6v6h-10v6h15M17 14.25l2.5 2.5-2.5 2.5'/><circle class='f' cx='8.5' cy='4.75' r='1.4'/>",
+};
+
+// Daemon card styled as a program file, in a floating slot; the shared clock keeps the float (5 s) and glitch (7.5 s)
+// phases steady across re-renders. Size and hash are flavor, derived from the id.
+const card = (id: DaemonId, i: number, tag: string, text: string, foot: string, cls = '') => {
+  const d = DAEMONS[id];
+  const h = hashStr(id) >>> 0;
+  return "<div class='dslot' style='--t:-" + Math.round((performance.now() + i * 2900) % 15000) + "ms'><" + tag + " class='dcard c-"
+    + d.family.toLowerCase() + cls + "'><span class='dbody'><em class='fold'></em><svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>" + ICONS[id]
+    + "</svg><span class='dmain'><b><span class='fdir'>" + d.family.toLowerCase() + '/</span><wbr>' + d.name.toLowerCase().replace(/ /g, '_<wbr>')
+    + "<span class='fext'>.dmn</span></b><small aria-hidden='true'>-rwxr-x " + (1 + (h % 80) / 10).toFixed(1) + 'K ' + h.toString(16).padStart(8, '0').slice(0, 6)
+    + '</small><span>' + text + '</span></span><i>' + foot + '</i></span></' + tag + '></div>';
+};
+
+// Cards lean toward the pointer, with a glare spot under it.
+function tilt(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('.dcard').forEach((c) => {
+    c.onpointermove = (e) => {
+      const r = c.parentElement!.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      // Wide strips: a gentler turn sideways, a stronger one front to back.
+      c.style.cssText = '--rx:' + (0.5 - y) * 16 + 'deg;--ry:' + (x - 0.5) * 8 + 'deg;--mx:' + x * 100 + '%;--my:' + y * 100 + '%';
+    };
+    c.onpointerleave = () => { c.style.cssText = ''; };
+  });
+}
+
+// Owned daemons fill the slots; one that counts toward the current matrix lights up and shows what it adds.
 function renderDaemons() {
   const sc = scoreMatrix(runCtx(), R);
   const fired = new Map(sc.fired);
@@ -171,13 +216,33 @@ function renderDaemons() {
   }
   shownScore.splice(0, 3, ...vals);
   $('daemonLabel').textContent = 'daemons ' + R.daemons.length + '/' + DAEMON_SLOTS;
-  $('daemons').innerHTML = R.daemons.map((id) => {
-    const d = DAEMONS[id];
+  $('daemons').innerHTML = Array.from({ length: DAEMON_SLOTS }, (_, i) => {
+    const id = R.daemons[i];
+    if (!id) return "<div class='dslot empty'>slot " + (i + 1) + ' · empty</div>';
     const e = fired.get(id);
-    const extra = id === 'cache' && R.cache ? ' (now +' + R.cache + ')' : '';
-    return "<div class='daemon" + (e ? ' on' : '') + "'><b>" + d.name + '</b>' + famTag(d.family) + (e ? '<i>' + fmtEffect(e) + '</i>' : '') + '<span>'
-      + d.text + extra + '</span></div>';
-  }).join('') || "<p class='hint'>none yet</p>";
+    return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : 'standby', e ? (lastFired.includes(id) ? ' on' : ' on just') : '');
+  }).join('');
+  lastFired = [...fired.keys()];
+  tilt($('daemons'));
+}
+
+// An installed Cache also shows its current stack.
+const daemonText = (id: DaemonId) =>
+  DAEMONS[id].text + (id === 'cache' && R.daemons.includes(id) ? ' · stack now +' + R.cache + ' boost' : '');
+
+// Every daemon as a card, also a dev aid; installed ones show what they add to the live matrix.
+function showCatalog() {
+  const fired = new Map(scoreMatrix(runCtx(), R).fired);
+  const ids = Object.keys(DAEMONS) as DaemonId[];
+  showResult(true, '<h2>Daemon catalog</h2><p class="meta">' + ids.length + ' daemons · installed ' + R.daemons.length + '/' + DAEMON_SLOTS + '</p>'
+    + "<div class='dlist'>" + ids.map((id, i) => {
+      const e = fired.get(id);
+      return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : R.daemons.includes(id) ? 'standby' : 'not installed', e ? ' on' : '');
+    }).join('') + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
+  tilt($('modalBox'));
+  const close = () => { hideResult(); focusGrid(); };
+  $('closeCatalog').onclick = close;
+  $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
 }
 
 // Contract stepper: rooms in order, one box per matrix with the score it banked; the live box is the matrix in play.
@@ -201,19 +266,32 @@ const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><sp
   + sc.fired.map(([id, e]) => '<tr><td>' + DAEMONS[id].name + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
 
-const famTag = (f: string) => "<span class='fam fam-" + f.toLowerCase() + "'>" + f + '</span>';
 
 function showOffer() {
   offer = offerDaemons(R);
-  if (!offer.length) return;
-  render();
+  if (!offer.length) return enterSection();
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS + '</p>'
-    + offer.map((id) => "<button class='btn pick' id='pick-" + id + "'><b>" + DAEMONS[id].name
-    + '</b>' + famTag(DAEMONS[id].family) + '<br><span>' + DAEMONS[id].text + '</span></button>').join('')
+    + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, 'install ›')).join('') + '</div>'
     + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
-  const close = () => { offer = []; $('result').hidden = true; render(); focusGrid(); };
-  for (const id of offer) $('pick-' + id).onclick = () => { R.daemons.push(id); close(); };
-  $('skipDaemon').onclick = close;
+  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { R.daemons.push(offer[i]); enterSection(); }; });
+  $('skipDaemon').onclick = enterSection;
+  tilt($('modalBox'));
+}
+
+// Room briefs for the section intro, by section index.
+const BRIEF = ['Front desk terminals. Guest Wi-Fi. Nobody watching.', 'Open-plan desks, unlocked workstations, passwords on sticky notes.',
+  'Cold air, humming racks. This is where the real data lives.'];
+
+// Section intro: the route so far, then the room's brief and terms; the matrix pours in on Breach.
+function enterSection() {
+  dealMatrix();
+  const sec = SECTIONS[R.section];
+  const at = (i: number) => (i < R.section ? ' done' : i === R.section ? ' now' : '');
+  const route = SECTIONS.map((s, i) => (i ? "<i class='link" + at(i) + "'></i>" : '') + "<span class='node" + at(i) + "'>" + s.name + '</span>').join('');
+  showResult(true, "<p class='meta'>contract · section " + (R.section + 1) + '/' + SECTIONS.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
+    + route + '</div><p>' + (BRIEF[R.section] ?? '') + "</p><p class='meta'>" + sec.size.n + '×' + sec.size.n + ' · ' + sec.matrices
+    + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + sec.quota + " data</p><div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
+  $('breach').onclick = () => { hideResult(); pour(); };
 }
 
 function dealMatrix() {
@@ -455,19 +533,29 @@ function wireCopy(id: string, text: () => string) {
   };
 }
 
+// Run mode shows its screens as a centered dialog over the locked board; the other modes keep the inline panel.
 function showResult(win: boolean, html: string) {
-  const res = $('result');
-  res.hidden = false;
-  res.className = 'result' + (win ? ' win' : '');
+  const run = S.mode === 'run';
+  const res = $(run ? 'modalBox' : 'result');
+  $(run ? 'modal' : 'result').hidden = false;
+  res.className = 'result' + (run ? ' modal' : '') + (win ? ' win' : '');
   res.innerHTML = html;
   const h2 = res.querySelector('h2');
-  if (h2) scramble(h2, h2.textContent ?? '', 2, 1, 35);
+  if (h2) {
+    if (run) h2.id = 'modalTitle';
+    scramble(h2, h2.textContent ?? '', 2, 1, 35);
+  }
+  if (run) {
+    $('app').inert = true;
+    $('modal').scrollTop = 0; // long dialogs (the catalog) open at the top
+    res.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+  }
   const on = (id: string, fn: () => void) => { const e = document.getElementById(id); if (e) e.onclick = fn; };
   on('retry', () => { S.tries++; resetRun(); });
   on('again', () => resetRun());
   on('next', () => setMode('train'));
   on('runNext', dealMatrix);
-  on('runSection', () => { nextSection(R); dealMatrix(); showOffer(); });
+  on('runSection', () => { nextSection(R); showOffer(); });
   on('runNew', () => setMode('run'));
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
@@ -475,12 +563,18 @@ function showResult(win: boolean, html: string) {
   wireCopy('share', () => $('shareTxt').textContent ?? '');
 }
 
+function hideResult() {
+  $('result').hidden = $('modal').hidden = true;
+  $('app').inert = false;
+  $('modal').onkeydown = null; // Esc closes only the catalog
+}
+
 function resetRun() {
   clearInterval(S.timer);
   Object.assign(S, { run: newRun(), start: 0, elapsed: 0, over: false, stage: 0, dealing: false });
   offer = [];
   doneSeen.clear();
-  $('result').hidden = true;
+  hideResult();
   pour();
 }
 
@@ -512,7 +606,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
   } else if (m === 'run') {
     S.seed = seed;
     R = newRunState(seed);
-    dealMatrix();
+    enterSection();
   } else {
     $('meta').textContent = sprintMeta() + (challenge ? ' · challenge' : '');
     S.seed = seed;
@@ -570,6 +664,7 @@ export function init() {
   $('modeTrain').onclick = () => setMode('train');
   $('modeSprint').onclick = () => setMode('sprint');
   $('modeRun').onclick = () => setMode('run');
+  $('catalogBtn').onclick = showCatalog;
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => {
     b.onclick = () => { S.size = b.dataset.size as SizeKey; setMode('train'); };
   });
