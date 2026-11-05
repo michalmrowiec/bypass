@@ -1,19 +1,69 @@
-// Company logos for the contract carousel (viewBox 120×120, drawn in currentColor).
-const ring = "<circle class='lg-ring' cx='60' cy='60' r='54'/><circle class='lg-orbit' cx='60' cy='60' r='46'/>";
+// Company logos (viewBox 120×120). Colours are the --lg1..4 of each company's `lg-<id>` class in style.css,
+// so the watermark and sealed cards recolour a logo without touching its markup.
+const BG = 'var(--bg)';
+const stops = (cs: string) => cs.split(' ').map((c, i, a) => `<stop offset='${i / (a.length - 1)}' style='stop-color:var(--lg${c})'/>`).join('');
+const lin = (id: string, [x1, y1, x2, y2]: number[], cs: string) =>
+  `<linearGradient id='${id}' gradientUnits='userSpaceOnUse' x1='${x1}' y1='${y1}' x2='${x2}' y2='${y2}'>${stops(cs)}</linearGradient>`;
+const rad = (id: string, [cx, cy, r]: number[], cs: string) =>
+  `<radialGradient id='${id}' gradientUnits='userSpaceOnUse' cx='${cx}' cy='${cy}' r='${r}'>${stops(cs)}</radialGradient>`;
+const ecg = 'M4 60H34L40 50L48 74L56 38L64 82L70 60H116';
+const bolt = 'M62 12L26 66H54L44 110L94 48H66L80 12Z';
+const strand = (a: number, b: number) => `M${a} 12C${a} 38 ${b} 34 ${b} 60C${b} 86 ${a} 82 ${a} 108`;
+const ringBack = 'M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
+const star = (x: number, y: number, r: number) => `M${x} ${y - r}L${x + r * .3} ${y - r * .3}L${x + r} ${y}L${x + r * .3} ${y + r * .3}L${x} ${y + r}L${x - r * .3} ${y + r * .3}L${x - r} ${y}L${x - r * .3} ${y - r * .3}Z`;
 
-const LOGOS: Record<string, string> = {
-  // A kestrel in a stoop: swept wings, fanned tail.
-  kestrel: ring + "<path class='lg-fill' d='M60 30L67 45L106 35L85 56L71 58L67 75L60 92L53 75L49 58L35 56L14 35L53 45Z'/>"
-    + "<path class='lg-cut' d='M60 45V70'/>",
-  // A medical cross with a heartbeat running through it.
-  meridian: ring + "<path class='lg-fill' d='M50 24h20v26h26v20H70v26H50V70H24V50h26z'/>"
-    + "<path class='lg-cut' d='M18 60h22l6-13 9 27 7-21 5 7h35'/>",
+// u: a per-render prefix, so gradient ids never clash between copies of one logo on the page.
+const LOGOS: Record<string, (u: string) => string> = {
+  // Kestrel Logistics: a wing in three strokes.
+  kestrel: (u) => `<defs>${lin(u + 'a', [0, 30, 0, 100], '1 2 3')}</defs>`
+    + `<g fill='url(#${u}a)'><path d='M30 30H100L92 48H22Z'/><path d='M24 56H84L76 74H16Z'/><path d='M18 82H62L54 100H10Z'/></g>`,
+  // Meridian Health: a cross with a heartbeat running through it.
+  meridian: (u) => `<defs>${lin(u + 'a', [10, 10, 110, 110], '1 2')}</defs>`
+    + `<path fill='url(#${u}a)' d='M52 10H68A8 8 0 0 1 76 18V44H102A8 8 0 0 1 110 52V68A8 8 0 0 1 102 76H76V102A8 8 0 0 1 68 110H52A8 8 0 0 1 44 102V76H18A8 8 0 0 1 10 68V52A8 8 0 0 1 18 44H44V18A8 8 0 0 1 52 10Z'/>`
+    + `<path d='${ecg}' fill='none' stroke='${BG}' stroke-width='6' stroke-linejoin='round' stroke-linecap='round'/>`
+    + `<path class='lg-trace' pathLength='100' d='${ecg}' fill='none' style='stroke:var(--lg3)' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round'/>`,
+  // Not in the game yet: logos for future contracts.
+  // Aurum Capital: a folded A over an emerald bar.
+  aurum: (u) => `<defs>${lin(u + 'a', [0, 16, 0, 104], '1 2')}${lin(u + 'b', [0, 16, 0, 104], '2 4')}</defs>`
+    + `<rect x='30' y='66' width='60' height='12' style='fill:var(--lg3)'/>`
+    + `<path fill='url(#${u}b)' d='M108 104L70 16H58L92 104Z'/><path fill='url(#${u}a)' d='M12 104L50 16H62L28 104Z'/>`,
+  // Helix Biosystems: two ribbons, one twist.
+  helix: (u) => `<defs>${lin(u + 'a', [0, 12, 0, 108], '1 2')}${lin(u + 'b', [0, 12, 0, 108], '2 3')}</defs>`
+    + `<g fill='none' stroke-linecap='round'><path d='${strand(82, 38)}' stroke='url(#${u}b)' stroke-width='11'/>`
+    + `<path d='${strand(38, 82)}' stroke='${BG}' stroke-width='19'/><path d='${strand(38, 82)}' stroke='url(#${u}a)' stroke-width='11'/></g>`,
+  // Voltline Energy: a bolt breaking out of a hex grid.
+  voltline: (u) => `<defs>${lin(u + 'a', [15, 34, 105, 86], '3 2')}${lin(u + 'b', [44, 12, 80, 110], '1 2')}</defs>`
+    + `<path d='M60 8L105 34V86L60 112L15 86V34Z' style='fill:var(--lg3)' fill-opacity='.12' stroke='url(#${u}a)' stroke-width='3' stroke-linejoin='round'/>`
+    + `<path d='M15 44H105M15 60H105M15 76H105' style='stroke:var(--lg3)' stroke-width='1.5' opacity='.5'/>`
+    + `<path d='${bolt}' fill='${BG}' stroke='${BG}' stroke-width='8' stroke-linejoin='round'/><path class='lg-flick' d='${bolt}' fill='url(#${u}b)'/>`,
+  // Kármán Aerospace: a ringed planet with a satellite.
+  karman: (u) => `<defs>${rad(u + 'a', [48, 46, 40], '2 1 1')}${lin(u + 'b', [6, 60, 114, 60], '3 2 3')}</defs>`
+    + `<g transform='rotate(-18 60 60)'><path d='${ringBack}' fill='none' stroke='url(#${u}b)' stroke-width='3' opacity='.6'/></g>`
+    + `<circle cx='60' cy='60' r='30' fill='url(#${u}a)'/>`
+    + `<g transform='rotate(-18 60 60)'><path d='${ringFront}' fill='none' stroke='${BG}' stroke-width='7'/><path d='${ringFront}' fill='none' stroke='url(#${u}b)' stroke-width='3'/>`
+    + `<circle cx='100' cy='70.1' r='4' style='fill:var(--lg3)' stroke='${BG}' stroke-width='2'/></g>`
+    + `<path class='lg-twinkle' d='${star(98, 22, 10)}' style='fill:var(--lg3)'/>`,
+  // Nyx Exchange: a cut diamond with one glint.
+  nyx: (u) => `<defs>${lin(u + 'a', [14, 30, 106, 112], '2 1')}${lin(u + 'b', [14, 30, 106, 112], '1 2')}${lin(u + 'c', [36, 30, 84, 50], '3 1')}</defs>`
+    + `<g stroke='${BG}' stroke-width='1.4' stroke-linejoin='round'>`
+    + [['M14 50L36 30L41 50Z', 'a'], ['M36 30L60 50H41Z', 'b'], ['M36 30H84L60 50Z', 'c'], ['M84 30L79 50H60Z', 'b'], ['M84 30L106 50H79Z', 'a'],
+      ['M14 50H41L60 112Z', 'b'], ['M41 50H60V112Z', 'a'], ['M60 50H79L60 112Z', 'b'], ['M79 50H106L60 112Z', 'a']]
+      .map(([d, k]) => `<path d='${d}' fill='url(#${u}${k})'/>`).join('') + '</g>'
+    + `<path class='lg-twinkle' d='${star(90, 17, 9)}' style='fill:var(--lg3)'/>`,
+  // Argus Telecom: a signal broadcast from one point.
+  argus: (u) => `<defs>${lin(u + 'a', [10, 0, 110, 0], '1 2 1')}</defs>`
+    + `<g fill='none' stroke='url(#${u}a)' stroke-width='7' stroke-linecap='round'>`
+    + [22, 36, 50].map((r, i) => {
+      const d = (r * Math.SQRT1_2).toFixed(1), lo = (60 - +d).toFixed(1), hi = (60 + +d).toFixed(1);
+      return `<path class='lg-wave' style='animation-delay:${i * .3}s' d='M${hi} ${lo}A${r} ${r} 0 0 1 ${hi} ${hi}M${lo} ${lo}A${r} ${r} 0 0 0 ${lo} ${hi}'/>`;
+    }).join('') + `</g><circle cx='60' cy='60' r='9' style='fill:var(--lg2)'/>`,
 };
 
 const LOCKED = "<circle class='lg-ring dashed' cx='60' cy='60' r='54'/><text class='lg-q' x='60' y='78'>?</text>";
 
-// Each company's colours come from its `lg-<id>` class in style.css.
-export const logo = (id?: string) => "<svg class='flogo" + (id ? ' lg-' + id : '') + "' viewBox='0 0 120 120' aria-hidden='true'>" + (id ? LOGOS[id] : LOCKED) + '</svg>';
+let seq = 0;
+export const logo = (id?: string) => "<svg class='flogo" + (id ? ' lg-' + id : '') + "' viewBox='0 0 120 120' aria-hidden='true'>"
+  + (id && LOGOS[id] ? LOGOS[id]('lg' + ++seq) : LOCKED) + '</svg>';
 
 // Run briefing art: a hooded hacker behind a laptop, the code mirrored in their glasses (lines flipped, as a reflection).
 export const hacker = "<svg class='hacker' viewBox='0 0 200 200' aria-hidden='true'>"
