@@ -57,6 +57,24 @@ const antenna = "<rect class='g-plug' x='48' y='58' width='54' height='14' rx='3
 const loopback = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + plug(22, false);
 const loopback2 = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + cable('M44 35C66 35 84 22 92 34C99 46 70 50 44 37', true) + plug(22, false);
 
+// USB stick with an activity LED.
+const thumb = "<rect class='g-pcb' x='28' y='28' width='72' height='28' rx='5'/><rect class='g-steel' x='100' y='33' width='24' height='18'/>"
+  + "<rect class='g-hole' x='107' y='38' width='4' height='4'/><rect class='g-hole' x='115' y='38' width='4' height='4'/>"
+  + "<circle class='g-act' cx='40' cy='42' r='2.5'/><text class='g-silk' x='50' y='45'>+5 DATA</text>";
+// Smart card with a gold contact pad.
+const chip = "<rect class='g-plug' x='32' y='16' width='86' height='54' rx='6'/><rect class='g-chip' x='44' y='30' width='24' height='20' rx='3'/>"
+  + "<text class='g-silk' x='76' y='62'>CREDIT</text>";
+// A probe sending pings to the right.
+const ping = "<rect class='g-plug' x='26' y='34' width='26' height='16' rx='3'/><circle class='g-act' cx='34' cy='42' r='2'/>"
+  + "<path class='g-wave' d='M62 32a14 14 0 0 1 0 20'/><path class='g-wave w2' d='M74 24a26 26 0 0 1 0 36'/><path class='g-wave w3' d='M86 16a38 38 0 0 1 0 52'/>";
+// Finned heatsink on a base plate.
+const heatsink = "<rect class='g-plug' x='30' y='58' width='90' height='10' rx='2'/>"
+  + [34, 44, 54, 64, 74, 84, 94, 104].map((x) => "<rect class='g-steel' x='" + x + "' y='24' width='5' height='34'/>").join('');
+
+// Prepaid SIM: cut corner, gold contacts.
+const sim = "<path class='g-plug' d='M40 16h56l14 14v40H40z'/><rect class='g-chip' x='56' y='32' width='34' height='26' rx='3'/>"
+  + "<path class='g-cut' d='M73 32v26M56 45h34'/><text class='g-silk' x='46' y='26'>PREPAID</text>";
+
 const ART: Record<ItemId, string> = {
   buffer1: ram(0, 6),
   buffer2: ram(10, 0) + ram(-4, 14),
@@ -72,6 +90,11 @@ const ART: Record<ItemId, string> = {
   bridge: antenna,
   loopback1: loopback,
   loopback2,
+  thumb,
+  chip,
+  ping,
+  heatsink,
+  sim,
 };
 
 export const gear = (id: ItemId) => "<svg class='gear' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';

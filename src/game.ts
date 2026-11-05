@@ -17,7 +17,11 @@ export interface Run {
   axis: 'row' | 'col';
   idx: number;
   free?: [number, number]; // after a Side door corner: the next pick may take this cell's row or its column
+  burn?: number; // Corruption ICE: each pick locks its 4 neighbours for this many moves (Infinity: for good)
+  burnt?: Map<string, number>; // cell -> path length from which it is free again
 }
+
+export const burning = (run: Run, r: number, c: number) => (run.burnt?.get(r + ',' + c) ?? 0) > run.path.length;
 
 // The lane the next pick comes from: one row or column, or both lines through `free`.
 export const inLane = (run: Run, r: number, c: number) =>
@@ -53,7 +57,7 @@ export function targetProgress(buf: string[], t: string[], l: number, over: bool
 }
 
 export function isLegal(run: Run, r: number, c: number): boolean {
-  return !run.used.has(r + ',' + c) && inLane(run, r, c);
+  return !run.used.has(r + ',' + c) && inLane(run, r, c) && !burning(run, r, c);
 }
 
 export function anyLegal(run: Run, n: number): boolean {
@@ -65,6 +69,13 @@ export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
   run.buffer.push(puzzle.grid[r][c]);
   run.used.add(r + ',' + c);
   run.path.push([r, c]);
+  if (run.burn) {
+    const burnt = (run.burnt ??= new Map());
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const k = r + dr + ',' + (c + dc);
+      burnt.set(k, Math.max(burnt.get(k) ?? 0, run.path.length + run.burn));
+    }
+  }
   const alongRow = run.free ? r === run.free[0] : run.axis === 'row';
   run.free = undefined;
   if (alongRow) { run.axis = 'col'; run.idx = c; }

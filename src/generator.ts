@@ -4,7 +4,10 @@ export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 // picked at random from the list. The buffer fits the chained sequence plus `slack` spare slots, so with
 // slack 0 every link is required to win. codes: the pool cells and targets are drawn from (default CODES).
 // deep: 1 makes one link overlap 2 codes instead of 1 (needs two targets of 3+ codes).
-export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number }
+// block: a sealed row or column (BLOCK cells); the solution path never touches it.
+// burn: Corruption; the solution path never steps next to any of its last `burn` cells.
+export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number }
+export const BLOCK = '##';
 export const SIZES = {
   easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
   normal: { n: 6, lens: [2, 3, 3], links: [0, 1, 1, 2], slack: 0 },
@@ -39,7 +42,7 @@ export function rng(seed: number): () => number {
   };
 }
 
-export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES, deep: deepOpt = 0 }: Size = SIZES.normal): Puzzle {
+export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES, deep: deepOpt = 0, block, burn }: Size = SIZES.normal): Puzzle {
   // One code can't make distinct, non-uniform targets: the retry loop would never end.
   if (new Set(codes).size < 2) throw new Error('code pool needs at least 2 distinct codes');
   const r = rng(seed);
@@ -48,9 +51,11 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
   // Only between targets of 3+ codes, so neither fits inside the other.
   const deep = deepOpt && links && lens.filter((l) => l >= 3).length >= 2 ? 1 : 0;
   const planted = lens.reduce((a, b) => a + b, 0) - links - deep;
+  const sealed = (c: [number, number]) => !!block && c[block[0] === 'row' ? 0 : 1] === block[1];
+  const startCols = Array.from({ length: N }, (_, c) => c).filter((c) => !sealed([0, c]));
   for (;;) {
     // Walk a random legal path long enough for the chained targets, then plant them along it.
-    const path: [number, number][] = [[0, Math.floor(r() * N)]];
+    const path: [number, number][] = [[0, pick(startCols)]];
     let horiz = false;
     let ok = true;
     while (path.length < planted) {
@@ -58,7 +63,9 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
       const opts: [number, number][] = [];
       for (let i = 0; i < N; i++) {
         const cell: [number, number] = horiz ? [pr, i] : [i, pc];
-        if (!path.some((p) => p[0] === cell[0] && p[1] === cell[1])) opts.push(cell);
+        if (sealed(cell) || path.some((p) => p[0] === cell[0] && p[1] === cell[1])) continue;
+        if (burn && path.slice(-burn).some((p) => Math.abs(p[0] - cell[0]) + Math.abs(p[1] - cell[1]) === 1)) continue;
+        opts.push(cell);
       }
       if (!opts.length) { ok = false; break; }
       path.push(pick(opts));
@@ -85,6 +92,7 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
     const seq = order.flatMap((ti, j) => targets[ti].slice(j === deepAt ? 2 : linked.has(j) ? 1 : 0));
     const grid = Array.from({ length: N }, () => Array.from({ length: N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
+    if (block) for (let i = 0; i < N; i++) grid[block[0] === 'row' ? block[1] : i][block[0] === 'row' ? i : block[1]] = BLOCK;
     return { grid, targets, l: planted + slack, path };
   }
 }

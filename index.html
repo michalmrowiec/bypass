@@ -24,7 +24,9 @@
 
   <div class="pane" id="steps" hidden>
     <p class="label">contract</p>
+    <p class="credits" id="stepCr"></p>
     <div class="steplist" id="stepList"></div>
+    <div class="tally" id="tally"></div>
   </div>
 
   <div class="board">
@@ -41,6 +43,7 @@
       </div>
       <div class="timebar" id="timebar" hidden><i></i></div>
       <p class="hint" id="laneLabel">Pick a code in the top row</p>
+      <div class="wmark" id="wmark" aria-hidden="true"></div>
       <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>
       <p class="hint" id="peek" aria-live="polite"></p>    </section>
     <section class="side">

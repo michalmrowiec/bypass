@@ -1,22 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { contains, isLegal, newRun, pick, WILD } from './game';
 import { canComplete } from './solver';
-import { generate } from './generator';
+import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  coverage, cutMarks, placeCells, sideDoor, removeDaemon, scoreMatrix, sectionMatrix, SECTIONS, SHELF, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
   type DaemonId, type ItemId,
 } from './roguelike';
+
+const SECTIONS = COMPANIES[0].sections;
+const BOSS = SECTIONS.length - 1;
 
 describe('roguelike run', () => {
   it('scores uploaded targets by length', () => {
     expect(matrixData(['A', 'B', 'C', 'D'], [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']])).toBe(35);
   });
 
-  it('sections grow 5x5 -> 7x7 with no spare buffer and max data 45/60/95', () => {
-    expect(SECTIONS.map((_, i) => sectionMatrix(i).n)).toEqual([5, 6, 7]);
-    expect(SECTIONS.map((_, i) => sectionMatrix(i).slack)).toEqual([0, 0, 0]);
-    expect(SECTIONS.map((_, i) => sectionMatrix(i).lens.reduce((a, l) => a + DATA_BY_LEN[l], 0))).toEqual([45, 60, 95]);
+  it('sections grow 5x5 -> 7x7 with no spare buffer and max data 45/60/95/95', () => {
+    expect(SECTIONS.map((_, i) => sectionMatrix(i).n)).toEqual([5, 6, 7, 7]);
+    expect(SECTIONS.map((_, i) => sectionMatrix(i).slack)).toEqual([0, 0, 0, 0]);
+    expect(SECTIONS.map((_, i) => sectionMatrix(i).lens.reduce((a, l) => a + DATA_BY_LEN[l], 0))).toEqual([45, 60, 95, 95]);
   });
 
   it('plays every matrix of a room, even past the quota', () => {
@@ -39,14 +42,14 @@ describe('roguelike run', () => {
     const s = newRunState(1);
     s.section = 1;
     endMatrix(s, 60, 0);
-    endMatrix(s, 55, 0); // 115 vs quota 70: surplus 45
+    endMatrix(s, 70, 0); // 130 vs quota 90: surplus 40
     expect(s.credits).toBe(1 + 2);
     nextSection(s);
     expect([s.section, s.data, played(s)]).toEqual([2, 0, 0]);
   });
 
-  it('rooms grow from 1 to 3 matrices', () => {
-    expect(SECTIONS.map((sec) => sec.matrices)).toEqual([1, 2, 3]);
+  it('rooms grow from 1 to 3 matrices, then the SOC plays 2', () => {
+    expect(SECTIONS.map((sec) => sec.matrices)).toEqual([1, 2, 3, 2]);
     const s = newRunState(1);
     expect(endMatrix(s, 30, 0)).toBe('section');
     expect(s.scores[0]).toEqual([30]);
@@ -57,12 +60,6 @@ describe('roguelike run', () => {
     expect(endMatrix(s, 20, 0)).toBe('lose');
   });
 
-  it('wins after the last section', () => {
-    const s = newRunState(1);
-    s.section = SECTIONS.length - 1;
-    s.scores[s.section] = [0, 0];
-    expect(endMatrix(s, 1000, 0)).toBe('win');
-  });
 });
 
 describe('daemons', () => {
@@ -92,11 +89,11 @@ describe('daemons', () => {
     expect(scoreMatrix(ctx, s).total).toBe(43); // 4 empty slots: the first matrix already counts, ×1.25
     daemonsAfterMatrix(ctx, s, false);
     daemonsAfterMatrix(ctx, s, false);
-    expect(s.cache).toBe(0.5);
+    expect(s.stacks.cache).toBe(2);
     expect(scoreMatrix(ctx, s).total).toBe(61); // ×1.75
     expect(scoreMatrix({ ...ctx, l: 4 }, s).fired).toEqual([]);
     daemonsAfterMatrix({ ...ctx, l: 4 }, s, false);
-    expect(s.cache).toBe(0);
+    expect(s.stacks.cache).toBe(0);
   });
 
   it('Silent pays credits only for a disconnect', () => {
@@ -123,13 +120,21 @@ describe('daemons', () => {
     expect(offerDaemons(run('chain'))).toEqual(o);
   });
 
+  it('still offers daemons with every slot full', () => {
+    const o = offerDaemons(run('chain', 'cache', 'corner', 'silent'));
+    expect(o).toHaveLength(3);
+    expect(o.some((id) => ['chain', 'cache', 'corner', 'silent'].includes(id))).toBe(false);
+  });
+
   it('previews only the owned path daemons for one move', () => {
     const path = ctx.path.slice(0, 2); // (0,0) -> (4,0): a length-4 move
-    expect(movePreview([], [0, 4], 5, ['corner'])).toEqual(['corner start ×1.5']);
-    expect(movePreview(path, [4, 4], 5, ['corner', 'longjump', 'zigzag'])).toEqual(['long jump +5']); // corner start already counts
+    expect(movePreview([], [0, 4], 5, ['corner'])).toEqual([{ id: 'corner', name: 'corner start', add: '×1.5', kind: 'boost' }]);
+    // corner start already counts; one long jump is banked, this one adds another
+    expect(movePreview(path, [4, 4], 5, ['corner', 'longjump', 'zigzag'])).toEqual([{ id: 'longjump', name: 'long jump', now: '5', add: '+5', kind: 'data' }]);
+    expect(movePreview(path, [4, 4], 5, ['longjump'], [1])).toEqual([{ id: 'longjump', name: 'long jump', now: undefined, add: '+5', kind: 'data' }]); // a jump is no move
     expect(movePreview(path, [4, 4], 5, [])).toEqual([]);
     expect(movePreview([[0, 1], [3, 1]], [3, 0], 5, ['zigzag'])).toEqual([]);
-    expect(movePreview([[0, 1], [1, 1]], [1, 4], 5, ['zigzag', 'corner'])).toEqual(['zigzag +0.5 boost']);
+    expect(movePreview([[0, 1], [1, 1]], [1, 4], 5, ['zigzag', 'corner'])).toEqual([{ id: 'zigzag', name: 'zigzag', now: undefined, add: '+0.5 boost', kind: 'boost' }]);
   });
 });
 
@@ -155,12 +160,14 @@ describe('shop', () => {
     expect(forSale(s)).not.toContain('buffer1');
   });
 
-  it('charges for items, rerolls and daemon removal', () => {
+  it('charges for items, rerolls and daemon swaps', () => {
     const s = { ...rich(3), shelf: ['buffer1'] as ItemId[], daemons: ['chain'] as DaemonId[] };
     expect(buy(s, 'buffer1')).toBe(false);
     expect(stockShop(s, true)).toBe(true);
-    expect(removeDaemon(s, 'chain')).toBe(true);
-    expect([s.daemons, s.credits]).toEqual([[], 0]);
+    expect(swapDaemon(s, 'chain', 'cache')).toBe(false);
+    s.credits = SWAP_COST;
+    expect(swapDaemon(s, 'chain', 'cache')).toBe(true);
+    expect([s.daemons, s.credits]).toEqual([['cache'], 0]);
     expect(stockShop(s, true)).toBe(false);
   });
 
@@ -255,5 +262,211 @@ describe('movement items', () => {
     const s = { ...newRunState(1), daemons: ['longjump'] as DaemonId[] };
     expect(scoreMatrix(ctx, s).total).toBe(45);
     expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(40);
+  });
+});
+
+describe('SOC ICE', () => {
+  const boss = (ice: 'firewall' | 'throttle' | 'blackout') => ({ ...newRunState(3), section: BOSS, ice });
+
+  it('Firewall seals one line off the solution path', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const p = dealRunMatrix(seed, boss('firewall'));
+      const sealed = p.grid.flatMap((row, r) => row.map((code, c) => [r, c, code] as const)).filter(([, , code]) => code === BLOCK);
+      expect(sealed).toHaveLength(7);
+      expect(sealed.some(([r, c]) => p.path!.some((q) => q[0] === r && q[1] === c))).toBe(false);
+      expect(sealed.some(([r]) => r === 0) && sealed.every(([r]) => r === 0)).toBe(false); // never the whole top row
+    }
+  });
+
+  it('Throttle cuts one buffer slot', () => {
+    expect(dealRunMatrix(5, boss('throttle')).l).toBe(3 + 3 + 4 - 2 - 1);
+  });
+
+  it('Blackout keeps every top-row start in reach of a target', () => {
+    const p = dealRunMatrix(8, boss('blackout'));
+    for (let c = 0; c < 7; c++) {
+      const run = newRun();
+      pick(run, p, 0, c);
+      expect(p.targets.some((t) => canComplete(run, { ...p, targets: [t] }))).toBe(true);
+    }
+  });
+
+  it('draws the ICE rule from the run seed', () => {
+    expect(newRunState(42).ice).toBe(newRunState(42).ice);
+  });
+
+  it("draws the ICE rule from the company's pool", () => {
+    COMPANIES.forEach((co, i) => {
+      for (let seed = 1; seed <= 20; seed++) expect(co.ice).toContain(newRunState(seed, i).ice);
+    });
+  });
+});
+
+describe('companies', () => {
+  it('breaching a company opens the next one', () => {
+    expect([0, 1].map((i) => companyOpen([], i))).toEqual([true, false]);
+    expect(companyOpen([COMPANIES[0].id], 1)).toBe(true);
+    expect(companyOpen([COMPANIES[1].id], 1)).toBe(false);
+  });
+
+  it('every room of every company deals a solvable matrix', () => {
+    COMPANIES.forEach((co, ci) => co.sections.forEach((sec, i) => {
+      for (let seed = 1; seed <= 4; seed++) {
+        const p = generate(seed, sectionMatrix(i, [], ci));
+        expect(p.grid).toHaveLength(sec.size.n);
+        expect(canComplete(newRun(), p)).toBe(true);
+      }
+    }));
+  });
+});
+
+describe('iterations', () => {
+  it('doubles the quotas each iteration and wins after the third boss', () => {
+    const s = newRunState(1);
+    s.section = BOSS;
+    s.scores[BOSS] = [0];
+    expect(endMatrix(s, 1000, 0)).toBe('loop');
+    const p = nextSection(s)!;
+    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 50]);
+    expect(COMPANIES[0].patches).toContain(p.ice);
+    Object.assign(s, { loop: 2, section: BOSS, data: 0 });
+    s.scores[BOSS] = [0];
+    expect(endMatrix(s, 999, 0)).toBe('lose');
+    s.scores[BOSS] = [0];
+    s.data = 0;
+    expect(endMatrix(s, 1000, 0)).toBe('win');
+  });
+
+  it('draws the same patch from the same seed and shows it once its room is entered', () => {
+    const wrap = () => { const s = newRunState(9); s.section = BOSS; return [s, nextSection(s)!] as const; };
+    const [s, p] = wrap();
+    expect(wrap()[1]).toEqual(p);
+    expect(revealed(s, p)).toBe(p.room === 0);
+    s.section = p.room;
+    expect(revealed(s, p)).toBe(true);
+  });
+
+  it('Corruption lasts one move per patch, for good from the third', () => {
+    const s = newRunState(1);
+    s.loop = 2;
+    const cp = (room: number, loop: number) => ({ ice: 'corruption' as const, room, loop });
+    s.patches = [cp(0, 1)];
+    expect([burnOf(s, 0), burnOf(s, 1)]).toEqual([1, 0]);
+    s.patches.push(cp(1, 2));
+    expect([burnOf(s, 0), burnOf(s, 1)]).toEqual([2, 2]);
+    s.patches.push(cp(0, 2));
+    expect(burnOf(s, 0)).toBe(Infinity);
+  });
+});
+
+describe('Corruption', () => {
+  it('a pick locks its neighbours for the burn length', () => {
+    const p = generate(4, sectionMatrix(2));
+    const run = { ...newRun(), burn: 1 };
+    pick(run, p, 0, 2);
+    expect(isLegal(run, 1, 2)).toBe(false);
+    expect(isLegal(run, 3, 2)).toBe(true);
+    pick(run, p, 3, 2);
+    pick(run, p, 3, 0);
+    expect(isLegal(run, 1, 0)).toBe(true);
+    expect(run.burnt!.get('1,2')).toBe(2);
+  });
+
+  it('deals matrices whose solution path keeps clear of the lock', () => {
+    for (const burn of [1, 2, Infinity]) for (let seed = 1; seed <= 15; seed++) {
+      const p = generate(seed, { ...sectionMatrix(2), burn });
+      const run = { ...newRun(), burn };
+      for (const [r, c] of p.path!) {
+        expect(isLegal(run, r, c)).toBe(true);
+        pick(run, p, r, c);
+      }
+      expect(p.targets.every((t) => contains(run.buffer, t))).toBe(true);
+      expect(canComplete({ ...newRun(), burn }, p)).toBe(true);
+    }
+  });
+});
+
+describe('economy', () => {
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
+
+  it('caps the surplus credits per room; a Credit chip adds 1', () => {
+    const s = { ...newRunState(1), items: ['chip'] as ItemId[] };
+    endMatrix(s, 1000, 0);
+    expect(s.earned.map(([, n]) => n)).toEqual([1, 3, 1]);
+  });
+
+  it('a full rack blocks new modules but not upgrades; slots cost more each; selling returns half', () => {
+    const s = { ...newRunState(1), credits: 50, items: ['buffer1', 'shortkey', 'bridge', 'thumb'] as ItemId[], shelf: ['datanode', 'buffer2'] as ItemId[] };
+    expect(buy(s, 'datanode')).toBe(false);
+    expect(buy(s, 'buffer2')).toBe(true);
+    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([5, true, RACK_BASE + 1, 7]);
+    expect(buy(s, 'datanode')).toBe(true);
+    const before = s.credits;
+    expect(sell(s, 'buffer2')).toBe(true);
+    expect(s.credits - before).toBe(4); // (4 + 4) / 2
+  });
+
+  it('Thumb drive adds data to a matrix that uploads; Heatsink shortens Corruption', () => {
+    const s = { ...newRunState(1), items: ['thumb'] as ItemId[] };
+    expect(scoreMatrix(ctx, s).total).toBe(40);
+    expect(scoreMatrix({ ...ctx, buf: ['X'] }, s).total).toBe(0);
+    const h = { ...newRunState(1), loop: 1, items: ['heatsink'] as ItemId[], patches: [{ ice: 'corruption' as const, room: 0, loop: 1 }] };
+    expect(burnOf(h, 0)).toBe(0);
+    h.patches.push({ ice: 'corruption', room: 0, loop: 1 }, { ice: 'corruption', room: 0, loop: 1 });
+    expect(burnOf(h, 0)).toBe(2);
+  });
+});
+
+describe('Burner SIM', () => {
+  it('re-deals only with the SIM, once per room, from the room after the shop', () => {
+    const s = { ...newRunState(1), credits: 9, shelf: ['sim'] as ItemId[] };
+    expect(s.restarts).toBe(0);
+    expect(buy(s, 'sim')).toBe(true);
+    expect(s.restarts).toBe(1);
+    restartMatrix(s);
+    nextSection(s);
+    expect(s.restarts).toBe(1);
+    sell(s, 'sim');
+    expect(s.restarts).toBe(0);
+  });
+});
+
+describe('cron daemons', () => {
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
+  const run = (...daemons: DaemonId[]) => ({ ...newRunState(1), daemons });
+
+  it('Heartbeat stacks while every target goes up and resets on a miss', () => {
+    const s = run('heartbeat');
+    daemonsAfterMatrix(ctx, s, false);
+    daemonsAfterMatrix(ctx, s, false);
+    expect(scoreMatrix(ctx, s).fired).toEqual([['heartbeat', { boost: 0.75 }]]);
+    daemonsAfterMatrix({ ...ctx, targets: [...ctx.targets, ['X', 'Y']] }, s, false);
+    expect(s.stacks.heartbeat).toBe(0);
+  });
+
+  it('Rotate needs a new start column each matrix', () => {
+    const s = run('rotate');
+    daemonsAfterMatrix(ctx, s, false);
+    daemonsAfterMatrix({ ...ctx, path: [[0, 3], [4, 3]] }, s, false);
+    expect(s.stacks.rotate).toBe(2);
+    daemonsAfterMatrix({ ...ctx, path: [[0, 3], [4, 3]] }, s, false);
+    expect(s.stacks.rotate).toBe(0);
+  });
+
+  it('Backup wants exactly one empty slot; Uptime breaks on Disconnect or restart', () => {
+    const b = run('backup');
+    daemonsAfterMatrix({ ...ctx, l: 5 }, b, false);
+    expect(b.stacks.backup).toBe(1);
+    daemonsAfterMatrix(ctx, b, false);
+    expect(b.stacks.backup).toBe(0);
+    const u = run('uptime');
+    daemonsAfterMatrix(ctx, u, false);
+    daemonsAfterMatrix(ctx, u, false);
+    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 30 }]]);
+    restartMatrix(u);
+    expect(u.stacks.uptime).toBe(0);
+    daemonsAfterMatrix(ctx, u, false);
+    daemonsAfterMatrix(ctx, u, true);
+    expect(u.stacks.uptime).toBe(0);
   });
 });

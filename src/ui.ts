@@ -1,16 +1,17 @@
-import { generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
+import { BLOCK, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
-  stageSeed, targetProgress, WILD, fits, inLane,
+  stageSeed, targetProgress, WILD, fits, inLane, burning,
 } from './game';
 import { gear } from './gear';
+import { logo } from './logos';
 import { canComplete } from './solver';
 import {
   buy, coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
-  cutMarks, NODE_DATA, offerDaemons, sideDoor, placeCells, REMOVE_COST, removeDaemon, REROLL_COST, scoreMatrix, SECTIONS, sectionMatrix, splitTarget, stockShop,
-  type DaemonId, type Effect, type ItemId, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, streakOf, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
 } from './roguelike';
-import { dayNumber, firstResult, load, recordFirst, save, utcDate } from './storage';
+import { breached, dayNumber, firstResult, load, recordBreach, recordFirst, save, setBreached, utcDate } from './storage';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
 interface DailyRecord { score: number; tries: number; time: number }
@@ -37,6 +38,7 @@ const S = {
 let R: RunState = newRunState(0);
 // Daemons on offer; while non-empty the board is visible but locked.
 let offer: DaemonId[] = [];
+let endWhy = ''; // why a run matrix ended on its own
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
 let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; jumps: number[] } =
   { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, jumps: [] };
@@ -44,7 +46,6 @@ type Tool = 'wild' | 'split' | 'jump' | 'loop';
 const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop' };
 const loopAny = () => R.items.includes('loopback2');
 // One rack unit per item family: a v2.0 replaces its v1.0.
-const RACK_U = Object.values(ITEMS).filter((it) => !('needs' in it)).length;
 let armed: Tool | null = null; // deck tool picked for use before the first move
 // Targets already shown as uploaded, so the upload effect plays only once.
 const doneSeen = new Set<number>();
@@ -64,14 +65,19 @@ const isUsed = (r: number, c: number) => S.run.used.has(r + ',' + c);
 // Side door: before the first pick, any edge cell is open.
 const doorOpen = () => S.mode === 'run' && !S.run.path.length && R.items.includes('sidedoor');
 const onEdge = (r: number, c: number) => { const n = S.puzzle.grid.length; return r === 0 || c === 0 || r === n - 1 || c === n - 1; };
-const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length && (
+const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length && S.puzzle.grid[r][c] !== BLOCK && !burning(S.run, r, c) && (
   armed === 'wild' ? !isUsed(r, c) && S.puzzle.grid[r][c] !== WILD
   : armed === 'jump' ? !isUsed(r, c)
   : armed === 'loop' ? isUsed(r, c) && (loopAny() || inLane(S.run, r, c))
   : isLegal(S.run, r, c) || (doorOpen() && onEdge(r, c)));
+// Blackout ICE: the SOC's targets stay hidden until the first pick.
+const blackout = () => S.mode === 'run' && roomIce(R).includes('blackout') && !S.run.path.length && !S.over;
 const isNode = (r: number, c: number) => S.mode === 'run' && M.node?.[0] === r && M.node[1] === c;
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
+// Row and column names; a run company may label them its own way.
+const rowName = (r: number) => (S.mode === 'run' && COMPANIES[R.company].rowLabel?.(r)) || addr(r);
+const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabel?.(c)) || '+' + c;
 
 function render() {
   const { grid, targets, l } = S.puzzle;
@@ -81,26 +87,36 @@ function render() {
   g.innerHTML = '';
   g.style.gridTemplateColumns = 'auto repeat(' + n + ',minmax(0,1fr))';
   // Hex-dump headers: column offsets on top, row addresses on the left; the active lane's header lights up.
-  const hx = (text: string, on: boolean) => {
+  const hx = (text: string, on: boolean, cls = '') => {
     const h = document.createElement('div');
-    h.className = 'hx' + (on && !S.over ? ' on' : '');
+    h.className = 'hx' + (on && !S.over ? ' on' : '') + cls;
     h.textContent = text;
     h.setAttribute('aria-hidden', 'true');
     g.appendChild(h);
   };
   hx('', false);
   const free = S.run.free;
-  for (let c = 0; c < n; c++) hx('+' + c, free ? c === free[1] : axis === 'col' && c === idx);
+  // cron/rotate: before the first pick, the column the last matrix started in glows in the cron colour.
+  const lastCol = S.mode === 'run' && R.daemons.includes('rotate') && !S.run.path.length && !S.over ? R.lastStart : undefined;
+  for (let c = 0; c < n; c++) hx(colName(c), free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-    if (c === 0) hx(addr(r), free ? r === free[0] : axis === 'row' && r === idx);
+    if (c === 0) hx(rowName(r), free ? r === free[0] : axis === 'row' && r === idx);
     const b = document.createElement('button');
     b.className = 'cell';
     b.id = 'c' + r + c;
     b.textContent = grid[r][c];
     if (grid[r][c] === WILD) b.classList.add('wild');
+    if (grid[r][c] === BLOCK) b.classList.add('ice');
     if (isNode(r, c)) b.insertAdjacentHTML('beforeend', "<i class='ntag'>+" + NODE_DATA + '</i>');
+    // Ping: a solution's first cell, until the first pick.
+    if (S.mode === 'run' && R.items.includes('ping') && !S.run.path.length && !S.over && S.puzzle.path?.[0][0] === r && S.puzzle.path[0][1] === c) b.classList.add('ping');
     if (!S.over && (inLane(S.run, r, c) || (doorOpen() && onEdge(r, c)))) b.classList.add('lane');
     if (used.has(r + ',' + c)) b.classList.add('used');
+    else if (burning(S.run, r, c)) {
+      const left = S.run.burnt!.get(r + ',' + c)! - S.run.path.length;
+      b.classList.add('burn');
+      b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (left === Infinity ? '∞' : left) + '</i>');
+    }
     // With a Loopback in the deck, used cells keep their code, greyed out, so a re-pick can be planned.
     if (S.mode === 'run' && R.items.some((id) => TOOLS[id] === 'loop')) b.classList.add('memo');
     if (S.mode === 'run' && R.daemons.includes('corner') && isCorner([r, c], n)) b.classList.add('corner');
@@ -118,8 +134,8 @@ function render() {
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
   $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
     : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny() ? '' : ' in your lane') : S.over ? 'session closed'
-    : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + addr(free[0]) + ' or col +' + free[1]
-    : axis === 'row' ? 'pick in row ' + addr(idx) : 'pick in col +' + idx;
+    : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
+    : axis === 'row' ? 'pick in row ' + rowName(idx) : 'pick in col ' + colName(idx);
   const buf = $('buffer');
   buf.innerHTML = '';
   const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
@@ -139,16 +155,19 @@ function render() {
     const st = targetProgress(buffer, t, l, S.over);
     const el = document.createElement('div');
     // Split, before the first move: v1.0 cuts a clicked target at its random mark, v2.0 at a clicked gap between codes.
+    // Under Blackout both cut blind: the mark stays hidden.
     const cut = S.mode === 'run' && armed === 'split' && t.length > 1;
-    const gaps = cut && R.items.includes('split2');
+    const blind = cut && blackout();
+    const gaps = cut && !blind && R.items.includes('split2');
     el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut ? ' cut' : '');
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
-    const state = st.done ? 'Uploaded' + worth : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (gaps ? 'cut between codes' : 'click to split')
+    const state = st.done ? 'Uploaded' + worth : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
       : worth ? worth.trim() + ' data' : 'Target ' + (i + 1);
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"
-      : j && j === mark ? "<i class='gap mark'></i>" : '')
-      + '<span class="' + (j < st.k ? 'hit' : '') + '">' + c + '</span>').join('') + '</div><div class="state">' + state + '</div>';
+      : j && j === mark && !blind ? "<i class='gap mark'></i>" : '')
+      + '<span class="' + (j < st.k ? 'hit' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state">' + state + '</div>';
+    el.querySelectorAll<HTMLElement>('.codes span').forEach((sp, j) => { sp.onmouseenter = () => markCode(t[j]); sp.onmouseleave = () => markCode(); });
     if (gaps) el.querySelectorAll<HTMLElement>('.gap').forEach((g) => { g.onclick = () => doSplit(i, +g.dataset.at!); });
     else if (cut) {
       Object.assign(el, { tabIndex: 0, onclick: () => doSplit(i, mark), onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') doSplit(i, mark); } });
@@ -165,7 +184,7 @@ function render() {
     : (S.mode === 'sprint' ? '<span>Matrix <b>' + Math.min(S.stage + 1, stages().length) + '/' + stages().length + '</b></span>' : '')
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
   $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? runStatus() : extra);
-  document.getElementById('restartMatrix')?.addEventListener('click', () => { R.restarts--; dealMatrix(); });
+  document.getElementById('restartMatrix')?.addEventListener('click', () => { restartMatrix(R); dealMatrix(); });
   document.getElementById('disconnect')?.addEventListener('click', () => { finish(score(S.run.buffer, S.puzzle.targets), true); render(); });
   if (S.mode === 'run') { renderDaemons(); renderSteps(); }
   $('timebar').hidden = S.mode !== 'sprint' || S.over;
@@ -179,12 +198,11 @@ const runCtx = (): MatrixCtx =>
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
 function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
-  const restart = !S.start && !S.over && !offer.length && R.restarts ? "<button class='btn act' id='restartMatrix'>Restart matrix (" + R.restarts + ')</button>' : '';
+  const restart = !S.start && !S.over && !offer.length && R.restarts ? "<button class='btn act' id='restartMatrix'>Burner SIM · new matrix</button>" : '';
   // Ending early keeps the empty slots, which pay credits.
   const pay = Math.floor((S.puzzle.l - S.run.buffer.length) / SLOTS_PER_CREDIT) + (R.daemons.includes('silent') ? 2 : 0);
   const disconnect = live ? "<button class='btn act' id='disconnect'>Disconnect" + (pay ? ' · ' + money(pay, '+') : '') + '</button>' : '';
-  return '<span>Data <b>' + (R.data + live) + '/' + SECTIONS[R.section].quota + '</b></span>'
-    + '<span>Credits ' + money(R.credits) + '</span>' + restart + disconnect;
+  return restart + disconnect;
 }
 
 // Score reads as data × boost: data = target data + flat bonuses, boost = (1 + additive boosts) × multipliers.
@@ -215,6 +233,10 @@ const ICONS: Record<DaemonId, string> = {
   corner: "<path d='M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'/><circle cx='8' cy='8' r='1.5'/>",
   // Switchback of alternating row/column moves that widens with each turn, from the start dot.
   zigzag: "<path d='M8.5 4.75h6v6h-10v6h15M17 14.25l2.5 2.5-2.5 2.5'/><circle class='f' cx='8.5' cy='4.75' r='1.4'/>",
+  heartbeat: "<path d='M2 12h5l2-5 4 10 2-5h7'/>",
+  rotate: "<path d='M20 12a8 8 0 1 1-2.3-5.7M20 4v4.5h-4.5'/>",
+  backup: "<path d='M5 4h11l3 3v13H5zM8 4v5h7V4M8 14h8M8 17h5'/>",
+  uptime: "<circle cx='12' cy='12' r='8.5'/><path d='M12 7v5l3.5 2'/>",
 };
 
 // Daemon card styled as a program file, in a floating slot; the shared clock keeps the float (5 s) and glitch (7.5 s)
@@ -283,12 +305,15 @@ function renderDaemons() {
       : units.length ? '<b>&gt;</b> ' + units.length + ' modules installed · point at one to read its spec'
         : '<b>&gt;</b> no hardware · buy modules between rooms';
   const rail = (n: number) => "<span class='rail'>" + String(n).padStart(2, '0') + '</span>';
-  $('items').innerHTML = '<header><span>hw rack</span><span>' + units.length + '/' + RACK_U + 'U</span></header>'
-    + Array.from({ length: Math.max(RACK_U, units.length) }, (_, i) => {
+  $('items').innerHTML = '<header><span>hw rack</span><span>' + units.length + '/' + R.rack + 'U</span></header>'
+    // Owned slots without a module are open bays; the next two slots (while any are left to buy) keep their blanking plates.
+    + Array.from({ length: Math.max(Math.min(R.rack + 2, RACK_MAX), units.length) }, (_, i) => {
       const u = units[i];
-      if (!u) return rail(i + 1) + "<div class='unit blank' aria-hidden='true'><i class='scr'></i><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
+      if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
+      if (!u) return rail(i + 1) + "<div class='unit blank' title='Locked: buy a rack slot in the shop'><i class='scr'></i><i class='vent'></i>"
+        + "<span class='lock'>locked</span><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
+      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'><i class='scr'></i>" + gear(u.id)
         + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + it.kind + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
@@ -302,8 +327,10 @@ function renderDaemons() {
 }
 
 // An installed Cache also shows its current stack.
-const daemonText = (id: DaemonId) =>
-  DAEMONS[id].text + (id === 'cache' && R.daemons.includes(id) ? ' · stack now +' + R.cache + ' boost' : '');
+const daemonText = (id: DaemonId) => {
+  const st = streakOf(id), n = R.stacks[id] ?? 0;
+  return DAEMONS[id].text + (st && R.daemons.includes(id) ? ' · stack now ' + n + (n ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '');
+};
 
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
 const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
@@ -335,7 +362,11 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
   });
   $('devCr').onclick = () => { R.credits += 10; refresh(); };
   $('devDeal').onclick = () => { hideResult(); dealMatrix(); };
-  document.getElementById('devRoom')?.addEventListener('click', () => { hideResult(); nextSection(R); showOffer(); });
+  document.getElementById('devRoom')?.addEventListener('click', () => {
+    hideResult();
+    const p = nextSection(R);
+    if (p) showPatch(p); else showOffer();
+  });
 }
 
 // Every daemon and item, also a dev aid; installed daemons show what they add to the live matrix.
@@ -354,7 +385,7 @@ function showCatalog() {
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>';
   const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal</span>"
     + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Re-deal</button>"
-    + (R.section < SECTIONS.length - 1 ? "<button class='btn' id='devRoom'>Next room</button>" : '') + '</div>';
+    + (!isBoss(R) || R.loop < LOOPS - 1 ? "<button class='btn' id='devRoom'>" + (isBoss(R) ? 'Next iteration' : 'Next room') + '</button>' : '') + '</div>';
   showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + '</div>' + devBar + body
     + "<div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
@@ -368,7 +399,9 @@ function showCatalog() {
 // Contract stepper: rooms in order, one box per matrix with the score it banked; the live box is the matrix in play.
 function renderSteps() {
   const live = S.over ? null : scoreMatrix(runCtx(), R).total;
-  $('stepList').innerHTML = SECTIONS.map((sec, i) => {
+  const co = COMPANIES[R.company];
+  $('stepList').innerHTML = "<div class='coTag'>" + logo(co.id) + '<span>' + co.name + '<small>run ' + (R.loop + 1) + '/' + LOOPS + '</small></span></div>'
+    + sections(R).map((sec, i) => {
     const got = R.scores[i];
     const state = i < R.section ? 'done' : i === R.section ? 'now' : '';
     const boxes = Array.from({ length: sec.matrices }, (_, j) => {
@@ -376,9 +409,13 @@ function renderSteps() {
       return i === R.section && j === got.length && live !== null ? "<span class='box live'>" + (live || '··') + '</span>' : "<span class='box'></span>";
     }).join('');
     const total = i === R.section ? R.data + (live ?? 0) : got.reduce((a, b) => a + b, 0);
-    return "<div class='step " + state + "'><span class='sname'>" + sec.name + "</span><span class='squota'>"
-      + (state ? total + '/' : 'quota ') + sec.quota + "</span><div class='boxes'>" + boxes + '</div></div>';
+    return "<div class='step " + state + "'><span class='sname'>" + sec.name + ' ' + iceTags(shownIce(i)) + "</span><span class='squota'>"
+      + (state ? "<b class='" + (total >= quota(R, i) ? 'met' : '') + "'>" + total + '</b>/' : 'quota ') + quota(R, i) + "</span><div class='boxes'>" + boxes + '</div></div>';
   }).join("<span class='sarrow' aria-hidden='true'>›</span>");
+  // The room's data tally, big: white until the quota is met, then green.
+  const got = R.data + (live ?? 0), goal = quota(R);
+  $('stepCr').textContent = 'credits $' + R.credits;
+  $('tally').innerHTML = "<span class='meta'>" + sections(R)[R.section].name.toLowerCase() + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + '</span>';
 }
 
 // Matrix bill: the uploads, each daemon that fired and what it added, then the formula.
@@ -394,13 +431,41 @@ const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><sp
   + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
 
 
+// Between iterations: what the company patched; the room it went to shows once you get there.
+function showPatch(p: Patch) {
+  const hardened = p.ice === 'corruption' && R.patches.filter((x) => x.ice === 'corruption').length > 1;
+  showResult(false, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + "</p><h2>Patch notes</h2><ul class='patch'>"
+    + '<li>Quotas ×' + QUOTA_GROWTH + ': ' + sections(R).map((_, i) => quota(R, i)).join(' / ') + '</li>'
+    + "<li>" + (hardened ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[p.ice].name + '</b>: ' + ICE[p.ice].text
+    + (p.ice === 'corruption' ? '; it now ' + burnText(burnOf(R, p.room)) : '') + '</li>'
+    + '<li>Deployed in one room. You will see which when you get there.</li>'
+    + "</ul><div class='row'><button class='btn' id='patchOk'>Continue ›</button></div>");
+  $('patchOk').onclick = showOffer;
+}
+
+// What the player owns, shown beside offers and the shop: daemon chips, then rack modules with their art.
+const owned = (shop = false) => {
+  const chip = (id: DaemonId) => "<span class='chip c-" + DAEMONS[id].family.toLowerCase() + "' title='" + DAEMONS[id].text + "'><svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>"
+    + ICONS[id] + '</svg>' + dmnName(id) + '</span>';
+  const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' title='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
+    + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
+  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + DAEMON_SLOTS + "</p><div class='chips'>"
+    + (R.daemons.map(chip).join('') || "<span class='chip none'>no daemons yet</span>")
+    + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>") + '</div></div>';
+};
+
 function showOffer() {
   offer = offerDaemons(R);
   if (!offer.length) return showShop();
-  showResult(true, '<h2>Choose a daemon</h2><p class="meta">Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS + '</p>'
-    + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, 'install ›')).join('') + '</div>'
+  const full = R.daemons.length >= DAEMON_SLOTS;
+  const poor = full && R.credits < SWAP_COST;
+  showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
+    : 'Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS) + '</p>' + owned()
+    + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), poor ? ' poor' : '')).join('') + '</div>'
     + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
-  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { R.daemons.push(offer[i]); showShop(); }; });
+  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
+    b.onclick = () => { if (!full) { R.daemons.push(offer[i]); showShop(); } else if (!poor) showSwap(offer[i]); };
+  });
   $('skipDaemon').onclick = () => showShop();
   tilt($('modalBox'));
 }
@@ -410,51 +475,156 @@ function showShop(restock = true) {
   if (restock) stockShop(R);
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
-  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + ' · items stay for the whole run</p>'
-    + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price), R.credits < ITEMS[id].price ? ' poor' : '')).join('')
+  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + ' · items stay for the whole run</p>' + owned(true)
+    + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', rackFull(R, id) ? 'rack full' : cr(ITEMS[id].price),
+      R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
       || "<div class='dslot empty'>sold out</div>") + "</div><div class='row'>"
+    + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST) + '</button>' : '')
-    + (R.daemons.length ? "<button class='btn' id='removeDaemon'" + off(REMOVE_COST) + '>Remove a daemon · ' + cr(REMOVE_COST) + '</button>' : '')
     + "<button class='btn' id='leaveShop'>Continue ›</button></div>");
   $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
   document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
-  document.getElementById('removeDaemon')?.addEventListener('click', showRemove);
+  document.getElementById('buySlot')?.addEventListener('click', () => { if (buySlot(R)) showShop(false); });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => { b.onclick = () => { if (sell(R, b.dataset.sell as ItemId)) showShop(false); }; });
   $('leaveShop').onclick = enterSection;
 }
 
-function showRemove() {
-  showResult(true, '<h2>Remove a daemon</h2><p class="meta">costs ' + money(REMOVE_COST) + ' · credits ' + money(R.credits) + '</p>'
-    + "<div class='dlist'>" + R.daemons.map((id, i) => card(id, i, 'button', daemonText(id), 'remove ›')).join('')
-    + "</div><div class='row'><button class='btn' id='backShop'>Back</button></div>");
-  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
-    b.onclick = () => { removeDaemon(R, R.daemons[i]); showShop(false); };
-  });
-  $('backShop').onclick = () => showShop(false);
+function showSwap(id: DaemonId) {
+  showResult(true, '<h2>Swap out a daemon</h2><p class="meta">' + dmnName(id) + ' takes the freed slot · costs ' + money(SWAP_COST) + '</p>'
+    + "<div class='dlist'>" + R.daemons.map((d, i) => card(d, i, 'button', daemonText(d), 'swap out ›')).join('')
+    + "</div><div class='row'><button class='btn' id='backOffer'>Back</button></div>");
+  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { if (swapDaemon(R, R.daemons[i], id)) showShop(); }; });
+  $('backOffer').onclick = showOffer;
   tilt($('modalBox'));
 }
 
-// Room briefs for the section intro, by section index.
-const BRIEF = ['Front desk terminals. Guest Wi-Fi. Nobody watching.', 'Open-plan desks, unlocked workstations, passwords on sticky notes.',
-  'Cold air, humming racks. This is where the real data lives.'];
+// ICE the contract shows for a room: the boss rule from the start, a patch once its room has been entered.
+const shownIce = (i: number) => roomIce(R, i).filter((id) => (id === R.ice && i === sections(R).length - 1)
+  || R.patches.some((p) => p.ice === id && p.room === i && p.loop <= R.loop && revealed(R, p)));
+const burnText = (n: number) => (n === Infinity ? 'locks for good' : 'locks for ' + n + (n > 1 ? ' moves' : ' move'));
+const iceRule = (id: IceId, tag = 'ICE') => "<p class='iceRule'><b>" + tag + ' · ' + ICE[id].name + '</b> ' + ICE[id].text
+  + (id === 'corruption' ? ' · now ' + burnText(burnOf(R)) : '') + '</p>';
+const iceTags = (ids: IceId[]) => ids.map((id) => "<i class='iceTag' title='" + ICE[id].text + "'>" + ICE[id].name + '</i>').join('');
+
+// Contract carousel: one 3D card per company (logo front, rooms and ICE on the back). The next locked company shows in full,
+// the slots after it stay classified.
+const FIRM_SLOTS = 5;
+const isOpen = (i: number) => companyOpen(breached(), i);
+let firmAt = 0;
+const firmCard = (co: Company | undefined, i: number) => {
+  const face = (side: string, body: string) => "<div class='fface " + side + "'>" + body + '</div>';
+  const need = COMPANIES[i - 1]?.name ?? '';
+  const lock = "<span class='flock'>locked · breach " + need + ' to unlock</span>';
+  const won = co && breached().includes(co.id) ? "<span class='fwon'>breached</span>" : '';
+  const front = co ? face('front', won + logo(co.id) + '<b>' + co.name + '</b><p>' + co.text + '</p>' + (isOpen(i) ? "<span class='fhint'>details ›</span>" : lock))
+    : face('front', logo() + '<b>??? ????????</b><p>Classified. Breach the previous contract to unlock.</p>');
+  const back = co ? face('back', '<b>' + co.name + "</b><ol class='frooms'>" + co.sections.map((s) => '<li>' + s.name + "<span class='meta'>" + s.size.n + '×' + s.size.n
+    + ' · ' + s.matrices + (s.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + s.quota + '</span></li>').join('')
+    + "</ol><p class='meta'>" + LOOPS + ' iterations, quotas ×' + QUOTA_GROWTH + ' each</p>'
+    + "<p class='meta'>boss ICE, one per run:<br>" + iceTags(co.ice) + '</p>' + "<p class='meta'>patches between iterations:<br>" + iceTags(co.patches) + '</p>' + (isOpen(i) ? '' : lock)) : '';
+  return "<div class='fcard" + (!co ? ' locked' : isOpen(i) ? '' : ' sealed') + "' role='button' tabindex='0' aria-label='" + (co ? co.name : 'Locked contract') + "'><div class='ftilt'><div class='finner'>"
+    + front + back + '</div></div></div>';
+};
+
+function showCompanies(seed: number, back: Mode) {
+  R = newRunState(seed);
+  dealMatrix();
+  const n = Math.max(FIRM_SLOTS, COMPANIES.length + 1);
+  // Only the next company past the open ones is revealed.
+  const shown = (i: number) => (i <= COMPANIES.findIndex((_, j) => !isOpen(j)) || isOpen(i) ? COMPANIES[i] : undefined);
+  showResult(true, "<h2>Choose a target</h2><p class='meta'>one company per run · click a card for its rooms and ICE</p><div class='carousel'>"
+    + Array.from({ length: n }, (_, i) => firmCard(shown(i), i)).join('')
+    + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div>"
+    + "<div class='row'>" + (import.meta.env.DEV ? "<button class='btn devbtn' id='devUnlock'>dev · " + (breached().length ? 'lock all' : 'unlock all') + '</button>' : '')
+    + "<button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
+  document.getElementById('devUnlock')?.addEventListener('click', () => {
+    setBreached(breached().length ? [] : COMPANIES.map((c) => c.id));
+    showCompanies(seed, back);
+  });
+  const close = () => setMode(back === 'run' ? 'daily' : back);
+  $('closeFirms').onclick = close;
+  const cards = [...$('modalBox').querySelectorAll<HTMLElement>('.fcard')];
+  const place = () => {
+    cards.forEach((c, i) => {
+      const o = i - firmAt, a = Math.abs(o);
+      c.style.transform = 'translateX(' + Math.sign(o) * (110 + a * 75) + 'px) translateZ(' + -a * 70 + 'px) rotateY(' + -Math.sign(o) * 28 + 'deg)';
+      c.style.zIndex = String(10 - a);
+      c.style.opacity = a > 2 ? '0' : String(1 - a * 0.3);
+      c.classList.toggle('now', !o);
+      if (o) c.classList.remove('flip');
+    });
+    ($('cPrev') as HTMLButtonElement).disabled = firmAt === 0;
+    ($('cNext') as HTMLButtonElement).disabled = firmAt === n - 1;
+    const start = $('startFirm') as HTMLButtonElement;
+    start.disabled = !COMPANIES[firmAt] || !isOpen(firmAt);
+    start.textContent = start.disabled ? 'Locked' : 'Start ' + COMPANIES[firmAt].name + ' ›';
+  };
+  const go = (i: number) => { firmAt = Math.max(0, Math.min(n - 1, i)); place(); };
+  // Drag or swipe sideways to turn the carousel; a drag never counts as a click.
+  const car = $('modalBox').querySelector<HTMLElement>('.carousel')!;
+  let dragX: number | null = null, dragged = false;
+  car.onpointerdown = (e) => {
+    dragged = false;
+    dragX = (e.target as HTMLElement).closest('button') ? null : e.clientX;
+  };
+  car.addEventListener('pointermove', (e) => {
+    if (dragX === null || !(e.buttons & 1)) { dragX = null; return; }
+    if (Math.abs(e.clientX - dragX) < 120) return;
+    go(firmAt - Math.sign(e.clientX - dragX));
+    dragX = e.clientX;
+    dragged = true;
+  });
+  car.onpointerup = car.onpointerleave = () => { dragX = null; };
+  const press = (c: HTMLElement, i: number) => {
+    if (dragged) dragged = false;
+    else if (i !== firmAt) go(i);
+    else if (!c.classList.contains('locked')) c.classList.toggle('flip');
+  };
+  cards.forEach((c, i) => {
+    c.onclick = () => press(c, i);
+    c.onkeydown = (e) => { if (e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); press(c, i); } };
+    const t = c.querySelector<HTMLElement>('.ftilt')!;
+    c.onpointermove = (e) => {
+      const r = c.getBoundingClientRect();
+      t.style.transform = 'rotateX(' + (0.5 - (e.clientY - r.top) / r.height) * 14 + 'deg) rotateY(' + ((e.clientX - r.left) / r.width - 0.5) * 14 + 'deg)';
+    };
+    c.onpointerleave = () => { t.style.transform = ''; };
+  });
+  $('startFirm').onclick = () => { R = newRunState(seed, firmAt); enterSection(); };
+  $('cPrev').onclick = () => go(firmAt - 1);
+  $('cNext').onclick = () => go(firmAt + 1);
+  $('modal').onkeydown = (e) => {
+    if (e.key === 'ArrowLeft') go(firmAt - 1);
+    else if (e.key === 'ArrowRight') go(firmAt + 1);
+    else if (e.key === 'Escape') close();
+  };
+  place();
+}
 
 // Section intro: the route so far, then the room's brief and terms; the matrix pours in on Breach.
 function enterSection() {
   dealMatrix();
-  const sec = SECTIONS[R.section];
+  const rooms = sections(R);
+  const sec = rooms[R.section];
   const at = (i: number) => (i < R.section ? ' done' : i === R.section ? ' now' : '');
-  const route = SECTIONS.map((s, i) => (i ? "<i class='link" + at(i) + "'></i>" : '') + "<span class='node" + at(i) + "'>" + s.name + '</span>').join('');
-  showResult(true, "<p class='meta'>contract · section " + (R.section + 1) + '/' + SECTIONS.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
-    + route + '</div><p>' + (BRIEF[R.section] ?? '') + "</p><p class='meta'>" + sec.size.n + '×' + sec.size.n + ' · ' + sec.matrices
-    + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + sec.quota + " data</p><div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
+  const route = rooms.map((s, i) => (i ? "<i class='link" + at(i) + "'></i>" : '') + "<span class='node" + at(i) + "'>" + s.name + '</span>').join('');
+  showResult(true, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + ' · section ' + (R.section + 1) + '/' + rooms.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
+    + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + sec.size.n + '×' + sec.size.n + ' · ' + sec.matrices
+    + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + ' data</p>'
+    + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
+    + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
   $('breach').onclick = () => { hideResult(); pour(); };
 }
 
 function dealMatrix() {
-  $('meta').textContent = 'Run · ' + SECTIONS[R.section].name + ' ' + (R.section + 1) + '/' + SECTIONS.length;
+  // Company look: its logo as a watermark under the matrix, its motif behind the contract.
+  $('wmark').innerHTML = logo(COMPANIES[R.company].id);
+  $('steps').dataset.co = COMPANIES[R.company].id;
+  $('meta').textContent = 'Run ' + (R.loop + 1) + '/' + LOOPS + ' · ' + sections(R)[R.section].name + ' ' + (R.section + 1) + '/' + sections(R).length;
   const seed = stageSeed(R.seed, R.matrix++);
-  S.puzzle = generate(seed, sectionMatrix(R.section, R.items));
+  S.puzzle = dealRunMatrix(seed, R);
   const cells = placeCells(seed, S.puzzle, R.items);
   if (cells.wild) S.puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
   M = { node: cells.node, worth: S.puzzle.targets.map((t) => DATA_BY_LEN[t.length]), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
@@ -473,13 +643,45 @@ function doSplit(i: number, at?: number) {
 function applyCross() {
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) =>
     el.classList.toggle('x', !!cursor && (+el.id[1] === cursor[0] || +el.id[2] === cursor[1])));
-  const peek = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? [] : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
+  // Daemon lines read "name now +add": what it gives so far, then what this pick adds (highlighted); a loss shows "now → 0".
+  const rot = R.stacks.rotate ?? 0;
+  const peek: (Preview | string)[] = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? []
+    : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
     : armed === 'loop' ? ['loopback: ' + S.puzzle.grid[cursor[0]][cursor[1]] + ' again']
-    : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons), ...(isNode(cursor[0], cursor[1]) ? ['data node +' + NODE_DATA] : [])];
-  $('peek').textContent = peek.join(' · ');
-  // Echo the code under the cursor in the targets, but only for a cell that can be picked right now.
-  const code = cursor && legal(cursor[0], cursor[1]) ? S.puzzle.grid[cursor[0]]?.[cursor[1]] : undefined;
-  document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((s) => s.classList.toggle('peek', !!code && fits(code, s.textContent ?? '')));
+    : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps),
+      ...(isNode(cursor[0], cursor[1]) ? [{ name: 'data node', add: '+' + NODE_DATA, kind: 'data' as const }] : []),
+      ...(R.daemons.includes('rotate') && !S.run.path.length
+        ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(5 * rot) : undefined, kind: 'data' as const,
+          ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+5' }) }] : [])];
+  // Name in the daemon's family colour; numbers in their own colours: data blue, boost and multipliers pink.
+  $('peek').innerHTML = peek.map((p) => {
+    if (typeof p === 'string') return p;
+    const v = p.kind === 'data' ? 'vd' : 'vm', loss = p.add.startsWith('→');
+    return (p.id ? "<span class='pname c-" + DAEMONS[p.id].family.toLowerCase() + "'>" + p.name + '</span>' : "<span class='gname'>" + p.name + '</span>')
+      + (p.now ? ' <span class=\'' + v + (loss ? ' gone' : '') + "'>" + p.now + '</span>' : '')
+      + " <b class='" + v + (loss ? '' : ' add') + "'>" + p.add + '</b>' + (p.note ? " <span class='note'>" + p.note + '</span>' : '');
+  }).join(' · ');
+  // Echo the code under the cursor in the codes targets still need: solid for a pick open right now, dotted for a
+  // free cell off the lane (planning ahead). Codes already hit and failed targets stay quiet.
+  const code = cursor && !S.over && !blackout() ? S.puzzle.grid[cursor[0]]?.[cursor[1]] : undefined;
+  const open = !!code && code !== BLOCK && !isUsed(cursor![0], cursor![1]) && !burning(S.run, cursor![0], cursor![1]);
+  const now = !!cursor && legal(cursor[0], cursor[1]);
+  const run = S.mode === 'run'; // the other modes keep the plain echo
+  document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((s) => {
+    const m = !!code && (run ? (open || now) && !s.classList.contains('hit') && !s.closest('.fail') : now) && fits(code, s.textContent ?? '');
+    s.classList.toggle('peek', m && now);
+    s.classList.toggle('far', m && !now);
+  });
+}
+
+// Pointing at a target code outlines the free cells holding it; those in the current lane stand out.
+function markCode(code?: string) {
+  document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
+    const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
+    const on = !!code && S.mode === 'run' && !S.over && !blackout() && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
+    el.classList.toggle('tpeek', on);
+    el.classList.toggle('near', on && inLane(S.run, r, c));
+  });
 }
 
 // Fraction of the current sprint matrix's time limit still left.
@@ -574,6 +776,9 @@ function choose(r: number, c: number) {
       document.getElementById('c' + r + c)?.classList.add('flash');
       return;
     }
+    const tools = [M.jump && 'Bridge', M.loop && 'Loopback'].filter(Boolean);
+    endWhy = sc === S.puzzle.targets.length ? '' : S.run.buffer.length >= S.puzzle.l ? 'buffer full'
+      : stuck ? 'no target left in reach' + (tools.length ? ', not even with ' + tools.join(' or ') : '') : 'no legal pick left';
     finish(sc);
   }
   const hadFocus = document.activeElement?.classList.contains('cell');
@@ -614,16 +819,19 @@ function finish(sc: number, disconnected = false) {
     }
   } else if (S.mode === 'run') {
     const { score: bill, out } = finishMatrix(R, runCtx(), disconnected);
-    const sec = SECTIONS[R.section];
+    const sec = sections(R)[R.section];
     const [title, btn, label] = ({
       continue: ['+' + bill.total + ' data', 'runNext', 'Next matrix'],
       section: [sec.name + ' breached', 'runSection', 'Next section'],
-      win: ['Contract complete', 'runNew', 'New run'],
+      loop: [sec.name + ' breached', 'runLoop', 'Patch notes ›'],
+      win: [COMPANIES[R.company].name + ' breached', 'runNew', 'New run'],
       lose: ['Run over', 'runNew', 'New run'],
     } as Record<MatrixOutcome, string[]>)[out];
-    const credits = R.earned.map(([why, n]) => "<p class='meta'>" + money(n, '+') + ' · ' + why + '</p>').join('');
-    showResult(out === 'win' || out === 'section' || (out === 'continue' && bill.total > 0),
-      '<h2>' + title + '</h2>' + billHtml(bill) + '<p>' + sec.name + ' ' + R.data + '/' + sec.quota + '</p>' + credits
+    const next = COMPANIES[R.company + 1];
+    const credits = R.earned.map(([why, n]) => "<p class='meta'>" + money(n, '+') + ' · ' + why + '</p>').join('')
+      + (out === 'win' && recordBreach(COMPANIES[R.company].id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
+    showResult(out === 'win' || out === 'section' || out === 'loop' || (out === 'continue' && bill.total > 0),
+      '<h2>' + title + '</h2>' + (endWhy ? "<p class='meta'>auto-disconnect · " + endWhy + '</p>' : '') + billHtml(bill) + '<p>' + sec.name + ' ' + R.data + '/' + quota(R) + '</p>' + credits
       + "<div class='row'><button class='btn' id='" + btn + "'>" + label + '</button></div>');
     return;
   } else {
@@ -743,6 +951,7 @@ function showResult(win: boolean, html: string) {
   on('next', () => setMode('train'));
   on('runNext', dealMatrix);
   on('runSection', () => { nextSection(R); showOffer(); });
+  on('runLoop', () => showPatch(nextSection(R)!));
   on('runNew', () => setMode('run'));
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
@@ -759,6 +968,8 @@ function hideResult() {
 function resetRun() {
   clearInterval(S.timer);
   Object.assign(S, { run: newRun(), start: 0, elapsed: 0, over: false, stage: 0, dealing: false });
+  if (S.mode === 'run') S.run.burn = burnOf(R) || undefined;
+  endWhy = '';
   offer = [];
   doneSeen.clear();
   hideResult();
@@ -766,6 +977,8 @@ function resetRun() {
 }
 
 function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) {
+  const back = S.mode;
+  $('wmark').innerHTML = '';
   S.mode = m;
   S.challenge = challenge;
   S.tries = 1;
@@ -792,8 +1005,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
     resetRun();
   } else if (m === 'run') {
     S.seed = seed;
-    R = newRunState(seed);
-    enterSection();
+    showCompanies(seed, back);
   } else {
     $('meta').textContent = sprintMeta() + (challenge ? ' · challenge' : '');
     S.seed = seed;

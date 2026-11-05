@@ -21,6 +21,18 @@ export function recordFirst(id: string, time: number): boolean {
   return true;
 }
 
+// Run mode: ids of the companies breached so far; each one opens the next.
+const BREACHED = 'bypass:breached';
+export const breached = (): string[] => load<string[]>(BREACHED) ?? [];
+export const setBreached = (ids: string[]) => save(BREACHED, ids);
+// Adds a breached company; returns whether it is new.
+export function recordBreach(id: string): boolean {
+  const all = breached();
+  if (all.includes(id)) return false;
+  setBreached([...all, id]);
+  return true;
+}
+
 // Daily puzzles are keyed by UTC date so everyone worldwide gets the same one.
 export const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 

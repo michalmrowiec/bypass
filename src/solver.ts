@@ -1,5 +1,5 @@
 import { contains, partial, type Run } from './game';
-import type { Puzzle } from './generator';
+import { BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to any free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
 export interface Tools { jump?: boolean; loop?: boolean; loopAny?: boolean }
@@ -10,6 +10,9 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
   const n = p.grid.length;
   const buf = [...run.buffer];
   const used = new Set(run.used);
+  const burnt = new Map(run.burnt);
+  const hot = (r: number, c: number) => (burnt.get(r + ',' + c) ?? 0) > buf.length;
+  const NEAR = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   let nodes = 0;
   // Picks (r, c) and goes on along the other axis; a reused cell stays used.
   const step = (r: number, c: number, alongRow: boolean, jump: boolean, loop: boolean): boolean => {
@@ -17,7 +20,13 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     const fresh = !used.has(key);
     used.add(key);
     buf.push(p.grid[r][c]);
+    const was = run.burn ? NEAR.map(([dr, dc]) => {
+      const k = r + dr + ',' + (c + dc), old = burnt.get(k);
+      burnt.set(k, Math.max(old ?? 0, buf.length + run.burn!));
+      return [k, old] as const;
+    }) : [];
     const ok = alongRow ? dfs('col', c, undefined, jump, loop) : dfs('row', r, undefined, jump, loop);
+    for (const [k, old] of was.reverse()) { if (old === undefined) burnt.delete(k); else burnt.set(k, old); }
     buf.pop();
     if (fresh) used.delete(key);
     return ok;
@@ -32,17 +41,18 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     for (const [ax, ix] of lanes) {
       for (let i = 0; i < n; i++) {
         const [r, c] = ax === 'row' ? [ix, i] : [i, ix];
+        if (p.grid[r][c] === BLOCK || hot(r, c)) continue;
         if (!used.has(r + ',' + c)) { if (step(r, c, ax === 'row', jump, loop)) return true; }
         else if (loop && !tools.loopAny && step(r, c, ax === 'row', jump, false)) return true;
       }
     }
     if (loop && tools.loopAny) for (const key of [...used]) {
       const [r, c] = key.split(',').map(Number);
-      if (step(r, c, axis === 'row', jump, false)) return true;
+      if (!hot(r, c) && step(r, c, axis === 'row', jump, false)) return true;
     }
     if (jump) {
       for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-        if (!used.has(r + ',' + c) && step(r, c, axis === 'row', false, loop)) return true;
+        if (p.grid[r][c] !== BLOCK && !hot(r, c) && !used.has(r + ',' + c) && step(r, c, axis === 'row', false, loop)) return true;
       }
     }
     return false;
