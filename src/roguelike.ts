@@ -128,6 +128,9 @@ interface Daemon {
   end?: (s: RunState, f: Facts, disconnected: boolean) => void; // after a matrix that uploaded something
 }
 
+// Cache stack once a matrix ends with `empty` buffer slots; the live score already counts the current matrix.
+const cacheAfter = (stack: number, empty: number) => (empty === 0 ? 0 : empty >= 2 ? stack + 0.25 : stack);
+
 export const DAEMONS = {
   chain: { name: 'Chain', family: 'Splicer', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
     score: (f) => (f.shared ? { boost: 0.5 * f.shared } : null) },
@@ -141,9 +144,10 @@ export const DAEMONS = {
     score: (f) => (f.light ? { mult: 2 } : null) },
   silent: { name: 'Silent', family: 'Ghost', text: '+2 credits each time you end a matrix early with Disconnect',
     end: (s, _f, disconnected) => { if (disconnected) earn(s, 'Silent daemon', 2); } },
-  cache: { name: 'Cache', family: 'Ghost', text: 'Stacks +0.25 boost each time a matrix ends with 2+ empty buffer slots; a full buffer resets the stack',
-    score: (_f, s) => (s.cache ? { boost: s.cache } : null),
-    end: (s, f) => { s.cache = f.empty === 0 ? 0 : f.empty >= 2 ? s.cache + 0.25 : s.cache; } },
+  cache: { name: 'Cache', family: 'Ghost',
+    text: '+0.25 boost for every matrix in a row ending with 2+ empty buffer slots, this one included; a full buffer resets the stack',
+    score: (f, s) => { const b = cacheAfter(s.cache, f.empty); return b ? { boost: b } : null; },
+    end: (s, f) => { s.cache = cacheAfter(s.cache, f.empty); } },
   longjump: { name: 'Long jump', family: 'Runner', text: '+5 data per move from one end of a lane to the other',
     score: (f) => (f.edgeJumps ? { flat: 5 * f.edgeJumps } : null) },
   corner: { name: 'Corner', family: 'Runner', text: '×1.5 when the path starts or ends in a corner',

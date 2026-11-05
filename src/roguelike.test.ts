@@ -85,12 +85,14 @@ describe('daemons', () => {
     expect(scoreMatrix(ctx, run('fullstack')).fired).toEqual([]); // XY not uploaded
   });
 
-  it('Cache banks boost on roomy matrices and resets on a full buffer', () => {
+  it('Cache stacks on roomy matrices, this one included, and resets on a full buffer', () => {
     const s = run('cache');
+    expect(scoreMatrix(ctx, s).total).toBe(43); // 4 empty slots: the first matrix already counts, ×1.25
     daemonsAfterMatrix(ctx, s, false);
     daemonsAfterMatrix(ctx, s, false);
     expect(s.cache).toBe(0.5);
-    expect(scoreMatrix(ctx, s).total).toBe(52);
+    expect(scoreMatrix(ctx, s).total).toBe(61); // ×1.75
+    expect(scoreMatrix({ ...ctx, l: 4 }, s).fired).toEqual([]);
     daemonsAfterMatrix({ ...ctx, l: 4 }, s, false);
     expect(s.cache).toBe(0);
   });
