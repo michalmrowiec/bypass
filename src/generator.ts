@@ -16,6 +16,7 @@ export interface Puzzle {
   grid: string[][];
   targets: string[][];
   l: number;
+  path?: [number, number][]; // cells the solution was planted on (generate only)
 }
 
 export function hashStr(s: string): number {
@@ -84,6 +85,6 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
     const seq = order.flatMap((ti, j) => targets[ti].slice(j === deepAt ? 2 : linked.has(j) ? 1 : 0));
     const grid = Array.from({ length: N }, () => Array.from({ length: N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
-    return { grid, targets, l: planted + slack };
+    return { grid, targets, l: planted + slack, path };
   }
 }

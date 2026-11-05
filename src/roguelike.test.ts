@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { contains, WILD } from './game';
 import { generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  removeDaemon, scoreMatrix, sectionMatrix, SECTIONS, SHELF, stockShop,
+  coverage, cutMarks, placeCells, removeDaemon, scoreMatrix, sectionMatrix, SECTIONS, SHELF, splitTarget, stockShop,
   type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -175,5 +176,48 @@ describe('shop', () => {
       expect(p.l).toBe(3 + 3 + 4 - 2 - 1);
       expect(p.targets.some((a) => p.targets.some((b) => a !== b && a.slice(-2).join() === b.slice(0, 2).join()))).toBe(true);
     }
+  });
+});
+
+describe('matrix items', () => {
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
+
+  it('** fits any code in targets and shared slots', () => {
+    expect(contains(['A', WILD, 'C'], ['B', 'C'])).toBe(true);
+    expect(coverage(['A', WILD, 'C'], [['A', 'B'], ['B', 'C']])).toEqual([1, 2, 1]);
+  });
+
+  it('keeps the wildcard off the solution path and the data node on it about one matrix in five', () => {
+    let onPath = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const p = generate(seed, sectionMatrix(1));
+      const { wild, node } = placeCells(seed, p, ['wildcard1', 'datanode']);
+      const on = (c: [number, number]) => p.path!.some((q) => q[0] === c[0] && q[1] === c[1]);
+      expect(on(wild!)).toBe(false);
+      expect(node).not.toEqual(wild);
+      if (on(node!)) onPath++;
+    }
+    expect(onPath).toBeGreaterThan(20);
+    expect(onPath).toBeLessThan(60);
+  });
+
+  it('a data node on the path adds +15 data', () => {
+    const s = newRunState(1);
+    expect(scoreMatrix({ ...ctx, node: [4, 0] }, s)).toMatchObject({ flat: 15, total: 50, gear: [['datanode', { flat: 15 }]] });
+    expect(scoreMatrix({ ...ctx, node: [1, 1] }, s).flat).toBe(0);
+  });
+
+  it('Split v1.0 marks one random gap per target, stable per seed', () => {
+    const targets = [['A', 'B'], ['A', 'B', 'C'], ['A', 'B', 'C', 'D']];
+    const m = cutMarks(9, targets);
+    expect(m[0]).toBe(1);
+    m.forEach((at, i) => expect(at >= 1 && at < targets[i].length).toBe(true));
+    expect(cutMarks(9, targets)).toEqual(m);
+  });
+
+  it('split cuts a target and its data in two', () => {
+    expect(splitTarget([['A', 'B', 'C'], ['D', 'E']], [25, 10], 0)).toEqual({ targets: [['A', 'B'], ['C'], ['D', 'E']], worth: [13, 12, 10] });
+    expect(splitTarget([['A', 'B', 'C', 'D']], [45], 0, 1).targets).toEqual([['A'], ['B', 'C', 'D']]);
+    expect(matrixData(['A', 'B'], [['A', 'B'], ['C']], [13, 12])).toBe(13);
   });
 });

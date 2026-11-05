@@ -1,5 +1,5 @@
-import { contains } from './game';
-import { CODES, hashStr, rng, SIZES, type Size } from './generator';
+import { contains, fits } from './game';
+import { CODES, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
 
 // Roguelike mode: a run is a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
 export const RUN_POOL = [...CODES];
@@ -56,8 +56,9 @@ const earn = (s: RunState, why: string, n: number) => {
   if (n) { s.credits += n; s.earned.push([why, n]); }
 };
 
-export const matrixData = (buf: string[], targets: string[][]) =>
-  targets.filter((t) => contains(buf, t)).reduce((a, t) => a + DATA_BY_LEN[t.length], 0);
+// worth: data per target when it differs from its length's value (split targets).
+export const matrixData = (buf: string[], targets: string[][], worth?: number[]) =>
+  targets.reduce((a, t, i) => (contains(buf, t) ? a + (worth?.[i] ?? DATA_BY_LEN[t.length]) : a), 0);
 
 export type MatrixOutcome = 'continue' | 'section' | 'win' | 'lose';
 
@@ -80,7 +81,7 @@ export function nextSection(s: RunState): void {
 
 // --- Daemons: passive upgrades. Matrix score = (data + flat) × (1 + boost) × mult; no upload means 0.
 
-export interface MatrixCtx { buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number }
+export interface MatrixCtx { buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell }
 
 interface Facts {
   done: string[][];
@@ -103,7 +104,7 @@ const moveLen = (a: Cell, b: Cell) => (a[0] === b[0] ? Math.abs(a[1] - b[1]) : M
 export function coverage(buf: string[], targets: string[][]): number[] {
   const cover = buf.map(() => 0);
   for (const t of targets) {
-    const i = buf.findIndex((_, i) => t.every((c, j) => buf[i + j] === c));
+    const i = buf.findIndex((_, i) => t.every((c, j) => fits(buf[i + j], c)));
     if (i >= 0) for (let j = 0; j < t.length; j++) cover[i + j]++;
   }
   return cover;
@@ -142,7 +143,7 @@ export const DAEMONS = {
     score: (f) => (f.empty ? { boost: 0.5 * f.empty } : null) },
   light: { name: 'Light footprint', family: 'Ghost', text: '×2 when at most half the buffer is used',
     score: (f) => (f.light ? { mult: 2 } : null) },
-  silent: { name: 'Silent', family: 'Ghost', text: '+2 credits each time you end a matrix early with Disconnect',
+  silent: { name: 'Silent', family: 'Ghost', text: '+$2 each time you end a matrix early with Disconnect',
     end: (s, _f, disconnected) => { if (disconnected) earn(s, 'Silent daemon', 2); } },
   cache: { name: 'Cache', family: 'Ghost',
     text: '+0.25 boost for every matrix in a row ending with 2+ empty buffer slots, this one included; a full buffer resets the stack',
@@ -157,11 +158,17 @@ export const DAEMONS = {
 } satisfies Record<string, Daemon>;
 export type DaemonId = keyof typeof DAEMONS;
 
-export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][] }
+// gear: shop items that added something to this matrix, like daemons in fired.
+export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][] }
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
-  const sc: Score = { base: matrixData(ctx.buf, ctx.targets), flat: 0, boost: 0, mult: 1, total: 0, fired: [] };
+  const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [] };
+  const node = ctx.node;
+  if (node && ctx.path.some((p) => p[0] === node[0] && p[1] === node[1])) {
+    sc.flat += NODE_DATA;
+    sc.gear.push(['datanode', { flat: NODE_DATA }]);
+  }
   for (const id of s.daemons) {
     const e = (DAEMONS[id] as Daemon).score?.(f, s);
     if (!e) continue;
@@ -223,6 +230,11 @@ export const ITEMS = {
   shortkey: { name: 'Short key', ver: '1.0', kind: 'cut key', price: 3, text: 'The longest target is 1 code shorter; the buffer keeps its size' },
   linker1: { name: 'Linker', ver: '1.0', kind: 'patch cable', price: 4, text: 'One more target starts with the last code of another' },
   linker2: { name: 'Linker', ver: '2.0', kind: 'twin cable', price: 4, text: 'Upgrades v1.0: one link also shares 2 codes (targets of 3+ codes)', needs: 'linker1' },
+  wildcard1: { name: 'Wildcard', ver: '1.0', kind: 'master key', price: 4, text: 'In every matrix one random cell off the solution path turns into **, which fits any code' },
+  wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into **', needs: 'wildcard1' },
+  datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
+  split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; the parts share its data' },
+  split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target is cut', needs: 'split1' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 3;
@@ -260,4 +272,36 @@ export function removeDaemon(s: RunState, id: DaemonId): boolean {
   s.credits -= REMOVE_COST;
   s.daemons = s.daemons.filter((d) => d !== id);
   return true;
+}
+
+export const NODE_DATA = 15;
+const NODE_ON_PATH = 0.2;
+
+// Item cells of a matrix, the same for its seed: the Wildcard v1.0 cell never lies on the planted solution path,
+// the Data node only in about one matrix in five.
+export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: Cell; node?: Cell } {
+  const r = rng(hashStr(seed + '/cells'));
+  const n = p.grid.length;
+  const cells = Array.from({ length: n * n }, (_, i): Cell => [Math.floor(i / n), i % n]);
+  const onPath = (c: Cell) => !!p.path?.some((q) => q[0] === c[0] && q[1] === c[1]);
+  const pick = (pool: Cell[]) => pool[Math.floor(r() * pool.length)];
+  const wild = items.includes('wildcard1') ? pick(cells.filter((c) => !onPath(c))) : undefined;
+  const nodeOnPath = r() < NODE_ON_PATH;
+  const node = items.includes('datanode') ? pick(cells.filter((c) => c !== wild && onPath(c) === nodeOnPath)) : undefined;
+  return { wild, node };
+}
+
+// Split v1.0 cut marks: one random gap per target, the same for a matrix seed.
+export const cutMarks = (seed: number, targets: string[][]) => {
+  const r = rng(hashStr(seed + '/cuts'));
+  return targets.map((t) => 1 + Math.floor(r() * (t.length - 1)));
+};
+
+// Cuts target i before code `at` (default: the middle, rounded up) into two targets that share its data.
+export function splitTarget(targets: string[][], worth: number[], i: number, at = Math.ceil(targets[i].length / 2)) {
+  const w = worth[i];
+  return {
+    targets: [...targets.slice(0, i), targets[i].slice(0, at), targets[i].slice(at), ...targets.slice(i + 1)],
+    worth: [...worth.slice(0, i), Math.ceil(w / 2), Math.floor(w / 2), ...worth.slice(i + 1)],
+  };
 }

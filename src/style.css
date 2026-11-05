@@ -12,6 +12,7 @@
   --pink:#ff3d8b;
   --cyan:#3dd9ff;
   --data:#2ee6d6;
+  --gold:#ffd23f;
   --boost:#ff3d8b;
   --done:#5af2a8;
   --bad:#ff3d8b;
@@ -178,7 +179,13 @@ button.ware{cursor:pointer}
 .ware .price{border:1px solid var(--mint-dim);padding:0 8px;font-size:12px;color:var(--mint)}
 .ware.poor{opacity:.42;cursor:not-allowed}
 .deck{display:flex;flex-direction:column;gap:8px}
-.deckitem{display:flex;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--line);font-size:11px;color:var(--muted)}
+.deckitem{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px;border:1px solid var(--line);background:none;font:inherit;font-size:11px;text-align:left;color:var(--muted)}
+/* A tool usable before the first move pulses until it is armed. */
+button.deckitem{cursor:pointer}
+.deckitem.ready{border-color:var(--mint-dim);animation:ready 1.6s ease-in-out infinite}
+.deckitem.armed{border-color:var(--mint);background:var(--mint-faint);animation:none}
+.deckitem em{display:block;font-style:normal;font-size:10px;color:var(--mint)}
+@keyframes ready{50%{border-color:var(--mint);box-shadow:0 0 10px rgba(90,242,168,.25)}}
 .deckitem .gear{flex:none;width:70px;height:40px}
 .deckitem b{display:block;font-size:12px;color:var(--ink)}
 .g-pcb{fill:#0e1814;stroke:#2f5a45}
@@ -201,6 +208,34 @@ button.ware{cursor:pointer}
 @keyframes rgbled{0%,100%{fill:var(--mint)}33%{fill:var(--cyan)}66%{fill:var(--pink)}}
 @keyframes pulseflow{to{stroke-dashoffset:0}}
 .tabs{display:flex;gap:8px;margin:0 0 12px}
+.cr,.status b.cr{color:var(--gold);font-weight:600}
+.result .devbar{flex-wrap:wrap;justify-content:flex-start;gap:8px;margin:0 0 12px;padding:8px;border:1px dashed var(--pink)}
+.devbar span{flex-basis:100%;font-size:11px;color:var(--pink)}
+.g-star{fill:none;stroke:var(--mint);stroke-width:1.6;stroke-linecap:round;transform-origin:28px 42px}
+.g-reticle{fill:none;stroke:var(--mint-dim);transform-origin:28px 42px}
+.g-reticle circle{stroke-dasharray:3 4}
+.g-act{fill:var(--mint-dim)}
+.g-dial circle{fill:#1a2024;stroke:var(--mint)}
+.g-dial path{stroke:var(--mint)}
+.g-dial{transform-origin:66px 35px;transition:transform .4s}
+.hw:is(:hover,:focus-visible) .g-star{animation:gspin 2s linear infinite}
+.hw:is(:hover,:focus-visible) .g-reticle{animation:gspin 6s linear infinite reverse}
+.hw:is(:hover,:focus-visible) .g-act{animation:gblink .3s steps(1) infinite}
+.hw:is(:hover,:focus-visible) .g-dial{transform:rotate(135deg)}
+@keyframes gspin{to{transform:rotate(360deg)}}
+@keyframes gblink{50%{fill:var(--data)}}
+/* Item cells: a wildcard flickers in pink, a data node carries its bonus in the corner. */
+.cell.wild,.slot.wild{color:var(--pink);animation:rgb 3s steps(1) infinite}
+.cell .ntag{position:absolute;top:1px;right:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--data);pointer-events:none}
+.cell:has(.ntag){border-color:color-mix(in srgb,var(--data) 45%,transparent)}
+.cell.used .ntag{display:none}
+/* Split: a cuttable target, or the gaps between its codes. */
+.target.cut{outline:1px dashed var(--pink);outline-offset:2px}
+.target.cut[role=button]{cursor:pointer}
+.target.cut[role=button]:hover,.target.cut[role=button]:focus-visible{background:rgba(255,61,139,.08)}
+.target .gap{position:relative;align-self:stretch;width:10px;margin:0 -3px;padding:0;border:0;background:none;cursor:pointer}
+.target .gap::after{content:"";position:absolute;top:0;bottom:0;left:4px;border-left:1px dashed var(--muted)}
+.target .gap:hover::after,.target .gap:focus-visible::after,.target .gap.mark::after{border-left-color:var(--pink)}
 .result .tabs .btn[aria-pressed="true"]{border-color:var(--mint);color:var(--bg)}
 .ware b small{font-size:inherit;color:inherit;text-transform:none}
 
@@ -221,7 +256,7 @@ button.ware{cursor:pointer}
 .calc{border-collapse:collapse;font-size:13px;width:100%}
 .calc td{padding:2px 0;color:var(--muted)}
 .calc td+td{text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
-.calc .dfile{color:var(--ink);font-weight:600}
+.calc .dfile,.calc .gname{color:var(--ink);font-weight:600}
 .calc .sum td{border-top:1px solid var(--line);padding-top:6px;color:var(--mint)}
 .target{display:flex;align-items:center;gap:12px;padding:7px 10px;border-left:2px solid var(--line);background:var(--panel)}
 .target .codes{display:flex;gap:10px;font-weight:500;font-size:15px;color:var(--muted)}

@@ -20,9 +20,13 @@ export interface Run {
 
 export const newRun = (): Run => ({ buffer: [], used: new Set(), path: [], axis: 'row', idx: 0 });
 
+// Run-only wildcard cell: in the buffer it stands for any code. Other modes never deal it.
+export const WILD = '**';
+export const fits = (b: string | undefined, code: string) => b === code || b === WILD;
+
 export function contains(buf: string[], t: string[]): boolean {
   for (let i = 0; i + t.length <= buf.length; i++) {
-    if (t.every((c, j) => buf[i + j] === c)) return true;
+    if (t.every((c, j) => fits(buf[i + j], c))) return true;
   }
   return false;
 }
@@ -31,7 +35,7 @@ export function contains(buf: string[], t: string[]): boolean {
 export function partial(buf: string[], t: string[]): number {
   for (let k = Math.min(t.length - 1, buf.length); k > 0; k--) {
     let m = true;
-    for (let j = 0; j < k; j++) if (buf[buf.length - k + j] !== t[j]) { m = false; break; }
+    for (let j = 0; j < k; j++) if (!fits(buf[buf.length - k + j], t[j])) { m = false; break; }
     if (m) return k;
   }
   return 0;
