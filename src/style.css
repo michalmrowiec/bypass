@@ -349,7 +349,9 @@ button.unit{cursor:pointer}
 .cell:has(.rtag){border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
 /* Firewall ICE: sealed cells. */
 .cell.ice{color:color-mix(in srgb,var(--pink) 55%,transparent);background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(255,61,139,.07) 5px 10px)}
-.iceTag{margin-left:6px;font-style:normal;font-size:10px;color:var(--pink)}
+.isep{color:var(--muted)}
+.iceTag{display:inline-block;white-space:nowrap;margin:2px 0 0;font-style:normal;font-size:10px;color:var(--pink);text-decoration:underline dotted color-mix(in srgb,var(--pink) 45%,transparent);text-underline-offset:2px;cursor:help}
+.iceTag.new,.newkey{font-weight:700;color:color-mix(in srgb,var(--pink) 70%,var(--ink))}
 .iceRule{border-left:2px solid var(--pink);padding-left:10px}
 .iceRule b{color:var(--pink)}
 /* Loopback: used cells show their code greyed out; the ones an armed Loopback can take light up. */
@@ -447,7 +449,8 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .fcard.flip .finner{transform:rotateY(180deg)}
 .fface{position:absolute;inset:0;backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 18px;
   border:1px solid var(--line);background:linear-gradient(165deg,var(--panel),var(--bg));text-align:center}
-.fface.back{transform:rotateY(180deg);align-items:stretch;text-align:left;gap:8px;padding:18px 16px}
+.fface.back{transform:rotateY(180deg);align-items:stretch;text-align:left;gap:6px;padding:16px 14px;overflow:hidden auto}
+.fface.back .meta{margin:0}
 .fcard.now .fface{border-color:var(--mint);box-shadow:0 0 34px -12px var(--mint)}
 .fcard:focus-visible .fface{outline:1px solid var(--mint);outline-offset:3px}
 .fface b{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
@@ -469,8 +472,12 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .fcard.locked{cursor:default}
 .fcard.locked .fface{border-style:dashed}
 .fcard.locked .flogo{color:var(--muted);filter:none}
-.frooms{margin:0;padding-left:18px;font-size:12px;display:flex;flex-direction:column;gap:4px}
-.frooms .meta{display:block}
+.frooms{width:100%;border-collapse:collapse;font-size:11.5px}
+.frooms th{font-weight:400;font-size:10px;color:var(--muted);text-align:right;padding:0 0 2px}
+.frooms td{padding:1px 0;text-align:right;color:var(--muted);white-space:nowrap}
+.frooms :is(th,td):first-child{text-align:left;color:var(--ink);padding-right:6px}
+.frooms th:first-child{color:var(--muted)}
+.frooms :is(th,td)+:is(th,td){padding-left:8px}
 .cnav{position:absolute;top:50%;z-index:40;width:34px;height:34px;margin-top:-17px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:18px;cursor:pointer}
 .cnav:hover:not(:disabled){border-color:var(--mint);color:var(--mint)}
 .cnav:disabled{opacity:.3;cursor:default}
@@ -536,6 +543,7 @@ button.chip:hover{border-color:var(--gold)}
 /* Company colours: logos only, the game's own colours keep their meaning. */
 .lg-kestrel{--lg1:#ffc857;--lg2:#ff6a2b;--lg3:#ff2e63}
 .lg-meridian{--lg1:#36e2ff;--lg2:#7a5cff;--lg3:#eafcff}
+.lg-ashgrove{--lg1:#f2e6c4;--lg2:#c9a24a;--lg3:#7fd1a8}
 .lg-aurum{--lg1:#ffe08a;--lg2:#e0a23a;--lg3:#2ee6a0;--lg4:#8a4a14}
 .lg-helix{--lg1:#c6ff3d;--lg2:#12c9b0;--lg3:#1f7aff}
 .lg-voltline{--lg1:#fff04a;--lg2:#ff8a00;--lg3:#3d7bff}
@@ -544,7 +552,7 @@ button.chip:hover{border-color:var(--gold)}
 .lg-argus{--lg1:#ff3d5a;--lg2:#ffb03d}
 .fcard.sealed .flogo{--lg1:var(--muted);--lg2:var(--muted);--lg3:var(--muted);--lg4:var(--muted)}
 .wmark{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:0}
-.wmark .flogo{width:min(70%,420px);height:auto;aspect-ratio:1;--lg1:var(--ink);--lg2:var(--ink);--lg3:var(--ink);--lg4:var(--ink);opacity:.008;filter:none}
+.wmark .flogo{width:min(70%,420px);height:auto;aspect-ratio:1;--lg1:var(--ink);--lg2:var(--ink);--lg3:var(--ink);--lg4:var(--ink);opacity:.022;filter:none}
 .wmark .flogo *{animation:none}
 #grid{position:relative;z-index:1}
 /* Contract motif: a company's own pattern drifting behind the stepper. */
@@ -552,6 +560,7 @@ button.chip:hover{border-color:var(--gold)}
 #steps .steplist{position:relative;z-index:1}
 #steps[data-co="kestrel"]::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27220%27%20height%3D%2760%27%20viewBox%3D%270%200%20220%2060%27%3E%3Cpath%20d%3D%27M0%2042C40%2042%2055%2016%20100%2016S170%2038%20220%2042%27%20fill%3D%27none%27%20stroke%3D%27%23ff6a2b%27%20stroke-opacity%3D%27.35%27%20stroke-dasharray%3D%275%207%27%2F%3E%3Ccircle%20cx%3D%27100%27%20cy%3D%2716%27%20r%3D%272.5%27%20fill%3D%27%23ffc857%27%20fill-opacity%3D%27.45%27%2F%3E%3C%2Fsvg%3E")}
 #steps[data-co="meridian"]::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27220%27%20height%3D%2760%27%20viewBox%3D%270%200%20220%2060%27%3E%3Cpath%20d%3D%27M0%2030H80l6-9%206%2020%207-34%207%2042%205-19h109%27%20fill%3D%27none%27%20stroke%3D%27%2336e2ff%27%20stroke-opacity%3D%27.35%27%20stroke-width%3D%271.5%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E")}
+#steps[data-co="ashgrove"]::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27220%27%20height%3D%2760%27%20viewBox%3D%270%200%20220%2060%27%3E%3Cpath%20d%3D%27M0%2022H220M0%2038H220%27%20stroke%3D%27%23d9c58a%27%20stroke-opacity%3D%27.18%27%2F%3E%3Cpath%20d%3D%27M20%2030H150%27%20stroke%3D%27%23d9c58a%27%20stroke-opacity%3D%27.4%27%20stroke-dasharray%3D%272%204%27%2F%3E%3Ccircle%20cx%3D%27176%27%20cy%3D%2730%27%20r%3D%277%27%20fill%3D%27none%27%20stroke%3D%27%23c9a24a%27%20stroke-opacity%3D%27.5%27%2F%3E%3Ccircle%20cx%3D%27176%27%20cy%3D%2730%27%20r%3D%272.5%27%20fill%3D%27%237fd1a8%27%20fill-opacity%3D%27.55%27%2F%3E%3C%2Fsvg%3E")}
 #steps[data-co="aurum"]::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27220%27%20height%3D%2760%27%20viewBox%3D%270%200%20220%2060%27%3E%3Cpath%20d%3D%27M0%2044L30%2038L55%2042L85%2028L115%2032L145%2020L175%2028L220%2044%27%20fill%3D%27none%27%20stroke%3D%27%23ffd76a%27%20stroke-opacity%3D%27.35%27%20stroke-width%3D%271.5%27%2F%3E%3Ccircle%20cx%3D%27145%27%20cy%3D%2720%27%20r%3D%272.5%27%20fill%3D%27%232ee6a0%27%20fill-opacity%3D%27.55%27%2F%3E%3C%2Fsvg%3E")}
 #steps[data-co="helix"]::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27220%27%20height%3D%2760%27%20viewBox%3D%270%200%20220%2060%27%3E%3Cpath%20d%3D%27M0%2030C27%2010%2083%2010%20110%2030S193%2050%20220%2030%27%20fill%3D%27none%27%20stroke%3D%27%23c6ff3d%27%20stroke-opacity%3D%27.35%27%20stroke-width%3D%271.5%27%2F%3E%3Cpath%20d%3D%27M0%2030C27%2050%2083%2050%20110%2030S193%2010%20220%2030%27%20fill%3D%27none%27%20stroke%3D%27%2312c9b0%27%20stroke-opacity%3D%27.35%27%20stroke-width%3D%271.5%27%2F%3E%3C%2Fsvg%3E")}
 #steps[data-co="voltline"]::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27220%27%20height%3D%2760%27%20viewBox%3D%270%200%20220%2060%27%3E%3Cpath%20d%3D%27M0%2020Q55%2032%20110%2020T220%2020M0%2040Q55%2052%20110%2040T220%2040%27%20fill%3D%27none%27%20stroke%3D%27%233d7bff%27%20stroke-opacity%3D%27.4%27%20stroke-width%3D%271.2%27%2F%3E%3Cpath%20d%3D%27M110%2014v32%27%20stroke%3D%27%233d7bff%27%20stroke-opacity%3D%27.4%27%2F%3E%3Ccircle%20cx%3D%2755%27%20cy%3D%2726%27%20r%3D%272%27%20fill%3D%27%23fff04a%27%20fill-opacity%3D%27.7%27%2F%3E%3C%2Fsvg%3E")}
@@ -636,3 +645,10 @@ button.chip:hover{border-color:var(--gold)}
 @media (max-width:560px){.brief{grid-template-columns:1fr}.hacker{width:140px;margin:0 auto}}
 @media (prefers-reduced-motion:reduce){.hk-refl,.hk-edge,.hk-body{animation:none}}
 .ibadge{display:inline-grid;place-items:center;width:15px;height:15px;margin-right:7px;border:1px solid currentColor;border-radius:50%;font-size:10px;font-weight:700;line-height:1;vertical-align:2px}
+/* Encryption: hidden codes; Honeypot: the trap cell. */
+.cell.enc{color:var(--muted);opacity:.55;letter-spacing:.1em}
+.cell.trap{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pink) 55%,transparent)}
+.cell .ttag{color:var(--pink)}
+button.icebtn{all:unset;display:block;cursor:pointer}
+button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:color-mix(in srgb,var(--pink) 8%,transparent)}
+.tip{position:fixed;z-index:1000;max-width:min(260px,calc(100vw - 16px));padding:6px 9px;background:var(--panel);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:11px;line-height:1.4;color:var(--ink);pointer-events:none}

@@ -8,7 +8,7 @@ import { hacker, logo } from './logos';
 import { canComplete } from './solver';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountyMet, globTarget, plantRepeat, rewardFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountyMet, globTarget, plantRepeat, trapCell, rewardFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -60,7 +60,7 @@ function endSave() { cur = null; dropRun(); }
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
 // tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
 // rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick.
-let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
+let M: { node?: [number, number]; trap?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
   bounty?: BountyId; reward?: RewardId; rep?: [number, number]; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'> } =
   { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false };
 type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
@@ -100,6 +100,10 @@ const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length &
 // Blackout ICE: the SOC's targets stay hidden until the first pick.
 const blackout = () => S.mode === 'run' && roomIce(R).includes('blackout') && !S.run.path.length && !S.over;
 const isNode = (r: number, c: number) => S.mode === 'run' && M.node?.[0] === r && M.node[1] === c;
+const isTrap = (r: number, c: number) => S.mode === 'run' && M.trap?.[0] === r && M.trap[1] === c;
+// Encryption: a free cell's code shows only in the line you pick in.
+const encrypted = (r: number, c: number) => S.mode === 'run' && !S.over && roomIce(R).includes('encryption')
+  && !S.run.used.has(r + ',' + c) && !inLane(S.run, r, c) && !(doorOpen() && onEdge(r, c));
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
 // Row and column names; a run company may label them its own way.
@@ -131,10 +135,13 @@ function render() {
     const b = document.createElement('button');
     b.className = 'cell';
     b.id = 'c' + r + c;
-    b.textContent = grid[r][c];
+    const hid = grid[r][c] !== BLOCK && encrypted(r, c);
+    b.textContent = hid ? '??' : grid[r][c];
+    if (hid) b.classList.add('enc');
     if (grid[r][c] === WILD) b.classList.add('wild');
     if (grid[r][c] === BLOCK) b.classList.add('ice');
     if (isNode(r, c)) b.insertAdjacentHTML('beforeend', "<i class='ntag'>+" + NODE_DATA + '</i>');
+    if (isTrap(r, c)) { b.classList.add('trap'); b.insertAdjacentHTML('beforeend', "<i class='ntag ttag'>×.5</i>"); }
     if (S.mode === 'run' && M.rep?.[0] === r && M.rep[1] === c) b.insertAdjacentHTML('beforeend', "<i class='ntag rtag'>×2</i>");
     // Ping: a solution's first cell, until the first pick.
     if (S.mode === 'run' && R.items.includes('ping') && !S.run.path.length && !S.over && S.puzzle.path?.[0][0] === r && S.puzzle.path[0][1] === c) b.classList.add('ping');
@@ -150,7 +157,7 @@ function render() {
     if (S.mode === 'run' && R.daemons.includes('corner') && isCorner([r, c], n)) b.classList.add('corner');
     if (legal(r, c)) {
       b.classList.add('ok');
-      b.setAttribute('aria-label', 'Pick ' + grid[r][c] + ' at row ' + (r + 1) + ' column ' + (c + 1));
+      b.setAttribute('aria-label', 'Pick ' + (hid ? 'an encrypted code' : grid[r][c]) + (isTrap(r, c) ? ' (honeypot)' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
       b.onclick = () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
@@ -177,7 +184,7 @@ function render() {
     if (i >= l) {
       s.className = 'slot lock';
       s.textContent = '##';
-      s.title = 'Taken by Throttle ICE';
+      s.dataset.tip = 'Taken by Throttle ICE';
       buf.appendChild(s);
       continue;
     }
@@ -216,7 +223,7 @@ function render() {
     }
     if (S.mode === 'run' && !cut) {
       el.draggable = true;
-      el.title = 'Drag to reorder';
+      el.dataset.tip = 'Drag to reorder';
       el.ondragstart = (e) => { dragged = i; e.dataTransfer?.setData('text/plain', String(i)); };
       el.ondragover = (e) => { e.preventDefault(); el.classList.add('drop'); };
       el.ondragleave = () => el.classList.remove('drop');
@@ -257,7 +264,7 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, jumps: M.jumps,
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
     par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, reward: M.reward });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
@@ -320,7 +327,7 @@ const card = (id: DaemonId, i: number, tag: string, text: string, foot: string, 
   const d = DAEMONS[id];
   const sc = scopeOf(id);
   return "<div class='dslot' style='--t:-" + Math.round((performance.now() + i * 2900) % 90000) + "ms'><" + tag + " class='dcard c-"
-    + d.family.toLowerCase() + ' s-' + sc + ' r-' + rarityOf(id) + cls + "' title='" + rarityOf(id) + "'><span class='dbody'><em class='fold'></em>" + (rarityOf(id) === 'common' ? '' : "<em class='foil'></em>") + "<svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>" + ICONS[id]
+    + d.family.toLowerCase() + ' s-' + sc + ' r-' + rarityOf(id) + cls + "'><span class='dbody'><em class='fold'></em>" + (rarityOf(id) === 'common' ? '' : "<em class='foil'></em>") + "<svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>" + ICONS[id]
     + "</svg><span class='dmain'><b><span class='fdir'>" + d.family.toLowerCase() + '/</span><wbr>' + d.name.toLowerCase().replace(/ /g, '_<wbr>')
     + "<span class='fext'>.dmn</span></b><small><span class='scope'>scope:" + sc + " <em class='smark' aria-hidden='true'>" + SCOPE_MARK[sc] + '</em></span>'
     + (rarityOf(id) === 'common' ? '' : " | <span class='rar'>" + rarityOf(id).toUpperCase() + '</span>')
@@ -401,7 +408,7 @@ function renderDaemons() {
     + Array.from({ length: Math.max(RACK_MAX, units.length) }, (_, i) => {
       const u = units[i];
       if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
-      if (!u) return rail(i + 1) + "<div class='unit blank' title='Locked: buy a rack slot in the shop'><i class='scr'></i><i class='vent'></i>"
+      if (!u) return rail(i + 1) + "<div class='unit blank' data-tip='Locked: buy a rack slot in the shop'><i class='scr'></i><i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
       return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
@@ -463,6 +470,15 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
     };
   });
   // Bonuses: click one to put it on this matrix (again to take it off); the reward buttons set what it pays.
+  // A clicked ICE goes on (or off) this room as a patch of this iteration, then the matrix is dealt again.
+  $('modalBox').querySelectorAll<HTMLElement>('[data-ice]').forEach((b) => {
+    b.onclick = () => {
+      const ice = b.dataset.ice as IceId, mine = (p: Patch) => p.ice === ice && p.room === R.section && p.loop === R.loop;
+      R.patches = R.patches.some(mine) ? R.patches.filter((p) => !mine(p)) : [...R.patches, { ice, room: R.section, loop: R.loop }];
+      hideResult();
+      newMatrix();
+    };
+  });
   $('modalBox').querySelectorAll<HTMLElement>('[data-bounty]').forEach((b) => {
     b.onclick = () => { const id = b.dataset.bounty as BountyId; M.bounty = M.bounty === id ? undefined : id; refresh(); };
   });
@@ -491,7 +507,7 @@ function showCatalog() {
     : catalogTab === 'items' ? '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
     : catalogTab === 'ice' ? '<p class="meta">' + Object.keys(ICE).length + " ICE rules · the SOC runs one from the company's pool; patches deploy more between iterations, into any room</p>"
-      + (Object.keys(ICE) as IceId[]).map((id) => iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE')).join('')
+      + (Object.keys(ICE) as IceId[]).map((id) => '<' + tag + " class='icebtn' data-ice='" + id + "'>" + iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE') + '</' + tag + '>').join('')
     : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · its reward stays hidden: '
       + Object.values(REWARDS).join(', ') + "</p><div class='blist'>"
       + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
@@ -585,6 +601,7 @@ const dmnName = (id: DaemonId) => {
 const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><span class='vd'>" + sc.base + ' data</span></td></tr>'
   + sc.fired.map(([id, e]) => '<tr><td>' + dmnName(id) + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.gear.map(([id, e]) => "<tr><td><span class='gname'>" + ITEMS[id].name + '</span></td><td>' + fmtEffect(e) + '</td></tr>').join('')
+  + sc.ice.map(([id, e]) => "<tr><td><i class='iceTag'>" + ICE[id].name + '</i></td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
 
 
@@ -603,7 +620,7 @@ function showPatch(p: Patch) {
 
 // What the player owns, shown beside offers and the shop: daemon chips, then rack modules with their art.
 const owned = (shop = false) => {
-  const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' title='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
+  const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' data-tip='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
   return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
@@ -677,7 +694,9 @@ const shownIce = (i: number) => roomIce(R, i).filter((id) => (id === R.ice && i 
 const burnText = (n: number) => (n === Infinity ? 'locks for good' : 'locks for ' + n + (n > 1 ? ' moves' : ' move'));
 const iceRule = (id: IceId, tag = 'ICE') => "<p class='iceRule'><b>" + tag + ' · ' + ICE[id].name + '</b> ' + ICE[id].text
   + (id === 'corruption' && burnOf(R) ? ' · now ' + burnText(burnOf(R)) : '') + '</p>';
-const iceTags = (ids: IceId[]) => ids.map((id) => "<i class='iceTag' title='" + ICE[id].text + "'>" + ICE[id].name + '</i>').join('');
+// fresh: ICE shown in bold (new in this company).
+const iceTags = (ids: IceId[], fresh: IceId[] = []) => ids.map((id) => "<i class='iceTag" + (fresh.includes(id) ? ' new' : '') + "' tabindex='0' data-tip='"
+  + ICE[id].text + "'>" + ICE[id].name + '</i>').join("<span class='isep'>;</span> ");
 
 // Contract carousel: one 3D card per company (logo front, rooms and ICE on the back). The next locked company shows in full,
 // the slots after it stay classified.
@@ -693,10 +712,13 @@ const firmCard = (co: Company | undefined, i: number) => {
   const front = co ? face('front', won + logo(co.id) + '<b>' + co.name + '</b><p>' + co.text + '</p>'
     + (best ? "<span class='fbest'>best " + best.data + ' data · ' + fmt(best.ms) + '</span>' : '') + (isOpen(i) ? "<span class='fhint'>details ›</span>" : lock))
     : face('front', logo() + '<b>??? ????????</b><p>Classified. Breach the previous contract to unlock.</p>');
-  const back = co ? face('back', '<b>' + co.name + "</b><ol class='frooms'>" + co.sections.map((s) => '<li>' + s.name + "<span class='meta'>" + s.size.n + '×' + s.size.n
-    + ' · ' + s.matrices + (s.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + s.quota + '</span></li>').join('')
-    + "</ol><p class='meta'>" + LOOPS + ' iterations, quotas ×' + QUOTA_GROWTH + ' each</p>'
-    + "<p class='meta'>boss ICE, one per run:<br>" + iceTags(co.ice) + '</p>' + "<p class='meta'>patches between iterations:<br>" + iceTags(co.patches) + '</p>' + (isOpen(i) ? '' : lock)) : '';
+  // ICE the previous company did not have.
+  const prev = COMPANIES[i - 1], fresh = co && prev ? [...co.ice, ...co.patches].filter((id) => !prev.ice.includes(id) && !prev.patches.includes(id)) : [];
+  const back = co ? face('back', '<b>' + co.name + "</b><table class='frooms'><tr><th>room</th><th>size</th><th>matrices</th><th>quota</th></tr>"
+    + co.sections.map((s) => '<tr><td>' + s.name + '</td><td>' + s.size.n + '×' + s.size.n + '</td><td>' + s.matrices + '</td><td>' + s.quota + '</td></tr>').join('')
+    + "</table><p class='meta'>" + LOOPS + ' iterations, quotas ×' + QUOTA_GROWTH + ' each</p>'
+    + "<p class='meta'>boss ICE, one per run:<br>" + iceTags(co.ice, fresh) + '</p>' + "<p class='meta'>patches between iterations:<br>" + iceTags(co.patches, fresh) + '</p>'
+    + (fresh.length ? "<p class='meta'><span class='newkey'>bold</span> = new in this contract</p>" : '') + (isOpen(i) ? '' : lock)) : '';
   return "<div class='fcard" + (!co ? ' locked' : isOpen(i) ? '' : ' sealed') + "' role='button' tabindex='0' aria-label='" + (co ? co.name : 'Locked contract') + "'><div class='ftilt'><div class='finner'>"
     + front + back + '</div></div></div>';
 };
@@ -922,7 +944,7 @@ function dealMatrix() {
   const rep = R.items.includes('repeater') ? plantRepeat(seed, S.puzzle) : undefined;
   if (R.items.includes('glob')) globTarget(seed, S.puzzle.targets);
   tOrder = [];
-  M = { node: cells.node, worth, rep, rewind: R.items.includes('rewind'), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
+  M = { node: cells.node, trap: roomIce(R).includes('honeypot') ? trapCell(seed, S.puzzle, [cells.wild, cells.node]) : undefined, worth, rep, rewind: R.items.includes('rewind'), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
     split: R.items.includes('split1') || R.items.includes('split2'), jump: R.items.includes('bridge'), loop: R.items.includes('loopback1') || R.items.includes('loopback2'),
     mux: R.items.includes('mux'), jumps: [], tools: false, bounty: bountyHere(R) ? bountyFor(seed, R.items) : undefined, reward: rewardFor(seed) };
   armed = null;
@@ -986,7 +1008,7 @@ function applyCross() {
   }).join(' · ');
   // Echo the code under the cursor in the codes targets still need: solid for a pick open right now, dotted for a
   // free cell off the lane (planning ahead) or a code already hit in an unfinished target. Done and failed targets stay quiet.
-  const code = cursor && !S.over && !blackout() ? S.puzzle.grid[cursor[0]]?.[cursor[1]] : undefined;
+  const code = cursor && !S.over && !blackout() && !encrypted(cursor[0], cursor[1]) ? S.puzzle.grid[cursor[0]]?.[cursor[1]] : undefined;
   const open = !!code && code !== BLOCK && !isUsed(cursor![0], cursor![1]) && !burning(S.run, cursor![0], cursor![1]);
   const now = !!cursor && legal(cursor[0], cursor[1]);
   const run = S.mode === 'run'; // the other modes keep the plain echo
@@ -1002,7 +1024,7 @@ function applyCross() {
 function markCode(code?: string) {
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
     const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
-    const on = !!code && S.mode === 'run' && !S.over && !blackout() && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
+    const on = !!code && S.mode === 'run' && !S.over && !blackout() && !encrypted(r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
     el.classList.toggle('tpeek', on);
     el.classList.toggle('near', on && inLane(S.run, r, c));
   });

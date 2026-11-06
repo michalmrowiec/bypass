@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
   burnOf, COMPANIES, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
-  bountyMet, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, type DaemonId, type ItemId,
+  bountyMet, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -587,6 +587,44 @@ describe('bonus matrices', () => {
       s.section = BOSS;
       s.scores[BOSS] = [];
       expect(bountyHere(s)).toBe(false);
+    }
+  });
+});
+
+describe('new ICE: Dead cells, Honeypot; company pools', () => {
+  const boss = (ice: string) => {
+    const s = newRunState(5);
+    Object.assign(s, { company: 2, section: COMPANIES[2].sections.length - 1, ice });
+    return s;
+  };
+  const planted = (p: ReturnType<typeof dealRunMatrix>) => {
+    const path = p.path!.slice(0, p.l);
+    return { buf: path.map(([r, c]) => p.grid[r][c]), path, targets: p.targets, l: p.l, n: p.grid.length };
+  };
+
+  it('Dead cells kills 2 cells of a 5×5 off the planted route, which still uploads everything', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const p = dealRunMatrix(seed, boss('deadcells'));
+      expect(p.grid.flat().filter((g) => g === BLOCK).length).toBe(2);
+      const ctx = planted(p);
+      expect(matrixData(ctx.buf, ctx.targets)).toBe(p.targets.reduce((a, t) => a + DATA_BY_LEN[t.length], 0));
+    }
+  });
+
+  it('a path through the Honeypot halves the matrix score', () => {
+    const s = boss('honeypot'), p = dealRunMatrix(7, s), ctx = planted(p);
+    const trap = trapCell(7, p, [])!;
+    expect(p.path!.some((q) => q[0] === trap[0] && q[1] === trap[1])).toBe(false);
+    const clean = scoreMatrix({ ...ctx, trap }, s).total;
+    const hit = scoreMatrix({ ...ctx, trap, path: [...ctx.path, trap] }, s);
+    expect(hit.ice).toEqual([['honeypot', { mult: 0.5 }]]);
+    expect(hit.total).toBe(Math.floor(clean / 2));
+  });
+
+  it('every company keeps the ICE of the one before', () => {
+    for (let i = 1; i < COMPANIES.length; i++) {
+      for (const id of COMPANIES[i - 1].patches) expect(COMPANIES[i].patches).toContain(id);
+      for (const id of COMPANIES[i - 1].ice) expect(COMPANIES[i].ice).toContain(id);
     }
   });
 });

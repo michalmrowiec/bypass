@@ -12,7 +12,11 @@ export const ICE = {
   throttle: { name: 'Throttle', text: 'Buffer −1; at least one target always fits' },
   blackout: { name: 'Blackout', text: 'Targets stay hidden until your first pick; every start in the top row reaches one' },
   corruption: { name: 'Corruption', text: 'Each pick locks the cells above, below and beside it for a few moves; every Corruption patch makes it last longer' },
+  encryption: { name: 'Encryption', text: 'Codes stay encrypted (??) outside the line you pick in' },
+  honeypot: { name: 'Honeypot', text: 'One marked cell off the solution path is a trap; a path through it halves the matrix score' },
+  deadcells: { name: 'Dead cells', text: 'A few scattered cells are dead (##); the solution routes around them' },
 };
+// Each company keeps the ICE of the one before and adds its own.
 export type IceId = keyof typeof ICE;
 
 export interface Section { name: string; quota: number; matrices: number; size: Size; brief: string }
@@ -48,8 +52,27 @@ export const COMPANIES: Company[] = [{
     { name: 'Records', quota: 300, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
     { name: 'SOC', quota: 400, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
   ],
-  ice: ['firewall', 'throttle', 'blackout'],
-  patches: ['firewall', 'throttle', 'blackout', 'corruption'],
+  ice: ['firewall', 'throttle', 'blackout', 'encryption'],
+  patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
+}, {
+  id: 'ashgrove',
+  name: 'Ashgrove & Pike',
+  text: 'Boutique law firm. Small offices, a door to every room, and a partner who reads every log.',
+  codes: ['A5', '3E', 'D1', '7C', 'B8'],
+  rowLabel: (r) => 'S' + (r + 1), // shelf
+  colLabel: (c) => 'F-' + String.fromCharCode(65 + c), // folder
+  // Many small rooms: 5×5 matrices, where every dead or locked cell hurts.
+  sections: [
+    { name: 'Lobby', quota: 30, matrices: 1, size: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 }, brief: 'A receptionist, a visitor log, and a kiosk that still runs the old client portal.' },
+    { name: 'Mailroom', quota: 45, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Scanners that email every document to a shared inbox.' },
+    { name: 'Paralegals', quota: 100, matrices: 2, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Case files on network drives, passwords taped under keyboards.' },
+    { name: 'Partners', quota: 140, matrices: 2, size: { n: 5, lens: [3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Corner offices, laptops that never leave, phones that never lock.' },
+    { name: 'Archive', quota: 180, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0 }, brief: 'Thirty years of settlements, digitised and forgotten.' },
+    { name: 'Vault', quota: 220, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'Merger papers and sealed testimony behind a single hardened server.' },
+    { name: 'SOC', quota: 260, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'An outsourced SOC on a retainer. Small screens, sharp eyes.' },
+  ],
+  ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
+  patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells'],
 }];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || breached.includes(COMPANIES[i - 1]?.id);
@@ -197,6 +220,7 @@ export function nextSection(s: RunState): Patch | undefined {
 export interface MatrixCtx {
   buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell; jumps?: number[];
   par?: number; // length of the planted route (Surgical bonus)
+  trap?: Cell; // Honeypot cell
   tools?: boolean; // an item tool was used (Bare hands bonus)
   bounty?: BountyId;
   reward?: RewardId;
@@ -343,11 +367,11 @@ export function restartMatrix(s: RunState): void {
 }
 
 // gear: shop items that added something to this matrix, like daemons in fired.
-export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][] }
+export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][] }
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
-  const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [] };
+  const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [], ice: [] };
   const node = ctx.node;
   if (node && ctx.path.some((p) => p[0] === node[0] && p[1] === node[1])) {
     sc.flat += NODE_DATA;
@@ -366,6 +390,11 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     sc.boost += e.boost ?? 0;
     sc.mult *= e.mult ?? 1;
     sc.fired.push([id, e]);
+  }
+  const trap = ctx.trap;
+  if (trap && ctx.path.some((p) => p[0] === trap[0] && p[1] === trap[1])) {
+    sc.mult *= HONEYPOT_MULT;
+    sc.ice.push(['honeypot', { mult: HONEYPOT_MULT }]);
   }
   // Modifiers show while the path is built, but nothing scores until a target is uploaded.
   sc.total = f.done.length ? Math.floor((sc.base + sc.flat) * (1 + sc.boost) * sc.mult) : 0;
@@ -642,6 +671,25 @@ export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: C
   return { wild, node };
 }
 
+export const HONEYPOT_MULT = 0.5;
+// Honeypot: a free cell off the planted path, clear of the item cells.
+export function trapCell(seed: number, p: Puzzle, avoid: (Cell | undefined)[]): Cell | undefined {
+  const r = rng(hashStr(seed + '/trap')), n = p.grid.length;
+  const same = (a: Cell, b?: Cell) => !!b && a[0] === b[0] && a[1] === b[1];
+  const pool = Array.from({ length: n * n }, (_, i): Cell => [Math.floor(i / n), i % n])
+    .filter((c) => p.grid[c[0]][c[1]] !== BLOCK && !p.path?.some((q) => same(c, q)) && !avoid.some((a) => same(c, a)));
+  return pool[Math.floor(r() * pool.length)];
+}
+
+// Dead cells: 2 on a 5×5, 3 on bigger matrices, scattered off the planted path.
+function killCells(seed: number, p: Puzzle): Puzzle {
+  const r = rng(hashStr(seed + '/dead')), n = p.grid.length;
+  const pool = shuffled(Array.from({ length: n * n }, (_, i): Cell => [Math.floor(i / n), i % n])
+    .filter((c) => p.grid[c[0]][c[1]] !== BLOCK && !p.path?.some((q) => q[0] === c[0] && q[1] === c[1])), r);
+  for (const [y, x] of pool.slice(0, n <= 5 ? 2 : 3)) p.grid[y][x] = BLOCK;
+  return p;
+}
+
 // Split v1.0 cut marks: one random gap per target, the same for a matrix seed.
 export const cutMarks = (seed: number, targets: string[][]) => {
   const r = rng(hashStr(seed + '/cuts'));
@@ -684,10 +732,11 @@ export function dealRunMatrix(seed: number, s: RunState): Puzzle {
     const row = r() < 0.5;
     size = { ...size, block: row ? ['row', 1 + Math.floor(r() * (size.n - 1))] : ['col', Math.floor(r() * size.n)] };
   }
-  let p = generate(seed, size);
+  const deal = (sd: number) => (rules.includes('deadcells') ? killCells(sd, generate(sd, size)) : generate(sd, size));
+  let p = deal(seed);
   // Blackout: redeal until every top-row start can still upload some target.
   if (rules.includes('blackout')) {
-    for (let k = 1; k < 50 && !p.grid[0].every((_, c) => startsWell(p, c, size.burn)); k++) p = generate(hashStr(seed + '/' + k), size);
+    for (let k = 1; k < 50 && !p.grid[0].every((_, c) => startsWell(p, c, size.burn)); k++) p = deal(hashStr(seed + '/' + k));
   }
   return p;
 }

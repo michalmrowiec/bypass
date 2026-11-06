@@ -22,6 +22,11 @@ const LOGOS: Record<string, (u: string) => string> = {
     + `<path fill='url(#${u}a)' d='M52 10H68A8 8 0 0 1 76 18V44H102A8 8 0 0 1 110 52V68A8 8 0 0 1 102 76H76V102A8 8 0 0 1 68 110H52A8 8 0 0 1 44 102V76H18A8 8 0 0 1 10 68V52A8 8 0 0 1 18 44H44V18A8 8 0 0 1 52 10Z'/>`
     + `<path d='${ecg}' fill='none' stroke='${BG}' stroke-width='6' stroke-linejoin='round' stroke-linecap='round'/>`
     + `<path class='lg-trace' pathLength='100' d='${ecg}' fill='none' style='stroke:var(--lg3)' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round'/>`,
+  // Ashgrove & Pike: a courthouse front, pediment over three columns.
+  ashgrove: (u) => `<defs>${lin(u + 'a', [0, 14, 0, 106], '1 2')}</defs>`
+    + `<g fill='url(#${u}a)'><path d='M60 14L106 40H14Z'/><rect x='20' y='45' width='80' height='7'/>`
+    + `<rect x='27' y='56' width='13' height='38'/><rect x='53.5' y='56' width='13' height='38'/><rect x='80' y='56' width='13' height='38'/><rect x='14' y='98' width='92' height='8'/></g>`
+    + `<path d='M46 33H74' stroke='${BG}' stroke-width='3' stroke-linecap='round'/><circle cx='60' cy='27' r='3' style='fill:var(--lg3)'/>`,
   // Not in the game yet: logos for future contracts.
   // Aurum Capital: a folded A over an emerald bar.
   aurum: (u) => `<defs>${lin(u + 'a', [0, 16, 0, 104], '1 2')}${lin(u + 'b', [0, 16, 0, 104], '2 4')}</defs>`
