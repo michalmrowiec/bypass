@@ -8,7 +8,7 @@ import { hacker, logo } from './logos';
 import { canComplete } from './solver';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountyMet, globTarget, plantRepeat, trapCell, rewardFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, globTarget, plantRepeat, trapCell, rewardsFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -42,7 +42,7 @@ let R: RunState = newRunState(0);
 let offer: DaemonId[] = [];
 let endWhy = ''; // why a run matrix ended on its own
 // Run save: R at the last checkpoint, the screen to reopen, and the current matrix's actions, replayed on the same deal.
-type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 };
+type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 };
 type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
 const RUN_V = 1; // bump when RunState changes shape; older saves are dropped
@@ -59,10 +59,10 @@ function logAct(a: Act) {
 function endSave() { cur = null; dropRun(); }
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
 // tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
-// rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick.
+// rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick; charge: a ×2 data charge is spent here.
 let M: { node?: [number, number]; trap?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
-  bounty?: BountyId; reward?: RewardId; rep?: [number, number]; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'> } =
-  { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false };
+  bounty?: BountyId; rewards: RewardId[]; rep?: [number, number]; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'>; charge?: boolean } =
+  { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] };
 type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
 // Run: the order the player dragged the targets into; display only. A split changes the count and resets it.
 let tOrder: number[] = [];
@@ -101,8 +101,12 @@ const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length &
 const blackout = () => S.mode === 'run' && roomIce(R).includes('blackout') && !S.run.path.length && !S.over;
 const isNode = (r: number, c: number) => S.mode === 'run' && M.node?.[0] === r && M.node[1] === c;
 const isTrap = (r: number, c: number) => S.mode === 'run' && M.trap?.[0] === r && M.trap[1] === c;
-// Encryption: a free cell's code shows only in the line you pick in.
-const encrypted = (r: number, c: number) => S.mode === 'run' && !S.over && roomIce(R).includes('encryption')
+// Encryption: a free cell's code shows only in the line you pick in; an armed Bridge also sees the 8 cells around the last pick.
+const bridgeSees = (r: number, c: number) => {
+  const p = S.run.path[S.run.path.length - 1];
+  return armed === 'jump' && !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1;
+};
+const encrypted = (r: number, c: number) => S.mode === 'run' && !S.over && roomIce(R).includes('encryption') && !bridgeSees(r, c)
   && !S.run.used.has(r + ',' + c) && !inLane(S.run, r, c) && !(doorOpen() && onEdge(r, c));
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
@@ -173,6 +177,7 @@ function render() {
     : axis === 'row' ? 'pick in row ' + rowName(idx) : 'pick in col ' + colName(idx);
   const buf = $('buffer');
   buf.innerHTML = '';
+  $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l; // l already lacks the slots Throttle takes
   const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
   const cover = has('chain') || has('compressor') ? coverage(buffer, targets) : [];
   // Run: slots from bought items are dashed; the ones Throttle takes away stay on show, locked.
@@ -188,9 +193,10 @@ function render() {
       buf.appendChild(s);
       continue;
     }
-    s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l + thr - bought ? ' extra' : '')
+    s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l - bought ? ' extra' : '')
       + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '');
     if (has('overflow')) s.dataset.bonus = '+.5';
+    if (s.classList.contains('extra')) s.dataset.tip = 'Extra slot from your rack';
     s.textContent = buffer[i] ?? '';
     buf.appendChild(s);
     if (s.classList.contains('new')) scramble(s, buffer[i], 1, 1, 40);
@@ -251,11 +257,17 @@ function render() {
     tg.insertAdjacentHTML('beforeend', "<div class='bounty" + (ok ? ' met' : '') + "'><span class='bnt'>bonus</span><b>" + b.name + '</b> ' + b.text(runCtx())
       + "<span class='bstate'>" + (ok ? 'met ✓' : 'reward ???') + '</span></div>');
   }
+  // A held ×2 data charge (bonus reward) can be spent on this matrix at any time before it ends.
+  if (S.mode === 'run' && (M.charge || (R.charges && !S.over))) {
+    tg.insertAdjacentHTML('beforeend', M.charge
+      ? "<div class='bounty met'><span class='bnt'>bonus</span><b>×2 data</b> charge spent on this matrix<span class='bstate'>×2 ✓</span></div>"
+      : "<button class='bounty' id='useCharge'><span class='bnt'>bonus</span><b>×2 data</b> charge · " + R.charges + " held<span class='bstate'>click to use here</span></button>");
+    document.getElementById('useCharge')?.addEventListener('click', useCharge);
+  }
   const extra = S.mode === 'daily' ? '<span>Try <b>' + S.tries + '/' + MAX_TRIES + '</b></span>'
     : (S.mode === 'sprint' ? '<span>Matrix <b>' + Math.min(S.stage + 1, stages().length) + '/' + stages().length + '</b></span>' : '')
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
   $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? runStatus() : extra);
-  document.getElementById('restartMatrix')?.addEventListener('click', () => { restartMatrix(R); newMatrix(); });
   document.getElementById('disconnect')?.addEventListener('click', disconnect);
   if (S.mode === 'run') { renderDaemons(); renderSteps(); }
   $('timebar').hidden = S.mode !== 'sprint' || S.over;
@@ -265,16 +277,15 @@ function render() {
 
 const runCtx = (): MatrixCtx =>
   ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
-    par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, reward: M.reward });
+    par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
 function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
-  const restart = !S.start && !S.over && !offer.length && R.restarts ? "<button class='btn act' id='restartMatrix'>Burner SIM · new matrix</button>" : '';
   // Ending early keeps the empty slots, which pay credits.
   const pay = Math.floor((S.puzzle.l - S.run.buffer.length) / SLOTS_PER_CREDIT) + (R.daemons.includes('silent') ? 2 : 0);
   const disconnect = live ? "<button class='btn act' id='disconnect'>Disconnect" + (pay ? ' · ' + money(pay, '+') : '') + '</button>' : '';
-  return restart + disconnect;
+  return disconnect;
 }
 
 // Score reads as data × boost: data = target data + flat bonuses, boost = (1 + additive boosts) × multipliers.
@@ -387,11 +398,12 @@ function renderDaemons() {
   // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
   const start = !S.run.path.length, hosted = R.daemons[DAEMON_SLOTS];
   const units = R.items.map((id) => {
-    const it = ITEMS[id], t = TOOLS[id];
+    // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
+    const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
     const ready = !!t && !S.over && !offer.length
-      && (t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : t === 'mux' ? M.mux && !start && !S.run.free : t === 'rewind' ? M.rewind && !!M.back : M.loop && !start);
+      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : t === 'mux' ? M.mux && !start && !S.run.free : t === 'rewind' ? M.rewind && !!M.back : M.loop && !start);
     const on = ready && armed === t;
-    const hint = !ready ? '' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
+    const hint = !ready ? '' : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : t ? 'standby' : 'online',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '')
@@ -411,17 +423,18 @@ function renderDaemons() {
       if (!u) return rail(i + 1) + "<div class='unit blank' data-tip='Locked: buy a rack slot in the shop'><i class='scr'></i><i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
+      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'><i class='scr'></i>" + gear(u.id)
         + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
-  $('items').querySelectorAll<HTMLElement>('.unit:not(.blank)').forEach((el, i) => {
+  $('items').querySelectorAll<HTMLElement>('.unit.hw').forEach((el, i) => {
     const show = () => { $('lcd').innerHTML = units[i].spec; }, hide = () => { $('lcd').innerHTML = lcd; };
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
     if (el.dataset.tool) el.onclick = () => {
       if (el.dataset.tool === 'rewind') return doRewind();
+      if (el.dataset.tool === 'sim') return burnSim();
       armed = armed === el.dataset.tool ? null : (el.dataset.tool as Tool);
       render();
     };
@@ -438,8 +451,11 @@ let lastBill: Score | null = null;
 // An installed streak daemon (or Sandbag, whose stack lasts a room) also shows its current stack.
 const daemonText = (id: DaemonId) => {
   const st = streakOf(id), n = R.stacks[id] ?? 0;
-  return DAEMONS[id].text + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '');
+  return DAEMONS[id].text + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '')
+    + (st && n && R.daemons.includes(id) && R.bonus?.includes('stack') ?" <span class='bnt'>bonus</span> +" + BOUNTY_STACKS + ' stacks' : '');
 };
+// Credits from bonus rewards claimed since the last shop.
+const bonusCash = () => (R.bonus ?? []).filter((b) => b === 'cash').length * BOUNTY_CREDITS;
 
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
 const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
@@ -482,9 +498,19 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
   $('modalBox').querySelectorAll<HTMLElement>('[data-bounty]').forEach((b) => {
     b.onclick = () => { const id = b.dataset.bounty as BountyId; M.bounty = M.bounty === id ? undefined : id; refresh(); };
   });
-  $('modalBox').querySelectorAll<HTMLElement>('[data-reward]').forEach((b) => { b.onclick = () => { M.reward = b.dataset.reward as RewardId; refresh(); }; });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-reward]').forEach((b) => {
+    // The bonus offers the last two rewards clicked on.
+    b.onclick = () => { const r = b.dataset.reward as RewardId; M.rewards = [...M.rewards.filter((x) => x !== r), r].slice(-2); refresh(); };
+  });
   $('devCr').onclick = () => { R.credits += 10; refresh(); };
-  $('devDeal').onclick = () => { hideResult(); newMatrix(); };
+  // Restarts the room: its matrices are dealt anew, its data and item uses (Burner SIM) start over.
+  $('devDeal').onclick = () => {
+    R.total = (R.total ?? 0) - R.scores[R.section].reduce((a, d) => a + d, 0);
+    Object.assign(R, { data: R.carry ?? 0, restarts: R.items.includes('sim') ? 1 : 0 });
+    R.scores[R.section] = [];
+    hideResult();
+    newMatrix();
+  };
   document.getElementById('devRoom')?.addEventListener('click', () => {
     hideResult();
     const p = nextSection(R);
@@ -508,14 +534,14 @@ function showCatalog() {
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
     : catalogTab === 'ice' ? '<p class="meta">' + Object.keys(ICE).length + " ICE rules · the SOC runs one from the company's pool; patches deploy more between iterations, into any room</p>"
       + (Object.keys(ICE) as IceId[]).map((id) => '<' + tag + " class='icebtn' data-ice='" + id + "'>" + iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE') + '</' + tag + '>').join('')
-    : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · its reward stays hidden: '
+    : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · meeting it lets you pick 1 of 2 rewards: '
       + Object.values(REWARDS).join(', ') + "</p><div class='blist'>"
       + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
         + BOUNTIES[id].name + '</b> ' + BOUNTIES[id].text() + (dev && M.bounty === id ? "<span class='bstate'>on this matrix</span>" : '') + '</' + tag + '>').join('') + '</div>'
-      + (dev ? "<p class='meta'>dev · reward of this matrix's bonus</p><div class='row devbar'>" + (Object.keys(REWARDS) as RewardId[]).map((r) => "<button class='btn' data-reward='" + r + "'"
-        + (M.reward === r ? " aria-pressed='true'" : '') + '>' + REWARDS[r] + '</button>').join('') + '</div>' : '');
+      + (dev ? "<p class='meta'>dev · the two rewards this matrix's bonus offers</p><div class='row devbar'>" + (Object.keys(REWARDS) as RewardId[]).map((r) => "<button class='btn' data-reward='" + r + "'"
+        + (M.rewards.includes(r) ? " aria-pressed='true'" : '') + '>' + REWARDS[r] + '</button>').join('') + '</div>' : '');
   const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal; a bonus goes on this matrix</span>"
-    + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Re-deal</button>"
+    + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Restart room</button>"
     + (!isBoss(R) || R.loop < LOOPS - 1 ? "<button class='btn' id='devRoom'>" + (isBoss(R) ? 'Next iteration' : 'Next room') + '</button>' : '') + '</div>';
   showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('bonuses') + tab('ice') + '</div>'
     + "<div class='catbody'>" + devBar + body + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
@@ -602,6 +628,7 @@ const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><sp
   + sc.fired.map(([id, e]) => '<tr><td>' + dmnName(id) + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.gear.map(([id, e]) => "<tr><td><span class='gname'>" + ITEMS[id].name + '</span></td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.ice.map(([id, e]) => "<tr><td><i class='iceTag'>" + ICE[id].name + '</i></td><td>' + fmtEffect(e) + '</td></tr>').join('')
+  + (sc.charge ? '<tr><td>×2 data charge</td><td>' + fmtEffect({ mult: 2 }) + '</td></tr>' : '')
   + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
 
 
@@ -635,9 +662,9 @@ function showOffer() {
   const poor = full && R.credits < SWAP_COST;
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
-    + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
+    + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
     + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
-  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
+  $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
     b.onclick = () => { if (!full) { R.daemons.push(offer[i]); showShop(); } else if (!poor) showSwap(offer[i]); };
   });
   $('skipDaemon').onclick = () => showShop();
@@ -650,12 +677,13 @@ function showShop(restock = true) {
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
-  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + ' · items stay for the whole run</p>' + owned(true)
+  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + (bonusCash() ? " <span class='bnt'>bonus</span> incl. " + money(bonusCash(), '+') : '')
+    + (R.charges ? " · <span class='bnt'>bonus</span> ×2 data charge ×" + R.charges : '') + ' · items stay for the whole run</p>' + owned(true)
     + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
       || "<div class='dslot empty'>sold out</div>") + "</div><div class='row'>"
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
-    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? '>Reroll · free ×' + R.freeRerolls : off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST)) + '</button>' : '')
+    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST)) + '</button>' : '')
     + "<button class='btn' id='leaveShop'>Continue ›</button></div>");
   $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
@@ -665,7 +693,7 @@ function showShop(restock = true) {
   $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => {
     b.onclick = () => { const id = b.dataset.sell as ItemId; if (id === 'socket' && R.daemons.length > DAEMON_SLOTS) showDrop(); else if (sell(R, id)) showShop(false); };
   });
-  $('leaveShop').onclick = enterSection;
+  $('leaveShop').onclick = () => { R.bonus = []; enterSection(); };
   tilt($('modalBox'));
 }
 
@@ -905,7 +933,7 @@ function resumeRun(sv: SavedRun) {
   S.dealing = false;
   try {
     for (const a of sv.log) {
-      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else disconnect();
+      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else disconnect();
     }
   } finally { replaying = false; }
 }
@@ -946,7 +974,7 @@ function dealMatrix() {
   tOrder = [];
   M = { node: cells.node, trap: roomIce(R).includes('honeypot') ? trapCell(seed, S.puzzle, [cells.wild, cells.node]) : undefined, worth, rep, rewind: R.items.includes('rewind'), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
     split: R.items.includes('split1') || R.items.includes('split2'), jump: R.items.includes('bridge'), loop: R.items.includes('loopback1') || R.items.includes('loopback2'),
-    mux: R.items.includes('mux'), jumps: [], tools: false, bounty: bountyHere(R) ? bountyFor(seed, R.items) : undefined, reward: rewardFor(seed) };
+    mux: R.items.includes('mux'), jumps: [], tools: false, bounty: bountyHere(R) ? bountyFor(seed, R.items) : undefined, rewards: rewardsFor(seed, R.daemons) };
   armed = null;
   resetRun();
   if (M.bounty && R.matrix > 0) bonusIntro(M.bounty); // not on the throwaway board behind the resume dialog
@@ -957,7 +985,7 @@ function bonusIntro(id: BountyId) {
   const pane = $('grid').closest('.pane')!;
   pane.querySelector('.bintro')?.remove();
   pane.insertAdjacentHTML('beforeend', "<div class='bintro' aria-live='polite'><span class='bnt'>bonus objective</span><b>" + BOUNTIES[id].name
-    + '</b><p>' + BOUNTIES[id].text(runCtx()) + "</p><small>reward: hidden until the matrix is over</small></div>");
+    + '</b><p>' + BOUNTIES[id].text(runCtx()) + "</p><small>reward: pick 1 of 2 once the matrix is over</small></div>");
   const el = pane.querySelector<HTMLElement>('.bintro')!;
   el.onanimationend = () => el.remove();
 }
@@ -1151,6 +1179,21 @@ function nearestPickable(r: number, c: number): HTMLElement | null {
   return best;
 }
 
+// Burner SIM: a spent ×2 charge goes back, the matrix is dealt again.
+function burnSim() {
+  if (M.charge) R.charges = (R.charges ?? 0) + 1;
+  restartMatrix(R);
+  newMatrix();
+}
+
+function useCharge() {
+  if (M.charge || !R.charges || S.over) return;
+  R.charges--;
+  M.charge = true;
+  logAct({ x: 1 });
+  render();
+}
+
 function stopClock() {
   S.over = true;
   S.elapsed = Date.now() - S.start;
@@ -1173,17 +1216,25 @@ function finish(sc: number, disconnected = false) {
     }
   } else if (S.mode === 'run') {
     R.ms = (R.ms ?? 0) + S.elapsed;
-    const { score: bill, out } = finishMatrix(R, runCtx(), disconnected);
+    const { score: bill, met, out } = finishMatrix(R, runCtx(), disconnected);
     lastBill = bill;
     if (out === 'win' || out === 'lose') endSave();
     const co = COMPANIES[R.company], next = COMPANIES[R.company + 1];
-    const credits = R.earned.map(([why, n]) => "<p class='meta'>" + (n ? money(n, '+') + ' · ' : '') + why + '</p>').join('')
+    const line = ([why, n]: [string, number]) => "<p class='meta'>" + (n ? money(n, '+') + ' · ' : '') + why + '</p>';
+    // A met bonus waits on the summary until its reward is rolled; the way on stays locked until then.
+    const claim = met && (out === 'continue' || out === 'section' || out === 'loop');
+    const bonus = !M.bounty ? '' : claim
+      ? "<div class='bounty met breward'><span class='bnt'>bonus met</span><b>" + BOUNTIES[M.bounty].name + "</b> <span class='bstate' id='reel'>reward ???</span>"
+        + "<button class='btn' id='claim'>Roll reward</button></div>"
+      : "<p class='meta'>bonus " + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[M.bounty].name + '</p>';
+    const credits = R.earned.map(line).join('') + bonus
       + (out === 'win' && recordBreach(co.id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
-    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn " + cls + "' id='" + id + "'>" + label + '</button></div>';
+    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
       ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›')
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
         : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run'));
+    if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
     return;
   } else {
     const c = settle(win);
@@ -1194,6 +1245,27 @@ function finish(sc: number, disconnected = false) {
     return wireChallenge(c.first);
   }
   showResult(win, html);
+}
+
+// The reel runs through the rewards and lands on the two the matrix seed drew; the player takes one, which pays it and
+// frees the way on.
+function rollReward(bounty: BountyId, picks: RewardId[]) {
+  const btn = $('claim') as HTMLButtonElement, reel = $('reel'), names = Object.values(REWARDS);
+  btn.disabled = true;
+  let k = 0;
+  const spin = setInterval(() => { reel.textContent = names[k++ % names.length]; }, 70);
+  setTimeout(() => {
+    clearInterval(spin);
+    reel.textContent = 'pick one';
+    btn.outerHTML = "<span class='bpicks'>" + picks.map((p) => "<button class='btn' data-pick='" + p + "'>" + REWARDS[p] + '</button>').join('') + '</span>';
+    $('modalBox').querySelectorAll<HTMLElement>('[data-pick]').forEach((b) => {
+      b.onclick = () => {
+        reel.textContent = REWARDS[claimReward(R, bounty, b.dataset.pick as RewardId)];
+        $('modalBox').querySelector('.bpicks')?.remove();
+        $('modalBox').querySelectorAll<HTMLButtonElement>('.row .btn').forEach((x) => { x.disabled = false; });
+      };
+    });
+  }, 1200);
 }
 
 // The first completion of a matrix or sprint counts (for links and records); losses aren't saved, so you can keep

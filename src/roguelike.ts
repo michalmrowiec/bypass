@@ -163,6 +163,8 @@ export interface RunState {
   carry?: number; // data Overtime carried into this room
   freeRerolls?: number; // bonus rewards
   legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
+  charges?: number; // bonus reward: ×2 data charges, spent by hand on a matrix
+  bonus?: RewardId[]; // bonus rewards claimed since the last shop, marked in the offer and shop
 }
 
 export function newRunState(seed: number, company = 0): RunState {
@@ -223,7 +225,7 @@ export interface MatrixCtx {
   trap?: Cell; // Honeypot cell
   tools?: boolean; // an item tool was used (Bare hands bonus)
   bounty?: BountyId;
-  reward?: RewardId;
+  charge?: boolean; // a ×2 data charge is spent on this matrix
 }
 
 interface Facts {
@@ -367,7 +369,7 @@ export function restartMatrix(s: RunState): void {
 }
 
 // gear: shop items that added something to this matrix, like daemons in fired.
-export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][] }
+export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean }
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
@@ -396,6 +398,7 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     sc.mult *= HONEYPOT_MULT;
     sc.ice.push(['honeypot', { mult: HONEYPOT_MULT }]);
   }
+  if (ctx.charge) { sc.mult *= 2; sc.charge = true; }
   // Modifiers show while the path is built, but nothing scores until a target is uploaded.
   sc.total = f.done.length ? Math.floor((sc.base + sc.flat) * (1 + sc.boost) * sc.mult) : 0;
   return sc;
@@ -414,17 +417,17 @@ export function daemonsAfterMatrix(ctx: MatrixCtx, s: RunState, disconnected: bo
 }
 
 // Ends a matrix: scores it, applies after-matrix daemons and banks it; s.earned then lists its credits.
+// met: the bonus objective held; its reward waits for claimReward.
 export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean) {
   s.earned = [];
   const score = scoreMatrix(ctx, s);
   daemonsAfterMatrix(ctx, s, disconnected);
-  // After the streaks moved, so a stack reward is not overwritten.
-  if (ctx.bounty && bountyMet(ctx.bounty, ctx)) {
-    payReward(s, 'bonus · ' + BOUNTIES[ctx.bounty].name, ctx.reward ?? 'cash');
-    if (ctx.reward === 'double') { score.mult *= 2; score.total *= 2; }
-  }
-  return { score, out: endMatrix(s, score.total, ctx.l - ctx.buf.length) };
+  const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
+  return { score, met, out: endMatrix(s, score.total, ctx.l - ctx.buf.length) };
 }
+
+// Pays a met bonus once the player claims it on the summary; after the streaks moved, so a stack reward is not overwritten.
+export const claimReward = (s: RunState, bounty: BountyId, reward: RewardId) => payReward(s, 'bonus · ' + BOUNTIES[bounty].name, reward);
 
 // Bonus objectives: one per matrix, drawn from its seed and shown from the start; meeting it pays credits.
 // Bonuses are rare (one matrix per iteration), so what they pay is big.
@@ -462,22 +465,26 @@ export const REWARDS = {
   rerolls: BOUNTY_REROLLS + ' free rerolls',
   stack: '+' + BOUNTY_STACKS + ' stacks on every streak daemon',
   legend: 'a legendary daemon in the next offer',
-  double: '×2 data for this matrix',
+  double: 'a ×2 data charge for a later matrix',
 };
 export type RewardId = keyof typeof REWARDS;
-export const rewardFor = (seed: number): RewardId => {
-  const ids = Object.keys(REWARDS) as RewardId[];
-  return ids[Math.floor(rng(hashStr(seed + '/reward'))() * ids.length)];
+// The two rewards a met bonus offers, drawn per matrix; stacks only come up with a streak daemon installed.
+export const rewardsFor = (seed: number, daemons: DaemonId[] = []): RewardId[] => {
+  const ids = (Object.keys(REWARDS) as RewardId[]).filter((id) => id !== 'stack' || daemons.some((d) => streakOf(d)));
+  return shuffled(ids, rng(hashStr(seed + '/reward'))).slice(0, 2);
 };
-// No streak daemon installed: the stack reward pays credits instead. Double is applied by finishMatrix.
-function payReward(s: RunState, why: string, id: RewardId): void {
+// No streak daemon installed: the stack reward pays credits instead. Returns what was actually paid.
+function payReward(s: RunState, why: string, id: RewardId): RewardId {
   const streaks = s.daemons.filter((d) => streakOf(d));
   const note = (text: string) => s.earned.push([why + ' · ' + text, 0]);
+  if (id === 'stack' && !streaks.length) id = 'cash';
   if (id === 'rerolls') { s.freeRerolls = (s.freeRerolls ?? 0) + BOUNTY_REROLLS; note(REWARDS.rerolls); }
   else if (id === 'legend') { s.legendOffer = true; note(REWARDS.legend); }
-  else if (id === 'double') note(REWARDS.double);
-  else if (id === 'stack' && streaks.length) { for (const d of streaks) s.stacks[d] = (s.stacks[d] ?? 0) + BOUNTY_STACKS; note(REWARDS.stack); }
+  else if (id === 'double') { s.charges = (s.charges ?? 0) + 1; note(REWARDS.double); }
+  else if (id === 'stack') { for (const d of streaks) s.stacks[d] = (s.stacks[d] ?? 0) + BOUNTY_STACKS; note(REWARDS.stack); }
   else earn(s, why, BOUNTY_CREDITS);
+  (s.bonus ??= []).push(id);
+  return id;
 }
 export const bountyMet = (id: BountyId, ctx: MatrixCtx) => BOUNTIES[id].met(facts(ctx), ctx);
 

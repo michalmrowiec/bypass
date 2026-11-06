@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
   burnOf, COMPANIES, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
-  bountyMet, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
+  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -511,7 +511,9 @@ describe('playtest daemons, bounties and Glob', () => {
     expect(bountyMet('barehands', { ...ctx, tools: true })).toBe(false);
     const s = run();
     s.section = 1;
-    finishMatrix(s, { ...ctx, bounty: 'clean' }, false);
+    expect(finishMatrix(s, { ...ctx, bounty: 'clean' }, false).met).toBe(true);
+    expect(s.earned).not.toContainEqual(['bonus · Clean', 5]); // paid only once claimed
+    expect(claimReward(s, 'clean', 'cash')).toBe('cash');
     expect(s.earned).toContainEqual(['bonus · Clean', 5]);
   });
 
@@ -557,14 +559,27 @@ describe('round 3: All-in, Overtime, Repeater, rewards', () => {
     for (let seed = 0; seed < 200; seed++) expect(bountyFor(seed)).not.toBe('wild');
     const s = run('heartbeat');
     s.section = 1;
-    finishMatrix(s, { ...ctx, bounty: 'clean', reward: 'stack' }, false);
+    finishMatrix(s, { ...ctx, bounty: 'clean' }, false);
+    claimReward(s, 'clean', 'stack');
     expect(s.stacks.heartbeat).toBe(3);
-    finishMatrix(s, { ...ctx, bounty: 'clean', reward: 'rerolls' }, false);
+    claimReward(s, 'clean', 'rerolls');
     expect(s.freeRerolls).toBe(3);
     expect(stockShop(s, true)).toBe(true);
     expect(s.freeRerolls).toBe(2);
+    expect(claimReward(run(), 'clean', 'stack')).toBe('cash'); // no streak daemon
+    claimReward(s, 'clean', 'double');
+    expect([s.charges, s.bonus]).toEqual([1, ['stack', 'rerolls', 'double']]);
     const plain = finishMatrix(run(), { ...ctx }, false).score.total;
-    expect(finishMatrix(run(), { ...ctx, bounty: 'clean', reward: 'double' }, false).score.total).toBe(2 * plain);
+    expect(finishMatrix(run(), { ...ctx, charge: true }, false).score.total).toBe(2 * plain);
+  });
+
+  it('a bonus offers two different rewards; stacks only with a streak daemon', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const [a, b] = rewardsFor(seed);
+      expect(a).not.toBe(b);
+      expect([a, b]).not.toContain('stack');
+      expect(rewardsFor(seed, ['heartbeat'])).toHaveLength(2);
+    }
   });
 
   it('a legendary reward makes the next offer lead with a legendary', () => {

@@ -111,8 +111,10 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .slot{position:relative}
 .slot[data-bonus]:not(.filled)::before{content:attr(data-bonus);font-size:10px;font-weight:400;color:var(--mint-dim)}
 .slot.half::after{content:"";position:absolute;right:-4px;top:-4px;bottom:-4px;border-right:1px dashed var(--cyan)}
-.slot.extra{border-style:dashed;border-color:var(--mint-dim)}
-.slot.lock{border-color:var(--bad);color:color-mix(in srgb,var(--bad) 55%,transparent);background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(255,61,139,.1) 5px 10px)}
+/* Extra slot from rack items: a quiet dashed edge; Throttle's slot: struck through in red stripes. */
+.slot.extra{border-style:dashed;border-color:color-mix(in srgb,var(--cyan) 35%,var(--line))}
+.slot.lock{border-color:var(--bad);color:var(--bad);font-size:11px;letter-spacing:.04em;box-shadow:0 0 6px color-mix(in srgb,var(--bad) 35%,transparent);
+  background:repeating-linear-gradient(45deg,rgba(255,61,139,.06) 0 4px,rgba(255,61,139,.24) 4px 8px)}
 .slot.lock::before{content:none}
 .dcard .hold{opacity:.6}
 .slot.shared{border-color:var(--cyan);color:var(--cyan)}
@@ -175,9 +177,8 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .foil{position:absolute;inset:0;z-index:2;padding:2px;pointer-events:none;background-size:300% 100%;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 .r-legendary .foil{background-image:linear-gradient(110deg,transparent 35%,#ff3d8b 42%,#ffd23f 47%,#5af2a8 52%,#3dd9ff 57%,#b9a6ff 62%,transparent 70%);animation:foil 10s ease-in-out infinite}
-.r-rare .foil{background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%);animation:glint 5s ease-in-out infinite}
+.r-rare .foil{background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%);animation:foil 10s ease-in-out infinite}
 @keyframes foil{0%{background-position:100% 0}40%,100%{background-position:-200% 0}}
-@keyframes glint{0%{background-position:100% 0}25%,100%{background-position:-200% 0}}
 /* Spontaneous glitch by rarity, short bursts with long quiet gaps. Common: one tear line every 7.5 s.
    Rare: a double tear every 9 s, the text slips. Legendary: a burst of torn lines every 10 s, the text slices and the name flashes gold. */
 .r-rare .dbody::before{animation:tearR 9s steps(1) var(--t,0s) infinite}
@@ -226,7 +227,9 @@ button.bounty:hover{color:var(--ink)}
 .bintro small{display:block;margin-top:6px;font-size:10px;color:var(--muted)}
 @keyframes bintro{0%{opacity:0}6%{opacity:1;filter:brightness(2.4);transform:translate(-48%,-50%)}9%{opacity:.3;transform:translate(-52%,-50%)}
   12%{opacity:1;filter:none;transform:translate(-50%,-50%)}82%{opacity:1}86%{opacity:.4}89%{opacity:.8}92%,100%{opacity:0}}
-.smark{font-style:normal;font-size:13px;line-height:1;vertical-align:-1px}
+/* Marks sit on the text baseline; ∞ has its ink lower than ◇ and ▣, so it is lifted. */
+.smark{font-style:normal;font-size:13px;line-height:1}
+.s-run .smark{position:relative;top:-1px}
 .dcard i{flex:none;max-width:40%;align-self:stretch;display:flex;flex-wrap:wrap;align-items:center;align-content:center;justify-content:flex-end;gap:0 6px;padding-left:12px;
   border-left:1px solid color-mix(in srgb,var(--fc) 25%,transparent);font-style:normal;font-size:12px;text-align:right}
 /* Rare, brief glitch on each card's own beat: a torn scanline and an RGB split on the name. Glare spot follows the pointer. */
@@ -652,3 +655,13 @@ button.chip:hover{border-color:var(--gold)}
 button.icebtn{all:unset;display:block;cursor:pointer}
 button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:color-mix(in srgb,var(--pink) 8%,transparent)}
 .tip{position:fixed;z-index:1000;max-width:min(260px,calc(100vw - 16px));padding:6px 9px;background:var(--panel);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:11px;line-height:1.4;color:var(--ink);pointer-events:none}
+
+/* Scrollbars: a thin terminal rail, square mint thumb. */
+*{scrollbar-width:thin;scrollbar-color:var(--mint-dim) transparent}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:repeating-linear-gradient(transparent 0 3px,var(--line) 3px 4px);border-left:1px solid var(--line)}
+::-webkit-scrollbar-thumb{background:var(--mint-dim);border:2px solid var(--panel);border-radius:0}
+::-webkit-scrollbar-thumb:hover{background:var(--mint)}
+::-webkit-scrollbar-corner{background:transparent}
+.bpicks{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:4px}
+.bpicks .btn{font-size:12px}
