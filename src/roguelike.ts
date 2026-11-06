@@ -117,11 +117,14 @@ function deployPatch(s: RunState): Patch {
 const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0);
 export const DAEMON_SLOTS = 4;
 // Credits: one per SURPLUS_PER_CREDIT data over the quota, SECTION_CREDIT per cleared section,
-// one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something.
+// one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something (DC_SLOTS_PER_CREDIT after a Disconnect),
+// FULL_CREDIT for a matrix with every target uploaded.
 export const SURPLUS_PER_CREDIT = 20;
 export const SURPLUS_CAP = 3; // per room, so huge scores don't flood the economy
 export const SECTION_CREDIT = 1;
 export const SLOTS_PER_CREDIT = 2;
+export const DC_SLOTS_PER_CREDIT = 3;
+export const FULL_CREDIT = 1;
 
 // Run buffers have no spare slots of their own; shop items add buffer, links and shorter targets.
 export function sectionMatrix(section: number, items: ItemId[] = [], company = 0): Size {
@@ -188,9 +191,9 @@ export const matrixData = (buf: string[], targets: string[][], worth?: number[])
 export type MatrixOutcome = 'continue' | 'section' | 'loop' | 'win' | 'lose';
 
 // Banks a finished matrix; after the section's last one, checks the quota and pays the section credits.
-export function endMatrix(s: RunState, data: number, emptySlots: number): MatrixOutcome {
+export function endMatrix(s: RunState, data: number, emptySlots: number, per = SLOTS_PER_CREDIT): MatrixOutcome {
   s.data += data;
-  if (data) earn(s, emptySlots + ' empty buffer slots (1 per ' + SLOTS_PER_CREDIT + ')', Math.floor(emptySlots / SLOTS_PER_CREDIT));
+  if (data) earn(s, emptySlots + ' empty buffer slots (1 per ' + per + ')', Math.floor(emptySlots / per));
   s.scores[s.section].push(data);
   s.total = (s.total ?? 0) + data;
   s.best = Math.max(s.best ?? 0, data);
@@ -423,7 +426,8 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
   const score = scoreMatrix(ctx, s);
   daemonsAfterMatrix(ctx, s, disconnected);
   const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
-  return { score, met, out: endMatrix(s, score.total, ctx.l - ctx.buf.length) };
+  if (facts(ctx).all) earn(s, 'every target uploaded', FULL_CREDIT);
+  return { score, met, out: endMatrix(s, score.total, ctx.l - ctx.buf.length, disconnected ? DC_SLOTS_PER_CREDIT : SLOTS_PER_CREDIT) };
 }
 
 // Pays a met bonus once the player claims it on the summary; after the streaks moved, so a stack reward is not overwritten.

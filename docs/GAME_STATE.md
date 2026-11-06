@@ -111,7 +111,8 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 
 ## 9. Ekonomia
 - **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $3 na pokój.
-- **Inne źródła:** +$1 za pokój; $1 za każde 2 puste sloty bufora.
+- **Inne źródła:** +$1 za pokój; +$1 za matrycę z wgranymi wszystkimi targetami.
+- **Puste sloty bufora:** $1 za każde 2, gdy matryca skończy się sama; po Disconnect $1 za każde 3. Daemon Silent dokłada do tego +$2.
 - **Koszty:** reroll oferty $1, półka w sklepie ma 3 itemy.
 
 ## 10. UI (najważniejsze)

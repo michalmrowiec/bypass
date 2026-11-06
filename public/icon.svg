@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 3×3 matrix with a pick route (row 0 → column → row → column); full bleed so it also works as a maskable icon -->
+  <rect width="512" height="512" fill="#111315"/>
+  <g fill="#16191c" stroke="#2a3035" stroke-width="6">
+    <rect x="80" y="80" width="104" height="104" rx="10"/><rect x="204" y="80" width="104" height="104" rx="10"/><rect x="328" y="80" width="104" height="104" rx="10"/>
+    <rect x="80" y="204" width="104" height="104" rx="10"/><rect x="204" y="204" width="104" height="104" rx="10"/><rect x="328" y="204" width="104" height="104" rx="10"/>
+    <rect x="80" y="328" width="104" height="104" rx="10"/><rect x="204" y="328" width="104" height="104" rx="10"/><rect x="328" y="328" width="104" height="104" rx="10"/>
+  </g>
+  <g fill="#1d3a2d" stroke="#5af2a8" stroke-width="8">
+    <rect x="80" y="80" width="104" height="104" rx="10"/><rect x="80" y="328" width="104" height="104" rx="10"/>
+    <rect x="328" y="328" width="104" height="104" rx="10"/><rect x="328" y="204" width="104" height="104" rx="10"/>
+  </g>
+  <path d="M132 132V380H380V256" fill="none" stroke="#5af2a8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="132" cy="132" r="20" fill="#5af2a8"/>
+</svg>

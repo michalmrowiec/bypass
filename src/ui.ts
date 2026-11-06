@@ -7,7 +7,7 @@ import { gear } from './gear';
 import { hacker, logo } from './logos';
 import { canComplete } from './solver';
 import {
-  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
+  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, globTarget, plantRepeat, trapCell, rewardsFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -283,7 +283,7 @@ const runCtx = (): MatrixCtx =>
 function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
   // Ending early keeps the empty slots, which pay credits.
-  const pay = Math.floor((S.puzzle.l - S.run.buffer.length) / SLOTS_PER_CREDIT) + (R.daemons.includes('silent') ? 2 : 0);
+  const pay = Math.floor((S.puzzle.l - S.run.buffer.length) / DC_SLOTS_PER_CREDIT) + (R.daemons.includes('silent') ? 2 : 0);
   const disconnect = live ? "<button class='btn act' id='disconnect'>Disconnect" + (pay ? ' · ' + money(pay, '+') : '') + '</button>' : '';
   return disconnect;
 }
@@ -1271,7 +1271,7 @@ function finish(sc: number, disconnected = false) {
       : "<p class='meta'>bonus " + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[M.bounty].name + '</p>';
     const credits = R.earned.map(line).join('') + bonus
       + (out === 'win' && recordBreach(co.id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
-    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='peek'>View matrix</button><button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
+    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
       ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›')
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
@@ -1418,7 +1418,7 @@ function showResult(win: boolean, html: string) {
   on('runSection', () => { nextSection(R); showOffer(); });
   on('runLoop', () => showPatch(nextSection(R)!));
   on('runNew', () => setMode('run'));
-  on('peek', peek);
+  on('viewMatrix', peek);
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
   on('retrySprint', () => setMode('sprint', S.seed, S.challenge));
@@ -1429,7 +1429,8 @@ function showResult(win: boolean, html: string) {
 function peek() {
   const m = $('modal');
   m.classList.add('peek');
-  const back = () => { m.classList.remove('peek'); m.removeEventListener('click', back); removeEventListener('keydown', esc); $('peek').focus(); };
+  $('grid').scrollIntoView({ block: 'center' });
+  const back = () => { m.classList.remove('peek'); m.removeEventListener('click', back); removeEventListener('keydown', esc); $('viewMatrix').focus(); };
   const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') back(); };
   setTimeout(() => { m.addEventListener('click', back); addEventListener('keydown', esc); });
 }

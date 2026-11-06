@@ -109,7 +109,14 @@ describe('daemons', () => {
     const { score, out } = finishMatrix(s, ctx, true);
     expect([score.total, out]).toEqual([52, 'continue']);
     expect(score.fired).toEqual([['chain', { boost: 0.5 }]]);
-    expect(s.earned).toEqual([['Silent daemon', 2], ['4 empty buffer slots (1 per 2)', 2]]);
+    expect(s.earned).toEqual([['Silent daemon', 2], ['4 empty buffer slots (1 per 3)', 1]]);
+  });
+
+  it('a full upload pays a credit, and empty slots pay 1 per 2 when the matrix ends on its own', () => {
+    const s = run();
+    s.section = 1;
+    finishMatrix(s, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
+    expect(s.earned).toEqual([['every target uploaded', 1], ['4 empty buffer slots (1 per 2)', 2]]);
   });
 
   it('offers 3 distinct unowned daemons, stable per seed and section', () => {
