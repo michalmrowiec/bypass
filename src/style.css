@@ -218,15 +218,34 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .catbody{height:min(62vh,560px);overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 4px 2px;margin:0 -6px 12px 0}
 button.bounty{font:inherit;font-size:12px;text-align:left;cursor:pointer;border:0;width:100%}
 button.bounty:hover{color:var(--ink)}
-/* Bonus intro over the matrix at the start of a bonus matrix. */
-.bintro{position:absolute;left:50%;top:42%;z-index:5;width:min(320px,86%);transform:translate(-50%,-50%);padding:14px 16px;text-align:center;pointer-events:none;
+/* Contract: a grey bonus tag on rooms whose bonus matrix has come up. */
+.bnt.off{background:var(--line);color:var(--muted);font-size:9px;vertical-align:1px}
+.breward{margin-top:14px}
+/* A x2 charge is a consumable: a solid cyan frame, nothing like the dashed bonus objective. */
+.charge{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;width:100%;padding:6px 10px;font:inherit;font-size:12px;text-align:left;color:var(--muted);
+  background:color-mix(in srgb,var(--cyan) 8%,transparent);border:1px solid color-mix(in srgb,var(--cyan) 55%,var(--line))}
+button.charge{cursor:pointer}
+button.charge:hover{color:var(--ink);border-color:var(--cyan)}
+.cnt{border:1px solid var(--cyan);color:var(--cyan);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:0 5px}
+.charge b{color:var(--ink);font-weight:600}
+.cstate{margin-left:auto;font-size:11px;color:var(--cyan)}
+/* View matrix: the summary steps aside, the overlay stays to catch the click back. */
+.overlay.peek{background:transparent;backdrop-filter:none;cursor:pointer}
+.overlay.peek #modalBox{display:none}
+.overlay.peek::after{content:'click or Esc \00b7  back to summary';position:fixed;left:50%;bottom:16px;transform:translateX(-50%);padding:6px 12px;font-size:12px;
+  color:var(--ink);background:var(--panel);border:1px solid var(--mint-dim)}
+.dslot.drag{opacity:.6;animation:none;cursor:grabbing}
+.dslot.drag .dcard{outline:1px dashed var(--mint)}
+/* Bonus intro over the matrix at the start of a bonus matrix; it stays until clicked or the first move. */
+.bintro{position:absolute;left:50%;top:42%;z-index:5;width:min(400px,90%);transform:translate(-50%,-50%);padding:20px 22px;text-align:center;cursor:pointer;
   background:color-mix(in srgb,var(--bg) 92%,transparent);border:1px solid var(--mint);box-shadow:0 0 0 4px color-mix(in srgb,var(--bg) 70%,transparent),0 0 24px color-mix(in srgb,var(--mint) 30%,transparent);
-  animation:bintro 2.8s steps(1,end) forwards}
-.bintro b{display:block;margin:8px 0 2px;font-size:18px;color:var(--mint);letter-spacing:.06em;text-transform:uppercase}
-.bintro p{margin:0;font-size:12px;color:var(--ink)}
-.bintro small{display:block;margin-top:6px;font-size:10px;color:var(--muted)}
-@keyframes bintro{0%{opacity:0}6%{opacity:1;filter:brightness(2.4);transform:translate(-48%,-50%)}9%{opacity:.3;transform:translate(-52%,-50%)}
-  12%{opacity:1;filter:none;transform:translate(-50%,-50%)}82%{opacity:1}86%{opacity:.4}89%{opacity:.8}92%,100%{opacity:0}}
+  animation:bintro .6s steps(1,end) both}
+.bintro b{display:block;margin:10px 0 4px;font-size:24px;color:var(--mint);letter-spacing:.06em;text-transform:uppercase}
+.bintro p{margin:0;font-size:14px;color:var(--ink)}
+.bintro .btn{margin-top:12px}
+.bintro small{display:block;margin-top:8px;font-size:11px;color:var(--muted)}
+@keyframes bintro{0%{opacity:0}25%{opacity:1;filter:brightness(2.4);transform:translate(-48%,-50%)}45%{opacity:.3;transform:translate(-52%,-50%)}
+  65%,100%{opacity:1;filter:none;transform:translate(-50%,-50%)}}
 /* Marks sit on the text baseline; ∞ has its ink lower than ◇ and ▣, so it is lifted. */
 .smark{font-style:normal;font-size:13px;line-height:1}
 .s-run .smark{position:relative;top:-1px}

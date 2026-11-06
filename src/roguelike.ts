@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 
 // Roguelike mode: a run breaches one company, a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
 export const RUN_POOL = [...CODES];
-export const DATA_BY_LEN: Record<number, number> = { 2: 10, 3: 25, 4: 45 };
+export const DATA_BY_LEN: Record<number, number> = { 2: 10, 3: 25, 4: 45, 5: 70, 6: 100 };
 
 // Boss ICE: one rule for the last room, drawn from the run seed and the company's pool, shown from the start of the run.
 export const ICE = {
@@ -446,14 +446,17 @@ export const BOUNTIES = {
 export type BountyId = keyof typeof BOUNTIES;
 // Bonus matrices: BOUNTIES_PER_LOOP of an iteration's matrices outside the boss room, drawn from the run seed, carry a bonus objective.
 export const BOUNTIES_PER_LOOP = 1;
-// Never in the boss room.
-export function bountyHere(s: RunState): boolean {
-  if (isBoss(s)) return false;
+// [room, matrix in room] of this iteration's bonus matrices; never in the boss room.
+export function bountySpots(s: RunState): [number, number][] {
   const rooms = sections(s).slice(0, -1), total = rooms.reduce((a, r) => a + r.matrices, 0);
-  const at = rooms.slice(0, s.section).reduce((a, r) => a + r.matrices, 0) + played(s);
   const picks = shuffled(Array.from({ length: total }, (_, i) => i), rng(hashStr(s.seed + '/bounties/' + s.loop))).slice(0, BOUNTIES_PER_LOOP);
-  return picks.includes(at);
+  return picks.map((k) => {
+    let i = 0;
+    while (k >= rooms[i].matrices) k -= rooms[i++].matrices;
+    return [i, k];
+  });
 }
+export const bountyHere = (s: RunState) => bountySpots(s).some(([i, j]) => i === s.section && j === played(s));
 // Wild only comes up for a run with a Wildcard.
 export const bountyFor = (seed: number, items: ItemId[] = []): BountyId => {
   const ids = (Object.keys(BOUNTIES) as BountyId[]).filter((id) => id !== 'wild' || items.some((i) => i === 'wildcard1' || i === 'wildcard2'));
@@ -569,7 +572,7 @@ export const ITEMS = {
   linker1: { name: 'Linker', ver: '1.0', kind: 'patch cable', price: 4, text: 'One more target starts with the last code of another' },
   linker2: { name: 'Linker', ver: '2.0', kind: 'twin cable', price: 4, text: 'Upgrades v1.0: one link also shares 2 codes (targets of 3+ codes)', needs: 'linker1' },
   wildcard1: { name: 'Wildcard', ver: '1.0', kind: 'master key', price: 4, text: 'In every matrix one random cell off the solution path turns into **, which fits any code' },
-  wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into **', needs: 'wildcard1' },
+  wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into ** (not the ×2 cell)', needs: 'wildcard1' },
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
   split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; the parts share its data' },
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target is cut', needs: 'split1' },
@@ -732,6 +735,8 @@ const startsWell = (p: Puzzle, c: number, burn?: number) => {
 export function dealRunMatrix(seed: number, s: RunState): Puzzle {
   const rules = roomIce(s);
   let size = sectionMatrix(s.section, s.items, s.company);
+  // Later iterations: the longest target gets one code more (the buffer follows).
+  if (s.loop) { const lens = [...size.lens]; lens[lens.indexOf(Math.max(...lens))]++; size = { ...size, lens }; }
   if (rules.includes('throttle')) size = { ...size, slack: size.slack - 1 };
   if (rules.includes('corruption')) size = { ...size, burn: burnOf(s) };
   if (rules.includes('firewall')) {

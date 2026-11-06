@@ -318,6 +318,18 @@ describe('companies', () => {
       }
     }));
   });
+
+  it('later iterations deal a longest target one code longer, even under Firewall and Corruption', () => {
+    COMPANIES.forEach((co, ci) => co.sections.forEach((_, i) => {
+      const s = { ...newRunState(1, ci), section: i, loop: 1 };
+      for (let seed = 1; seed <= 4; seed++) {
+        const base = sectionMatrix(i, [], ci), size = { ...base, lens: base.lens.map((l, k) => l + +(k === base.lens.indexOf(Math.max(...base.lens)))), block: ['row', 1] as ['row', number], burn: burnOf(s) };
+        const p = generate(seed, size);
+        expect(p.targets.map((t) => t.length).sort()).toEqual([...size.lens].sort());
+        expect(canComplete(newRun(), p)).toBe(true);
+      }
+    }));
+  });
 });
 
 describe('iterations', () => {
