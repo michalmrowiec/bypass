@@ -90,6 +90,10 @@ const repeater = "<rect class='g-plug' x='40' y='30' width='56' height='30' rx='
 const tape = "<rect class='g-plug' x='30' y='22' width='90' height='46' rx='4'/><circle class='g-steel' cx='56' cy='42' r='9'/><circle class='g-steel' cx='94' cy='42' r='9'/>"
   + "<circle class='g-hole' cx='56' cy='42' r='3'/><circle class='g-hole' cx='94' cy='42' r='3'/><path class='g-cut' d='M48 60h54'/>";
 
+// Co-processor: a socketed chip under a heat spreader.
+const socket = "<rect class='g-plug' x='40' y='14' width='70' height='56' rx='3'/><rect class='g-steel' x='54' y='26' width='42' height='32' rx='2'/>"
+  + "<text class='g-silk' x='59' y='45'>CO-PROC</text><circle class='g-act' cx='46' cy='20' r='2.5'/>";
+
 const ART: Record<ItemId, string> = {
   buffer1: ram(0, 6),
   buffer2: ram(10, 0) + ram(-4, 14),
@@ -114,6 +118,7 @@ const ART: Record<ItemId, string> = {
   mux,
   repeater,
   rewind: tape,
+  socket,
 };
 
 export const gear = (id: ItemId) => "<svg class='gear' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';

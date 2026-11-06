@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
   burnOf, COMPANIES, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
-  bountyMet, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, type DaemonId, type ItemId,
+  bountyMet, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -399,11 +399,20 @@ describe('economy', () => {
     const s = { ...newRunState(1), credits: 50, items: ['buffer1', 'shortkey', 'bridge', 'thumb'] as ItemId[], shelf: ['datanode', 'buffer2'] as ItemId[] };
     expect(buy(s, 'datanode')).toBe(false);
     expect(buy(s, 'buffer2')).toBe(true);
-    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([5, true, RACK_BASE + 1, 7]);
+    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([5, true, RACK_BASE + 1, 8]);
     expect(buy(s, 'datanode')).toBe(true);
     const before = s.credits;
     expect(sell(s, 'buffer2')).toBe(true);
     expect(s.credits - before).toBe(4); // (4 + 4) / 2
+  });
+
+  it('the Co-processor adds a daemon slot; selling it with five daemons drops the chosen one', () => {
+    const s = { ...newRunState(1), items: ['socket'] as ItemId[], daemons: ['heartbeat', 'overflow', 'silent', 'cron', 'joker'] as DaemonId[] };
+    expect(daemonSlots(s)).toBe(DAEMON_SLOTS + 1);
+    expect(sell(s, 'socket')).toBe(false);
+    expect(sell(s, 'socket', 'silent')).toBe(true);
+    expect(s.daemons).toEqual(['heartbeat', 'overflow', 'cron', 'joker']);
+    expect(daemonSlots(s)).toBe(DAEMON_SLOTS);
   });
 
   it('Thumb drive adds data to a matrix that uploads; Heatsink shortens Corruption', () => {

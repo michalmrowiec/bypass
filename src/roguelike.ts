@@ -550,6 +550,7 @@ export const ITEMS = {
   glob: { name: 'Glob', ver: '1.0', kind: 'pattern ROM', price: 4, text: 'In every matrix one code of one target turns into **, which takes any code' },
   repeater: { name: 'Repeater', ver: '1.0', kind: 'signal repeater', price: 3, text: 'In every matrix one cell (×2) puts its code in the buffer twice; one target holds that code doubled' },
   rewind: { name: 'Rewind', ver: '1.0', kind: 'tape deck', price: 4, text: 'Once per matrix, take back your last pick: its code stays, so uploads stay, but the cell is free, your lane returns and the buffer gains a slot' },
+  socket: { name: 'Co-processor', ver: '1.0', kind: 'daemon socket', price: 8, text: '+1 daemon slot; selling it with every slot full drops a daemon of your choice' },
   mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
@@ -558,7 +559,9 @@ export const THUMB_DATA = 5;
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
-export const slotCost = (s: RunState) => 5 + 2 * (s.rack - RACK_BASE);
+export const slotCost = (s: RunState) => 5 + 3 * (s.rack - RACK_BASE);
+// The Co-processor module adds one daemon slot.
+export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
 export const sellValue = (id: ItemId) => Math.floor((item(id).price + (item(id).needs ? item(item(id).needs as ItemId).price : 0)) / 2);
 export const REROLL_COST = 1;
@@ -599,8 +602,13 @@ export function buySlot(s: RunState): boolean {
   return true;
 }
 
-export function sell(s: RunState, id: ItemId): boolean {
+// Selling the Co-processor with every daemon slot full drops `drop`, at no cost.
+export function sell(s: RunState, id: ItemId, drop?: DaemonId): boolean {
   if (!s.items.includes(id)) return false;
+  if (id === 'socket' && s.daemons.length > DAEMON_SLOTS) {
+    if (!drop || !s.daemons.includes(drop)) return false;
+    s.daemons = s.daemons.filter((d) => d !== drop);
+  }
   s.credits += sellValue(id);
   s.items = s.items.filter((o) => o !== id);
   s.restarts = Math.min(s.restarts, restartsFor(s));

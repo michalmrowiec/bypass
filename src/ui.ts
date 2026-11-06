@@ -7,7 +7,7 @@ import { gear } from './gear';
 import { hacker, logo } from './logos';
 import { canComplete } from './solver';
 import {
-  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
+  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountyMet, globTarget, plantRepeat, rewardFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -367,10 +367,10 @@ function renderDaemons() {
     scramble(els[2], vals[2], 7 + 3 * Math.max(vals[0].length, vals[1].length), 3, 45);
   }
   shownScore.splice(0, 3, ...vals);
-  $('daemonLabel').textContent = 'daemons ' + R.daemons.length + '/' + DAEMON_SLOTS;
-  $('daemons').innerHTML = Array.from({ length: DAEMON_SLOTS }, (_, i) => {
+  $('daemonLabel').textContent = 'daemons ' + R.daemons.length + '/' + daemonSlots(R);
+  $('daemons').innerHTML = Array.from({ length: daemonSlots(R) }, (_, i) => {
     const id = R.daemons[i];
-    if (!id) return "<div class='dslot empty'>slot " + (i + 1) + ' · empty</div>';
+    if (!id) return "<div class='dslot empty'>slot " + (i + 1) + (i >= DAEMON_SLOTS ? ' · co-processor' : '') + ' · empty</div>';
     const e = fired.get(id);
     return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : '');
   }).join('');
@@ -378,7 +378,7 @@ function renderDaemons() {
   tilt($('daemons'));
   // Deck as a rack of units. A ready tool pulses; clicking it arms it, clicking again puts it down.
   // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
-  const start = !S.run.path.length;
+  const start = !S.run.path.length, hosted = R.daemons[DAEMON_SLOTS];
   const units = R.items.map((id) => {
     const it = ITEMS[id], t = TOOLS[id];
     const ready = !!t && !S.over && !offer.length
@@ -387,7 +387,8 @@ function renderDaemons() {
     const hint = !ready ? '' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : t ? 'standby' : 'online',
-      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '') };
+      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '')
+        + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });
   const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
   const lcd = on ? on.spec
@@ -396,8 +397,8 @@ function renderDaemons() {
         : '<b>&gt;</b> no hardware · buy modules between rooms';
   const rail = (n: number) => "<span class='rail'>" + String(n).padStart(2, '0') + '</span>';
   $('items').innerHTML = '<header><span>hw rack</span><span>' + units.length + '/' + R.rack + 'U</span></header>'
-    // Owned slots without a module are open bays; the next two slots (while any are left to buy) keep their blanking plates.
-    + Array.from({ length: Math.max(Math.min(R.rack + 2, RACK_MAX), units.length) }, (_, i) => {
+    // The full rack is always on show: owned slots without a module are open bays, the rest keep their blanking plates.
+    + Array.from({ length: Math.max(RACK_MAX, units.length) }, (_, i) => {
       const u = units[i];
       if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
       if (!u) return rail(i + 1) + "<div class='unit blank' title='Locked: buy a rack slot in the shop'><i class='scr'></i><i class='vent'></i>"
@@ -405,7 +406,7 @@ function renderDaemons() {
       const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
       return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'><i class='scr'></i>" + gear(u.id)
-        + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + it.kind + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
+        + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   $('items').querySelectorAll<HTMLElement>('.unit:not(.blank)').forEach((el, i) => {
@@ -450,7 +451,7 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
     const id = ds[i];
     b.onclick = () => {
       if (R.daemons.includes(id)) R.daemons = R.daemons.filter((d) => d !== id);
-      else if (R.daemons.length < DAEMON_SLOTS) R.daemons.push(id);
+      else if (R.daemons.length < daemonSlots(R)) R.daemons.push(id);
       refresh();
     };
   });
@@ -483,7 +484,7 @@ function showCatalog() {
   const tag = dev ? 'button' : 'div';
   const tab = (t: typeof catalogTab) => "<button class='btn' id='tab-" + t + "' aria-pressed='" + (catalogTab === t) + "'>" + t + '</button>';
   const body = catalogTab === 'daemons'
-    ? '<p class="meta">' + ds.length + ' daemons · installed ' + R.daemons.length + '/' + DAEMON_SLOTS + "</p><div class='dlist'>" + ds.map((id, i) => {
+    ? '<p class="meta">' + ds.length + ' daemons · installed ' + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist'>" + ds.map((id, i) => {
       const e = fired.get(id);
       return card(id, i, tag, daemonText(id), e ? fmtEffect(e) : R.daemons.includes(id) ? 'standby' : 'not installed', e ? ' on' : '');
     }).join('') + '</div>'
@@ -599,7 +600,7 @@ function showPatch(p: Patch) {
 const owned = (shop = false) => {
   const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' title='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
-  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + DAEMON_SLOTS + "</p><div class='dlist'>"
+  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
     + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>") + '</div></div>';
 };
@@ -608,10 +609,10 @@ function showOffer() {
   offer = offerDaemons(R);
   if (!offer.length) return showShop();
   checkpoint('offer');
-  const full = R.daemons.length >= DAEMON_SLOTS;
+  const full = R.daemons.length >= daemonSlots(R);
   const poor = full && R.credits < SWAP_COST;
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
-    : 'Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS) + '</p>' + owned()
+    : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
     + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
     + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
@@ -639,8 +640,20 @@ function showShop(restock = true) {
   });
   document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
   document.getElementById('buySlot')?.addEventListener('click', () => { if (buySlot(R)) showShop(false); });
-  $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => { b.onclick = () => { if (sell(R, b.dataset.sell as ItemId)) showShop(false); }; });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => {
+    b.onclick = () => { const id = b.dataset.sell as ItemId; if (id === 'socket' && R.daemons.length > DAEMON_SLOTS) showDrop(); else if (sell(R, id)) showShop(false); };
+  });
   $('leaveShop').onclick = enterSection;
+  tilt($('modalBox'));
+}
+
+// Selling the Co-processor with every slot full: pick the daemon that goes with it.
+function showDrop() {
+  showResult(true, '<h2>Drop a daemon</h2><p class="meta">The Co-processor takes a slot with it · sells for ' + money(sellValue('socket')) + ' · dropping is free</p>'
+    + "<div class='dlist'>" + R.daemons.map((d, i) => card(d, i, 'button', daemonText(d), 'drop ›')).join('')
+    + "</div><div class='row'><button class='btn' id='backShop'>Back</button></div>");
+  $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { if (sell(R, 'socket', R.daemons[i])) showShop(false); }; });
+  $('backShop').onclick = () => showShop(false);
   tilt($('modalBox'));
 }
 
