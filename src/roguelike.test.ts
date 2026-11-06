@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
   burnOf, COMPANIES, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
-  type DaemonId, type ItemId,
+  bountyMet, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -462,11 +462,122 @@ describe('cron daemons', () => {
     const u = run('uptime');
     daemonsAfterMatrix(ctx, u, false);
     daemonsAfterMatrix(ctx, u, false);
-    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 30 }]]);
+    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 21 }]]);
     restartMatrix(u);
     expect(u.stacks.uptime).toBe(0);
     daemonsAfterMatrix(ctx, u, false);
     daemonsAfterMatrix(ctx, u, true);
     expect(u.stacks.uptime).toBe(0);
+  });
+});
+
+describe('playtest daemons, bounties and Glob', () => {
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
+  const run = (...daemons: DaemonId[]) => ({ ...newRunState(1), daemons });
+  const fired = (c: typeof ctx, ...d: DaemonId[]) => scoreMatrix(c, run(...d)).fired;
+
+  it('Deflate, Crawler and Saturate read codes, cells and a full buffer', () => {
+    expect(fired(ctx, 'deflate', 'crawler', 'saturate')).toEqual([['deflate', { mult: 1.25 }], ['crawler', { flat: 12 }]]);
+    expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.5 }]]);
+  });
+
+  it('Joker counts targets through **, Echo targets holding a re-picked code', () => {
+    expect(fired({ ...ctx, buf: ['A', WILD, 'C', 'D'] }, 'joker')).toEqual([['joker', { boost: 1 }]]);
+    expect(fired({ ...ctx, path: [[0, 0], [4, 0], [4, 2], [4, 0]] }, 'echo')).toEqual([['echo', { boost: 1 }]]);
+  });
+
+  it('Sandbag stacks on a weak Disconnect for the rest of the room; Warm-up counts played matrices', () => {
+    const s = run('sandbag', 'warmup');
+    s.section = 1;
+    finishMatrix(s, { ...ctx, targets: [['A', 'B'], ['X', 'Y']] }, true);
+    expect(scoreMatrix(ctx, s).fired).toEqual([['sandbag', { boost: 1.5 }], ['warmup', { boost: 0.5 }]]);
+    nextSection(s);
+    expect(s.stacks.sandbag).toBeUndefined();
+  });
+
+  it('bounties check the route and pay a credit', () => {
+    expect(bountyMet('surgical', { ...ctx, par: 4 })).toBe(true);
+    expect(bountyMet('surgical', { ...ctx, par: 3 })).toBe(false);
+    expect(bountyMet('corners', { ...ctx, path: [[0, 0], [0, 4]] })).toBe(true);
+    expect(bountyMet('barehands', { ...ctx, tools: true })).toBe(false);
+    const s = run();
+    s.section = 1;
+    finishMatrix(s, { ...ctx, bounty: 'clean' }, false);
+    expect(s.earned).toContainEqual(['bonus · Clean', 5]);
+  });
+
+  it('a ** target code takes any code', () => {
+    expect(contains(['A', 'Z'], ['A', WILD])).toBe(true);
+  });
+
+  it('offers follow the rarity odds', () => {
+    let legendary = 0, slots = 0;
+    for (let seed = 0; seed < 2000; seed++) for (const id of offerDaemons(newRunState(seed))) { slots++; if (rarityOf(id) === 'legendary') legendary++; }
+    expect(legendary / slots).toBeGreaterThan(0.02);
+    expect(legendary / slots).toBeLessThan(0.09);
+  });
+});
+
+describe('round 3: All-in, Overtime, Repeater, rewards', () => {
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
+  const run = (...daemons: DaemonId[]) => ({ ...newRunState(1), daemons });
+
+  it('All-in bets ×3 on every target, ×0.5 otherwise', () => {
+    expect(scoreMatrix(ctx, run('allin')).fired).toEqual([['allin', { mult: 3 }]]);
+    expect(scoreMatrix({ ...ctx, targets: [...ctx.targets, ['X', 'Y']] }, run('allin')).fired).toEqual([['allin', { mult: 0.5 }]]);
+  });
+
+  it('Overtime carries half the surplus into the next room', () => {
+    const s = run('overtime');
+    s.data = quota(s) + 41;
+    nextSection(s);
+    expect([s.data, s.carry]).toEqual([20, 20]);
+  });
+
+  it('Repeater doubles a code in one target and the plant still solves', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const p = generate(seed, SECTIONS[2].size), l = p.l;
+      const cell = plantRepeat(seed, p);
+      if (!cell) continue;
+      expect(p.l).toBe(l + 1);
+      expect(canComplete(newRun(), p, 200_000, { rep: cell })).toBe(true);
+    }
+  });
+
+  it('Wild only comes up with a Wildcard; a met bonus pays its reward', () => {
+    for (let seed = 0; seed < 200; seed++) expect(bountyFor(seed)).not.toBe('wild');
+    const s = run('heartbeat');
+    s.section = 1;
+    finishMatrix(s, { ...ctx, bounty: 'clean', reward: 'stack' }, false);
+    expect(s.stacks.heartbeat).toBe(3);
+    finishMatrix(s, { ...ctx, bounty: 'clean', reward: 'rerolls' }, false);
+    expect(s.freeRerolls).toBe(3);
+    expect(stockShop(s, true)).toBe(true);
+    expect(s.freeRerolls).toBe(2);
+    const plain = finishMatrix(run(), { ...ctx }, false).score.total;
+    expect(finishMatrix(run(), { ...ctx, bounty: 'clean', reward: 'double' }, false).score.total).toBe(2 * plain);
+  });
+
+  it('a legendary reward makes the next offer lead with a legendary', () => {
+    const s = newRunState(3);
+    s.legendOffer = true;
+    expect(rarityOf(offerDaemons(s)[0])).toBe('legendary');
+  });
+});
+
+describe('bonus matrices', () => {
+  it('one matrix per iteration carries a bonus', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      const s = newRunState(seed);
+      let n = 0;
+      for (let room = 0; room < BOSS; room++) {
+        s.section = room;
+        for (let m = 0; m < SECTIONS[room].matrices; m++) { s.scores[room] = Array(m).fill(0); if (bountyHere(s)) n++; }
+      }
+      expect(n).toBe(BOUNTIES_PER_LOOP);
+      s.section = BOSS;
+      s.scores[BOSS] = [];
+      expect(bountyHere(s)).toBe(false);
+    }
   });
 });

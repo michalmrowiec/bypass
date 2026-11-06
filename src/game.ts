@@ -29,9 +29,9 @@ export const inLane = (run: Run, r: number, c: number) =>
 
 export const newRun = (): Run => ({ buffer: [], used: new Set(), path: [], axis: 'row', idx: 0 });
 
-// Run-only wildcard cell: in the buffer it stands for any code. Other modes never deal it.
+// Run-only wildcard: a ** cell stands for any code in the buffer, a ** target code (Glob) takes any code. Other modes never deal it.
 export const WILD = '**';
-export const fits = (b: string | undefined, code: string) => b === code || b === WILD;
+export const fits = (b: string | undefined, code: string) => b !== undefined && (b === code || b === WILD || code === WILD);
 
 export function contains(buf: string[], t: string[]): boolean {
   for (let i = 0; i + t.length <= buf.length; i++) {

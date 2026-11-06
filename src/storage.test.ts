@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { firstResult, parseBackup, recordFirst } from './storage';
+import { bestRun, firstResult, parseBackup, recordBest, recordFirst } from './storage';
 
 beforeEach(() => {
   const m = new Map<string, string>();
@@ -36,5 +36,14 @@ describe('parseBackup', () => {
     expect(parseBackup(JSON.stringify({ game: 'bypass', data: { 'other:key': '1' } }))).toBeNull();
     expect(parseBackup(JSON.stringify({ game: 'bypass', data: { 'bypass:x': 5 } }))).toBeNull();
     expect(parseBackup(JSON.stringify({ game: 'bypass', data: { 'bypass:x': '{broken' } }))).toBeNull();
+  });
+});
+
+describe('recordBest', () => {
+  it('keeps the run with more data, a tie going to the faster one', () => {
+    expect(recordBest('kestrel', { data: 900, ms: 60000, won: false })).toBe(true);
+    expect(recordBest('kestrel', { data: 800, ms: 1000, won: true })).toBe(false);
+    expect(recordBest('kestrel', { data: 900, ms: 50000, won: true })).toBe(true);
+    expect(bestRun('kestrel')).toEqual({ data: 900, ms: 50000, won: true });
   });
 });

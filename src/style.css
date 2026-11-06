@@ -111,6 +111,10 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .slot{position:relative}
 .slot[data-bonus]:not(.filled)::before{content:attr(data-bonus);font-size:10px;font-weight:400;color:var(--mint-dim)}
 .slot.half::after{content:"";position:absolute;right:-4px;top:-4px;bottom:-4px;border-right:1px dashed var(--cyan)}
+.slot.extra{border-style:dashed;border-color:var(--mint-dim)}
+.slot.lock{border-color:var(--bad);color:color-mix(in srgb,var(--bad) 55%,transparent);background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(255,61,139,.1) 5px 10px)}
+.slot.lock::before{content:none}
+.dcard .hold{opacity:.6}
 .slot.shared{border-color:var(--cyan);color:var(--cyan)}
 #peek{min-height:1.55em;margin:8px 0 0;color:var(--cyan)}
 /* Score = data (turquoise) × boost (pink). */
@@ -129,7 +133,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dlist{padding:4px 0}
 /* Action sitting on the pane's top border, opposite the label. */
 .paneact{position:absolute;top:-.8em;right:10px;padding:0 6px;background:var(--bg);font-size:12px;line-height:1.55}
-.dslot{display:flex;perspective:900px;animation:float 5s ease-in-out var(--t,0s) infinite}
+.dslot{display:flex;perspective:900px;animation:float 7.5s ease-in-out var(--t,0s) infinite}
 .dslot.empty{display:grid;place-items:center;min-height:46px;border:1px dashed var(--line);font-size:11px;color:var(--muted);animation:none}
 @keyframes float{50%{transform:translateY(-4px)}}
 /* The card carries tilt and glow (drop-shadow follows the cut corner); the body is the clipped file shape. */
@@ -157,6 +161,72 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .fext{color:var(--muted);font-weight:500}
 .dcard b{font-size:13px;font-weight:700;color:var(--ink)}
 .dmain small{font-size:10px;opacity:.65;font-variant-numeric:tabular-nums}
+/* Scope: a tag and its mark in the file line. Rarity: the card edge and a tag, in colours no family uses:
+   common single edge, rare double silver, legendary double gold with a glow. */
+:root{--rare:#e8eef2;--legend:#ffd23f}
+.r-rare .rar{color:var(--rare)}
+.r-legendary .rar{color:var(--legend)}
+.rar{letter-spacing:.08em;font-weight:600}
+.dmain small .scope{color:var(--fc)}
+.r-rare .dbody{box-shadow:inset 0 0 0 1px var(--rare),inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--rare) 55%,transparent)}
+.r-legendary .dbody{box-shadow:inset 0 0 0 1px var(--legend),inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--legend) 60%,transparent)}
+.dcard.r-legendary{filter:drop-shadow(0 8px 8px rgba(0,0,0,.55)) drop-shadow(0 0 7px color-mix(in srgb,var(--gold) 55%,transparent))}
+/* Foil: a band sweeping along the frame, rainbow on legendary, a silver glint now and then on rare. */
+.foil{position:absolute;inset:0;z-index:2;padding:2px;pointer-events:none;background-size:300% 100%;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.r-legendary .foil{background-image:linear-gradient(110deg,transparent 35%,#ff3d8b 42%,#ffd23f 47%,#5af2a8 52%,#3dd9ff 57%,#b9a6ff 62%,transparent 70%);animation:foil 10s ease-in-out infinite}
+.r-rare .foil{background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%);animation:glint 5s ease-in-out infinite}
+@keyframes foil{0%{background-position:100% 0}40%,100%{background-position:-200% 0}}
+@keyframes glint{0%{background-position:100% 0}25%,100%{background-position:-200% 0}}
+/* Spontaneous glitch by rarity, short bursts with long quiet gaps. Common: one tear line every 7.5 s.
+   Rare: a double tear every 9 s, the text slips. Legendary: a burst of torn lines every 10 s, the text slices and the name flashes gold. */
+.r-rare .dbody::before{animation:tearR 9s steps(1) var(--t,0s) infinite}
+@keyframes tearR{96%{opacity:1;top:22%;transform:translateX(-4px);box-shadow:-3px 0 color-mix(in srgb,var(--pink) 60%,transparent),3px 0 color-mix(in srgb,var(--cyan) 60%,transparent),0 9px var(--rare)}
+  97.2%{top:58%;transform:translateX(3px)}98.4%{opacity:0}}
+.r-rare .dmain{animation:slip 9s steps(1) var(--t,0s) infinite}
+@keyframes slip{96%{transform:translateX(2px)}97.2%{transform:translateX(-2px)}98.4%{transform:none}}
+.r-legendary .dbody::before{height:3px;animation:tearL 10s steps(1) var(--t,0s) infinite}
+@keyframes tearL{96%{opacity:1;top:18%;transform:translateX(-6px);box-shadow:-4px 0 var(--pink),4px 0 var(--cyan),0 7px var(--legend),0 19px color-mix(in srgb,var(--legend) 50%,transparent)}
+  96.7%{top:46%;transform:translateX(5px);box-shadow:-4px 0 var(--cyan),4px 0 var(--pink),0 -11px var(--legend)}
+  97.4%{top:72%;height:2px;transform:translateX(-3px)}98%{opacity:0}99%{opacity:1;top:34%;transform:translateX(4px)}99.7%{opacity:0}}
+.r-legendary .dmain{animation:slice 10s steps(1) var(--t,0s) infinite}
+@keyframes slice{96%{transform:translateX(-3px);clip-path:inset(0 0 40% 0)}96.7%{transform:translateX(4px);clip-path:none}97.4%{transform:translateX(-1px)}98%{transform:none}99%{transform:translateX(2px)}99.7%{transform:none}}
+.dcard.r-legendary b{animation:rgbL 10s steps(1) var(--t,0s) infinite}
+@keyframes rgbL{96%{text-shadow:-2px 0 var(--legend),2px 0 var(--pink);transform:translateX(2px)}96.7%{text-shadow:2px 0 var(--cyan),-2px 0 var(--legend);transform:translateX(-2px)}
+  97.4%{text-shadow:0 0 6px var(--legend)}98%{text-shadow:none;transform:none}}
+/* Offer: rare and legendary cards hold back, then break in with a glitch flash. */
+.dcard.reveal.r-rare{animation:revealR .6s steps(1) both}
+.dcard.reveal.r-legendary{animation:revealL 1.4s steps(1) both}
+@keyframes revealR{0%{opacity:0}40%{opacity:1;filter:brightness(2.2)}55%{opacity:.4}70%{opacity:1;filter:brightness(1.6)}}
+@keyframes revealL{0%,35%{opacity:0}45%{opacity:1;filter:brightness(3) hue-rotate(90deg);transform:translateX(4px)}52%{opacity:.2;transform:translateX(-3px)}
+  62%{opacity:1;filter:brightness(2.4) hue-rotate(-60deg)}70%{opacity:.5}80%{opacity:1;filter:brightness(1.8)}}
+.target .codes .wild{color:var(--pink)}
+/* Bonus objective: an inverted mint tag and a marching dashed frame, a style nothing else uses (credits stay gold). */
+.bounty{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;padding:6px 10px;font-size:12px;color:var(--muted);
+  background:linear-gradient(90deg,var(--mint-dim) 50%,transparent 0) 0 0/10px 1px repeat-x,linear-gradient(90deg,var(--mint-dim) 50%,transparent 0) 0 100%/10px 1px repeat-x,
+    linear-gradient(0deg,var(--mint-dim) 50%,transparent 0) 0 0/1px 10px repeat-y,linear-gradient(0deg,var(--mint-dim) 50%,transparent 0) 100% 0/1px 10px repeat-y;
+  animation:ants 1.2s linear infinite}
+@keyframes ants{to{background-position:10px 0,-10px 100%,0 -10px,100% 10px}}
+.bnt{background:var(--mint);color:var(--bg);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:0 5px}
+.bounty b{color:var(--ink);font-weight:600}
+.bstate{margin-left:auto;font-size:11px;color:var(--mint-dim)}
+.bounty.met{color:var(--ink)}
+.bounty.met .bstate{color:var(--mint)}
+.blist{display:flex;flex-direction:column;gap:8px}
+/* Catalog: the same height on every tab; the list scrolls, tabs and Close stay put. */
+.catbody{height:min(62vh,560px);overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 4px 2px;margin:0 -6px 12px 0}
+button.bounty{font:inherit;font-size:12px;text-align:left;cursor:pointer;border:0;width:100%}
+button.bounty:hover{color:var(--ink)}
+/* Bonus intro over the matrix at the start of a bonus matrix. */
+.bintro{position:absolute;left:50%;top:42%;z-index:5;width:min(320px,86%);transform:translate(-50%,-50%);padding:14px 16px;text-align:center;pointer-events:none;
+  background:color-mix(in srgb,var(--bg) 92%,transparent);border:1px solid var(--mint);box-shadow:0 0 0 4px color-mix(in srgb,var(--bg) 70%,transparent),0 0 24px color-mix(in srgb,var(--mint) 30%,transparent);
+  animation:bintro 2.8s steps(1,end) forwards}
+.bintro b{display:block;margin:8px 0 2px;font-size:18px;color:var(--mint);letter-spacing:.06em;text-transform:uppercase}
+.bintro p{margin:0;font-size:12px;color:var(--ink)}
+.bintro small{display:block;margin-top:6px;font-size:10px;color:var(--muted)}
+@keyframes bintro{0%{opacity:0}6%{opacity:1;filter:brightness(2.4);transform:translate(-48%,-50%)}9%{opacity:.3;transform:translate(-52%,-50%)}
+  12%{opacity:1;filter:none;transform:translate(-50%,-50%)}82%{opacity:1}86%{opacity:.4}89%{opacity:.8}92%,100%{opacity:0}}
+.smark{font-style:normal;font-size:13px;line-height:1;vertical-align:-1px}
 .dcard i{flex:none;max-width:40%;align-self:stretch;display:flex;flex-wrap:wrap;align-items:center;align-content:center;justify-content:flex-end;gap:0 6px;padding-left:12px;
   border-left:1px solid color-mix(in srgb,var(--fc) 25%,transparent);font-style:normal;font-size:12px;text-align:right}
 /* Rare, brief glitch on each card's own beat: a torn scanline and an RGB split on the name. Glare spot follows the pointer. */
@@ -275,6 +345,8 @@ button.unit{cursor:pointer}
 .cell .ntag{position:absolute;top:1px;right:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--data);pointer-events:none}
 .cell:has(.ntag){border-color:color-mix(in srgb,var(--data) 45%,transparent)}
 .cell.used .ntag{display:none}
+.cell .rtag{color:var(--gold)}
+.cell:has(.rtag){border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
 /* Firewall ICE: sealed cells. */
 .cell.ice{color:color-mix(in srgb,var(--pink) 55%,transparent);background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(255,61,139,.07) 5px 10px)}
 .iceTag{margin-left:6px;font-style:normal;font-size:10px;color:var(--pink)}
@@ -286,6 +358,8 @@ button.unit{cursor:pointer}
 .cell.used.ok{border-color:var(--mint-dim);color:var(--mint);cursor:pointer}
 /* Split: a cuttable target, or the gaps between its codes. */
 .target.cut{outline:1px dashed var(--pink);outline-offset:2px}
+.target[draggable=true]{cursor:grab}
+.target.drop{box-shadow:0 -2px 0 var(--mint)}
 .target.cut[role=button]{cursor:pointer}
 .target.cut[role=button]:hover,.target.cut[role=button]:focus-visible{background:rgba(255,61,139,.08)}
 .target .gap{position:relative;align-self:stretch;width:10px;margin:0 -3px;padding:0;border:0;background:none;cursor:pointer}
@@ -338,6 +412,7 @@ button.unit{cursor:pointer}
 .result pre{margin:0;padding:10px 12px;background:var(--bg);border-left:2px solid var(--mint-dim);font-family:var(--mono);font-size:13px;white-space:pre-wrap;color:var(--ink)}
 .result .btn{border:1px solid var(--line);color:var(--ink)}
 .result .btn:hover{border-color:var(--mint)}
+.result .btn[aria-pressed="true"]{color:var(--bg);border-color:var(--mint)}
 .row{display:flex;flex-wrap:wrap;gap:8px}
 
 /* Run dialogs: centered over the dimmed, locked board. */
@@ -425,6 +500,12 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .result .btn.go{border-color:var(--mint-dim);color:var(--mint)}
 .result .btn.go:hover:not(:disabled){border-color:var(--mint);background:var(--mint-faint)}
 .result .btn.go:disabled{opacity:.35;cursor:default}
+.result .btn.exit{border-color:color-mix(in srgb,var(--gold) 55%,transparent);color:var(--gold)}
+.result .btn.exit:hover{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 8%,transparent)}
+.result .fine{font-size:11px;opacity:.75}
+.result .dots{letter-spacing:2px;color:var(--mint)}
+.roomsum h2{font-size:1.6em;letter-spacing:.06em;text-transform:uppercase}
+.fbest{font-size:11px;color:var(--gold)}
 /* Ready tools: a static frame, a fast-blinking LED; start-only tools (Wildcard, Split) blink blue. */
 .unit.ready.pre .led{background:var(--cyan);box-shadow:0 0 7px var(--cyan)}
 .unit.ready.pre .nm em{color:var(--cyan)}
@@ -488,7 +569,7 @@ button.chip:hover{border-color:var(--gold)}
 .dmain{position:relative;z-index:1}
 .dmain>span{color:var(--muted);transform-origin:left center;transition:color .2s,transform .2s}
 .dcard:is(:hover,:focus-visible) .dmain>span{color:var(--ink);transform:scale(1.04)}
-.hx.cronmark{color:#c6e46b;opacity:1}
+.hx.cronmark{color:#c6e46b;opacity:1;text-decoration:underline 2px;text-underline-offset:4px}
 #peek{color:var(--muted)}
 #peek .pname{color:var(--fc);font-weight:600}
 #peek .gname{color:var(--ink);font-weight:600}

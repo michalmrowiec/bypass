@@ -75,6 +75,21 @@ const heatsink = "<rect class='g-plug' x='30' y='58' width='90' height='10' rx='
 const sim = "<path class='g-plug' d='M40 16h56l14 14v40H40z'/><rect class='g-chip' x='56' y='32' width='34' height='26' rx='3'/>"
   + "<path class='g-cut' d='M73 32v26M56 45h34'/><text class='g-silk' x='46' y='26'>PREPAID</text>";
 
+// Pattern ROM: a DIP chip with ** printed on it.
+const rom = "<rect class='g-plug' x='38' y='22' width='74' height='40' rx='3'/>"
+  + [44, 54, 64, 74, 84, 94, 104].map((x) => "<rect class='g-pin' x='" + x + "' y='14' width='3' height='8'/><rect class='g-pin' x='" + x + "' y='62' width='3' height='8'/>").join('')
+  + "<circle class='g-hole' cx='46' cy='42' r='3'/><text class='g-silk' x='62' y='48'>** ROM</text>";
+// Multiplexer: two lines in, a switch, one line out.
+const mux = "<path class='g-wire' d='M20 26H56M20 58H56M94 42H130'/><path class='g-plug' d='M56 16L94 28V56L56 68z'/>"
+  + "<path class='g-shaft' d='M62 26L88 42'/><circle class='g-act' cx='62' cy='26' r='2.5'/>";
+
+// Repeater: a box with an antenna stub and two pulses going out.
+const repeater = "<rect class='g-plug' x='40' y='30' width='56' height='30' rx='3'/><circle class='g-act' cx='50' cy='45' r='2.5'/><text class='g-silk' x='58' y='49'>×2</text>"
+  + "<path class='g-wave' d='M104 36a10 10 0 0 1 0 18'/><path class='g-wave w2' d='M112 30a18 18 0 0 1 0 30'/>";
+// Tape deck: a cassette with two reels.
+const tape = "<rect class='g-plug' x='30' y='22' width='90' height='46' rx='4'/><circle class='g-steel' cx='56' cy='42' r='9'/><circle class='g-steel' cx='94' cy='42' r='9'/>"
+  + "<circle class='g-hole' cx='56' cy='42' r='3'/><circle class='g-hole' cx='94' cy='42' r='3'/><path class='g-cut' d='M48 60h54'/>";
+
 const ART: Record<ItemId, string> = {
   buffer1: ram(0, 6),
   buffer2: ram(10, 0) + ram(-4, 14),
@@ -95,6 +110,10 @@ const ART: Record<ItemId, string> = {
   ping,
   heatsink,
   sim,
+  glob: rom,
+  mux,
+  repeater,
+  rewind: tape,
 };
 
 export const gear = (id: ItemId) => "<svg class='gear' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';

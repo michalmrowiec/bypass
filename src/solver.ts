@@ -2,7 +2,8 @@ import { contains, partial, type Run } from './game';
 import { BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to any free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
-export interface Tools { jump?: boolean; loop?: boolean; loopAny?: boolean }
+// rep: the Repeater cell, whose code goes into the buffer twice.
+export interface Tools { jump?: boolean; loop?: boolean; loopAny?: boolean; rep?: [number, number] }
 
 // True if some sequence of legal picks from this state still uploads every target.
 // Gives up and answers true after `budget` nodes, so it can only ever end a game late, never wrongly.
@@ -19,7 +20,9 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     const key = r + ',' + c;
     const fresh = !used.has(key);
     used.add(key);
+    const twice = tools.rep?.[0] === r && tools.rep[1] === c;
     buf.push(p.grid[r][c]);
+    if (twice) buf.push(p.grid[r][c]);
     const was = run.burn ? NEAR.map(([dr, dc]) => {
       const k = r + dr + ',' + (c + dc), old = burnt.get(k);
       burnt.set(k, Math.max(old ?? 0, buf.length + run.burn!));
@@ -28,6 +31,7 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     const ok = alongRow ? dfs('col', c, undefined, jump, loop) : dfs('row', r, undefined, jump, loop);
     for (const [k, old] of was.reverse()) { if (old === undefined) burnt.delete(k); else burnt.set(k, old); }
     buf.pop();
+    if (twice) buf.pop();
     if (fresh) used.delete(key);
     return ok;
   };

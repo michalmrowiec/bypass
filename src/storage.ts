@@ -33,6 +33,18 @@ export function recordBreach(id: string): boolean {
   return true;
 }
 
+// Run mode: best finished run per company, by data banked; a tie goes to the faster run.
+export interface BestRun { data: number; ms: number; won: boolean }
+const BEST = 'bypass:best';
+export const bestRun = (id: string): BestRun | undefined => load<Record<string, BestRun>>(BEST)?.[id];
+export function recordBest(id: string, r: BestRun): boolean {
+  const all = load<Record<string, BestRun>>(BEST) ?? {}, b = all[id];
+  if (b && (b.data > r.data || (b.data === r.data && b.ms <= r.ms))) return false;
+  all[id] = r;
+  save(BEST, all);
+  return true;
+}
+
 // Daily puzzles are keyed by UTC date so everyone worldwide gets the same one.
 export const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 

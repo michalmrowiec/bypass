@@ -1,18 +1,18 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
-  stageSeed, targetProgress, WILD, fits, inLane, burning,
+  stageSeed, targetProgress, WILD, fits, inLane, burning, type Run,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
 import { canComplete } from './solver';
 import {
-  buy, coverage, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, streakOf, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
-  type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type MatrixOutcome, type RunState, type Score,
+  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountyMet, globTarget, plantRepeat, rewardFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
-  breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
+  bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
 } from './storage';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
@@ -42,7 +42,7 @@ let R: RunState = newRunState(0);
 let offer: DaemonId[] = [];
 let endWhy = ''; // why a run matrix ended on its own
 // Run save: R at the last checkpoint, the screen to reopen, and the current matrix's actions, replayed on the same deal.
-type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 };
+type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 };
 type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
 const RUN_V = 1; // bump when RunState changes shape; older saves are dropped
@@ -58,10 +58,16 @@ function logAct(a: Act) {
 }
 function endSave() { cur = null; dropRun(); }
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
-let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; jumps: number[] } =
-  { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, jumps: [] };
-type Tool = 'wild' | 'split' | 'jump' | 'loop';
-const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop' };
+// tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
+// rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick.
+let M: { node?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
+  bounty?: BountyId; reward?: RewardId; rep?: [number, number]; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'> } =
+  { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false };
+type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
+// Run: the order the player dragged the targets into; display only. A split changes the count and resets it.
+let tOrder: number[] = [];
+let dragged = -1;
+const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind' };
 const loopAny = () => R.items.includes('loopback2');
 // One rack unit per item family: a v2.0 replaces its v1.0.
 let armed: Tool | null = null; // deck tool picked for use before the first move
@@ -80,6 +86,8 @@ const money = (n: number, sign = '') => "<b class='cr'>" + sign + '$' + n + '</b
 const now = () => (S.start ? (S.over ? S.elapsed : Date.now() - S.start) : 0);
 const clockText = () => fmt(now());
 const isUsed = (r: number, c: number) => S.run.used.has(r + ',' + c);
+// Mux: the next pick may take the row or the column of the last picked cell.
+const muxLane = (r: number, c: number) => { const p = S.run.path[S.run.path.length - 1]; return !!p && (r === p[0] || c === p[1]); };
 // Side door: before the first pick, any edge cell is open.
 const doorOpen = () => S.mode === 'run' && !S.run.path.length && R.items.includes('sidedoor');
 const onEdge = (r: number, c: number) => { const n = S.puzzle.grid.length; return r === 0 || c === 0 || r === n - 1 || c === n - 1; };
@@ -87,6 +95,7 @@ const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length &
   armed === 'wild' ? !isUsed(r, c) && S.puzzle.grid[r][c] !== WILD
   : armed === 'jump' ? !isUsed(r, c)
   : armed === 'loop' ? isUsed(r, c) && (loopAny() || inLane(S.run, r, c))
+  : armed === 'mux' ? !isUsed(r, c) && muxLane(r, c)
   : isLegal(S.run, r, c) || (doorOpen() && onEdge(r, c)));
 // Blackout ICE: the SOC's targets stay hidden until the first pick.
 const blackout = () => S.mode === 'run' && roomIce(R).includes('blackout') && !S.run.path.length && !S.over;
@@ -126,6 +135,7 @@ function render() {
     if (grid[r][c] === WILD) b.classList.add('wild');
     if (grid[r][c] === BLOCK) b.classList.add('ice');
     if (isNode(r, c)) b.insertAdjacentHTML('beforeend', "<i class='ntag'>+" + NODE_DATA + '</i>');
+    if (S.mode === 'run' && M.rep?.[0] === r && M.rep[1] === c) b.insertAdjacentHTML('beforeend', "<i class='ntag rtag'>×2</i>");
     // Ping: a solution's first cell, until the first pick.
     if (S.mode === 'run' && R.items.includes('ping') && !S.run.path.length && !S.over && S.puzzle.path?.[0][0] === r && S.puzzle.path[0][1] === c) b.classList.add('ping');
     if (!S.over && (inLane(S.run, r, c) || (doorOpen() && onEdge(r, c)))) b.classList.add('lane');
@@ -151,16 +161,27 @@ function render() {
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
   $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
-    : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny() ? '' : ' in your lane') : S.over ? 'session closed'
+    : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny() ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
     : axis === 'row' ? 'pick in row ' + rowName(idx) : 'pick in col ' + colName(idx);
   const buf = $('buffer');
   buf.innerHTML = '';
   const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
   const cover = has('chain') || has('compressor') ? coverage(buffer, targets) : [];
-  for (let i = 0; i < l; i++) {
+  // Run: slots from bought items are dashed; the ones Throttle takes away stay on show, locked.
+  const run = S.mode === 'run';
+  const thr = run && roomIce(R).includes('throttle') ? 1 : 0;
+  const bought = run ? sectionMatrix(R.section, R.items, R.company).slack : 0;
+  for (let i = 0; i < l + thr; i++) {
     const s = document.createElement('div');
-    s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '')
+    if (i >= l) {
+      s.className = 'slot lock';
+      s.textContent = '##';
+      s.title = 'Taken by Throttle ICE';
+      buf.appendChild(s);
+      continue;
+    }
+    s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l + thr - bought ? ' extra' : '')
       + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '');
     if (has('overflow')) s.dataset.bonus = '+.5';
     s.textContent = buffer[i] ?? '';
@@ -169,7 +190,9 @@ function render() {
   }
   const tg = $('targets');
   tg.innerHTML = '';
-  targets.forEach((t, i) => {
+  if (S.mode !== 'run' || tOrder.length !== targets.length) tOrder = targets.map((_, i) => i);
+  tOrder.forEach((i) => {
+    const t = targets[i];
     const st = targetProgress(buffer, t, l, S.over);
     const el = document.createElement('div');
     // Split, before the first move: v1.0 cuts a clicked target at its random mark, v2.0 at a clicked gap between codes.
@@ -184,12 +207,28 @@ function render() {
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"
       : j && j === mark && !blind ? "<i class='gap mark'></i>" : '')
-      + '<span class="' + (j < st.k ? 'hit' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state">' + state + '</div>';
+      + '<span class="' + (j < st.k ? 'hit' : '') + (c === WILD ? ' wild' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state">' + state + '</div>';
     el.querySelectorAll<HTMLElement>('.codes span').forEach((sp, j) => { sp.onmouseenter = () => markCode(t[j]); sp.onmouseleave = () => markCode(); });
     if (gaps) el.querySelectorAll<HTMLElement>('.gap').forEach((g) => { g.onclick = () => doSplit(i, +g.dataset.at!); });
     else if (cut) {
       Object.assign(el, { tabIndex: 0, onclick: () => doSplit(i, mark), onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') doSplit(i, mark); } });
       el.setAttribute('role', 'button');
+    }
+    if (S.mode === 'run' && !cut) {
+      el.draggable = true;
+      el.title = 'Drag to reorder';
+      el.ondragstart = (e) => { dragged = i; e.dataTransfer?.setData('text/plain', String(i)); };
+      el.ondragover = (e) => { e.preventDefault(); el.classList.add('drop'); };
+      el.ondragleave = () => el.classList.remove('drop');
+      el.ondrop = (e) => {
+        e.preventDefault();
+        if (dragged < 0 || dragged === i) return;
+        const to = tOrder.indexOf(i);
+        tOrder.splice(tOrder.indexOf(dragged), 1);
+        tOrder.splice(to, 0, dragged);
+        dragged = -1;
+        render();
+      };
     }
     tg.appendChild(el);
     if (st.done && !doneSeen.has(i)) {
@@ -198,6 +237,13 @@ function render() {
       scramble(el.querySelector<HTMLElement>('.state')!, state, 2, 1, 40);
     }
   });
+  // The matrix's bonus objective, ticked while it holds.
+  if (S.mode === 'run' && M.bounty) {
+    const b = BOUNTIES[M.bounty], ok = !!S.run.path.length && bountyMet(M.bounty, runCtx());
+    // The reward stays hidden until the matrix is over.
+    tg.insertAdjacentHTML('beforeend', "<div class='bounty" + (ok ? ' met' : '') + "'><span class='bnt'>bonus</span><b>" + b.name + '</b> ' + b.text(runCtx())
+      + "<span class='bstate'>" + (ok ? 'met ✓' : 'reward ???') + '</span></div>');
+  }
   const extra = S.mode === 'daily' ? '<span>Try <b>' + S.tries + '/' + MAX_TRIES + '</b></span>'
     : (S.mode === 'sprint' ? '<span>Matrix <b>' + Math.min(S.stage + 1, stages().length) + '/' + stages().length + '</b></span>' : '')
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
@@ -211,7 +257,8 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, jumps: M.jumps });
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, jumps: M.jumps,
+    par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, reward: M.reward });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
 function runStatus() {
@@ -255,23 +302,48 @@ const ICONS: Record<DaemonId, string> = {
   rotate: "<path d='M20 12a8 8 0 1 1-2.3-5.7M20 4v4.5h-4.5'/>",
   backup: "<path d='M5 4h11l3 3v13H5zM8 4v5h7V4M8 14h8M8 17h5'/>",
   uptime: "<circle cx='12' cy='12' r='8.5'/><path d='M12 7v5l3.5 2'/>",
+  deflate: "<path d='M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4'/>",
+  joker: "<path d='M12 4v16M5 8l14 8M19 8L5 16'/>",
+  saturate: "<rect x='3' y='8' width='18' height='8'/><path d='M7 8v8M11 8v8M15 8v8'/>",
+  echo: "<path d='M5 12a7 7 0 1 0 2-5M5 4v4h4'/><circle cx='12' cy='12' r='2'/>",
+  crawler: "<path d='M4 18h4v-4h4v-4h4V6h4'/><circle class='f' cx='4' cy='18' r='1.4'/>",
+  sandbag: "<path d='M6 20h12l-2-12H8zM9 8c0-2 1.5-3 3-3s3 1 3 3'/><path d='M8 14h8'/>",
+  allin: "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='3.5'/><path d='M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3'/>",
+  overtime: "<circle cx='12' cy='13' r='7.5'/><path d='M12 9v4l2.5 2M9 3h6M18.5 6.5l1.5-1.5'/>",
+  warmup: "<path d='M12 3c3 4 5 6 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z'/>",
 };
 
-// Daemon card styled as a program file, in a floating slot; the shared clock keeps the float (5 s) and glitch (7.5 s)
-// phases steady across re-renders. Size and hash are flavor, derived from the id.
+const SCOPE_MARK = { matrix: '◇', room: '▣', run: '∞' };
+// Daemon card styled as a program file, in a floating slot; the shared clock (90 s, a multiple of every card animation's period) keeps the float and glitch
+// phases steady across re-renders.
 const card = (id: DaemonId, i: number, tag: string, text: string, foot: string, cls = '') => {
   const d = DAEMONS[id];
-  const h = hashStr(id) >>> 0;
-  return "<div class='dslot' style='--t:-" + Math.round((performance.now() + i * 2900) % 15000) + "ms'><" + tag + " class='dcard c-"
-    + d.family.toLowerCase() + cls + "'><span class='dbody'><em class='fold'></em><svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>" + ICONS[id]
+  const sc = scopeOf(id);
+  return "<div class='dslot' style='--t:-" + Math.round((performance.now() + i * 2900) % 90000) + "ms'><" + tag + " class='dcard c-"
+    + d.family.toLowerCase() + ' s-' + sc + ' r-' + rarityOf(id) + cls + "' title='" + rarityOf(id) + "'><span class='dbody'><em class='fold'></em>" + (rarityOf(id) === 'common' ? '' : "<em class='foil'></em>") + "<svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>" + ICONS[id]
     + "</svg><span class='dmain'><b><span class='fdir'>" + d.family.toLowerCase() + '/</span><wbr>' + d.name.toLowerCase().replace(/ /g, '_<wbr>')
-    + "<span class='fext'>.dmn</span></b><small aria-hidden='true'>-rwxr-x " + (1 + (h % 80) / 10).toFixed(1) + 'K ' + h.toString(16).padStart(8, '0').slice(0, 6)
+    + "<span class='fext'>.dmn</span></b><small><span class='scope'>scope:" + sc + " <em class='smark' aria-hidden='true'>" + SCOPE_MARK[sc] + '</em></span>'
+    + (rarityOf(id) === 'common' ? '' : " | <span class='rar'>" + rarityOf(id).toUpperCase() + '</span>')
     + '</small><span>' + text + '</span></span><i>' + foot + '</i></span></' + tag + '></div>';
 };
+
+// Where each card glitch burst starts, as a share of its period (style.css keyframes).
+const BURST: Record<string, number> = { tear: 0.94, rgb: 0.94, tearR: 0.96, slip: 0.96, tearL: 0.96, slice: 0.96, rgbL: 0.96 };
+// Pointing at a card plays its rarity's burst right away: its running glitch animations jump to just before the burst.
+// A CSS :hover can't do it, since the same animation name doesn't restart.
+function glitchNow(c: HTMLElement) {
+  for (const a of c.getAnimations({ subtree: true })) {
+    const at = BURST[(a as CSSAnimation).animationName], p = Number(a.effect?.getTiming().duration);
+    if (at === undefined || !p || a.currentTime === null) continue;
+    const t = Number(a.currentTime), cut = Math.floor(t / p) * p + at * p - 20;
+    a.currentTime = cut > t ? cut : cut + p;
+  }
+}
 
 // Cards lean toward the pointer, with a glare spot under it.
 function tilt(root: HTMLElement) {
   root.querySelectorAll<HTMLElement>('.dcard').forEach((c) => {
+    c.onpointerenter = () => glitchNow(c);
     c.onpointermove = (e) => {
       const r = c.parentElement!.getBoundingClientRect();
       const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
@@ -284,7 +356,7 @@ function tilt(root: HTMLElement) {
 
 // Owned daemons fill the slots; one that counts toward the current matrix lights up and shows what it adds.
 function renderDaemons() {
-  const sc = scoreMatrix(runCtx(), R);
+  const sc = S.over && lastBill ? lastBill : scoreMatrix(runCtx(), R);
   const fired = new Map(sc.fired);
   $('scoreLine').innerHTML = scoreHtml(sc);
   // Changed numbers "decrypt" into place: data and boost settle first, the total keeps computing and lands last.
@@ -300,7 +372,7 @@ function renderDaemons() {
     const id = R.daemons[i];
     if (!id) return "<div class='dslot empty'>slot " + (i + 1) + ' · empty</div>';
     const e = fired.get(id);
-    return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : 'standby', e ? (lastFired.includes(id) ? ' on' : ' on just') : '');
+    return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : '');
   }).join('');
   lastFired = [...fired.keys()];
   tilt($('daemons'));
@@ -310,10 +382,10 @@ function renderDaemons() {
   const units = R.items.map((id) => {
     const it = ITEMS[id], t = TOOLS[id];
     const ready = !!t && !S.over && !offer.length
-      && (t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : M.loop && !start);
+      && (t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : t === 'mux' ? M.mux && !start && !S.run.free : t === 'rewind' ? M.rewind && !!M.back : M.loop && !start);
     const on = ready && armed === t;
-    const hint = !ready ? '' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
-      : t === 'loop' ? 'armed · click a lit used cell' : 'armed · click a free cell';
+    const hint = !ready ? '' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
+      : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : t ? 'standby' : 'online',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '') };
   });
@@ -340,14 +412,25 @@ function renderDaemons() {
     const show = () => { $('lcd').innerHTML = units[i].spec; }, hide = () => { $('lcd').innerHTML = lcd; };
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
-    if (el.dataset.tool) el.onclick = () => { armed = armed === el.dataset.tool ? null : (el.dataset.tool as Tool); render(); };
+    if (el.dataset.tool) el.onclick = () => {
+      if (el.dataset.tool === 'rewind') return doRewind();
+      armed = armed === el.dataset.tool ? null : (el.dataset.tool as Tool);
+      render();
+    };
   });
 }
 
-// An installed Cache also shows its current stack.
+// A streak daemon that is not firing yet says what keeps its stack and what that would give.
+const dfoot = (id: DaemonId) => {
+  const st = streakOf(id);
+  return st && !S.over ? "<span class='hold'>" + st.goal + ' → ' + fmtEffect(st.effect((R.stacks[id] ?? 0) + 1)) + '</span>' : 'standby';
+};
+let lastBill: Score | null = null;
+
+// An installed streak daemon (or Sandbag, whose stack lasts a room) also shows its current stack.
 const daemonText = (id: DaemonId) => {
   const st = streakOf(id), n = R.stacks[id] ?? 0;
-  return DAEMONS[id].text + (st && R.daemons.includes(id) ? ' · stack now ' + n + (n ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '');
+  return DAEMONS[id].text + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '');
 };
 
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
@@ -357,7 +440,7 @@ const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
     + '</small><p>' + it.text + "</p><span class='price'>" + foot + '</span></' + tag + '>';
 };
 
-let catalogTab: 'daemons' | 'items' = 'daemons';
+let catalogTab: 'daemons' | 'items' | 'bonuses' = 'daemons';
 
 // Dev cheats on the catalog: toggle daemons and items (a v2.0 and its v1.0 replace each other), add credits, re-deal, skip a room.
 function wireDev(ds: DaemonId[], its: ItemId[]) {
@@ -378,6 +461,11 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
       refresh();
     };
   });
+  // Bonuses: click one to put it on this matrix (again to take it off); the reward buttons set what it pays.
+  $('modalBox').querySelectorAll<HTMLElement>('[data-bounty]').forEach((b) => {
+    b.onclick = () => { const id = b.dataset.bounty as BountyId; M.bounty = M.bounty === id ? undefined : id; refresh(); };
+  });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-reward]').forEach((b) => { b.onclick = () => { M.reward = b.dataset.reward as RewardId; refresh(); }; });
   $('devCr').onclick = () => { R.credits += 10; refresh(); };
   $('devDeal').onclick = () => { hideResult(); newMatrix(); };
   document.getElementById('devRoom')?.addEventListener('click', () => {
@@ -399,19 +487,64 @@ function showCatalog() {
       const e = fired.get(id);
       return card(id, i, tag, daemonText(id), e ? fmtEffect(e) : R.daemons.includes(id) ? 'standby' : 'not installed', e ? ' on' : '');
     }).join('') + '</div>'
-    : '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
-      + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>';
-  const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal</span>"
+    : catalogTab === 'items' ? '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
+      + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
+    : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · its reward stays hidden: '
+      + Object.values(REWARDS).join(', ') + "</p><div class='blist'>"
+      + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
+        + BOUNTIES[id].name + '</b> ' + BOUNTIES[id].text() + (dev && M.bounty === id ? "<span class='bstate'>on this matrix</span>" : '') + '</' + tag + '>').join('') + '</div>'
+      + (dev ? "<p class='meta'>dev · reward of this matrix's bonus</p><div class='row devbar'>" + (Object.keys(REWARDS) as RewardId[]).map((r) => "<button class='btn' data-reward='" + r + "'"
+        + (M.reward === r ? " aria-pressed='true'" : '') + '>' + REWARDS[r] + '</button>').join('') + '</div>' : '');
+  const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal; a bonus goes on this matrix</span>"
     + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Re-deal</button>"
     + (!isBoss(R) || R.loop < LOOPS - 1 ? "<button class='btn' id='devRoom'>" + (isBoss(R) ? 'Next iteration' : 'Next room') + '</button>' : '') + '</div>';
-  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + '</div>' + devBar + body
-    + "<div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
+  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('bonuses') + '</div>'
+    + "<div class='catbody'>" + devBar + body + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
-  for (const t of ['daemons', 'items'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
+  for (const t of ['daemons', 'items', 'bonuses'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
   if (dev) wireDev(ds, its);
   const close = () => { hideResult(); focusGrid(); };
   $('closeCatalog').onclick = close;
   $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
+}
+
+// After a matrix: the room goes on. Its progress dots, the bill and the matrix's small print.
+const why = () => (endWhy ? "<p class='meta'>auto-disconnect · " + endWhy + '</p>' : '');
+const small = (sc: Score) => "<p class='meta fine'>time " + fmt(S.elapsed) + ' · buffer ' + S.run.buffer.length + '/' + S.puzzle.l
+  + ' · ×' + num((1 + sc.boost) * sc.mult) + '</p>';
+function matrixSummary(bill: Score, credits: string) {
+  const sec = sections(R)[R.section], n = played(R);
+  const dots = Array.from({ length: sec.matrices }, (_, j) => (j < n ? '●' : '○')).join('');
+  return "<p class='meta'>" + sec.name + ' · matrix ' + n + '/' + sec.matrices + " <span class='dots'>" + dots + '</span> · still in this room</p>'
+    + '<h2>+' + bill.total + ' data</h2>' + why() + billHtml(bill) + small(bill)
+    + "<p class='tallyline'>" + sec.name + ' <b>' + R.data + '</b> / ' + quota(R) + '</p>' + credits;
+}
+
+// After a room's last matrix: every matrix it banked, the sum against the quota, then the way out.
+function roomSummary(bill: Score, credits: string) {
+  const sec = sections(R)[R.section], goal = quota(R);
+  const rows = R.scores[R.section].map((d, j) => '<tr><td>matrix ' + (j + 1) + "</td><td><span class='vd'>" + d + '</span></td></tr>').join('');
+  return "<div class='roomsum'><p class='meta'>" + COMPANIES[R.company].name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + sec.name + ' breached</h2>' + why()
+    + "<p class='meta'>last matrix</p>" + billHtml(bill) + small(bill)
+    + "<table class='calc'>" + rows + "<tr class='sum'><td>room</td><td><b>" + R.data + '</b> / ' + goal + (R.data > goal ? ' <small>+' + (R.data - goal) + ' over</small>' : '')
+    + '</td></tr></table>' + credits + '</div>';
+}
+
+// End of the run, won or lost: rooms by iteration, totals, the build, and the company record.
+function runSummary(won: boolean, bill: Score, credits: string) {
+  const co = COMPANIES[R.company], total = R.total ?? 0, ms = R.ms ?? 0;
+  const prev = bestRun(co.id), fresh = recordBest(co.id, { data: total, ms, won });
+  const rows = (R.log ?? []).map(([loop, room, data]) => '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data
+    + '</span> / ' + co.sections[room].quota * QUOTA_GROWTH ** loop + '</td></tr>').join('');
+  const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
+  return "<div class='roomsum'><p class='meta'>" + co.name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
+    + "<p class='meta'>last matrix</p>" + billHtml(bill) + small(bill)
+    + "<table class='calc'>" + rows + "<tr class='sum'><td>total</td><td><b>" + total + '</b> data · ' + fmt(ms) + '</td></tr>'
+    + '<tr><td>best matrix</td><td>' + (R.best ?? 0) + '</td></tr></table>'
+    + (build ? "<p class='meta'>build · " + build + '</p>' : '')
+    + "<p class='iceRule" + (fresh ? ' unlock' : '') + "'><b>" + (fresh ? 'New record' : 'Record') + '</b> '
+    + (fresh ? (prev ? 'previous ' + prev.data + ' data · ' + fmt(prev.ms) : 'first run on this contract') : prev ? prev.data + ' data · ' + fmt(prev.ms) : '') + '</p>'
+    + credits + '</div>';
 }
 
 // Contract stepper: rooms in order, one box per matrix with the score it banked; the live box is the matrix in play.
@@ -464,12 +597,10 @@ function showPatch(p: Patch) {
 
 // What the player owns, shown beside offers and the shop: daemon chips, then rack modules with their art.
 const owned = (shop = false) => {
-  const chip = (id: DaemonId) => "<span class='chip c-" + DAEMONS[id].family.toLowerCase() + "' title='" + DAEMONS[id].text + "'><svg class='ico' viewBox='0 0 24 24' aria-hidden='true'>"
-    + ICONS[id] + '</svg>' + dmnName(id) + '</span>';
   const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' title='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
-  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + DAEMON_SLOTS + "</p><div class='chips'>"
-    + (R.daemons.map(chip).join('') || "<span class='chip none'>no daemons yet</span>")
+  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + DAEMON_SLOTS + "</p><div class='dlist'>"
+    + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
     + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>") + '</div></div>';
 };
 
@@ -481,7 +612,7 @@ function showOffer() {
   const poor = full && R.credits < SWAP_COST;
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + DAEMON_SLOTS) + '</p>' + owned()
-    + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), poor ? ' poor' : '')).join('') + '</div>'
+    + "<div class='dlist'>" + offer.map((id, i) => card(id, i, 'button', DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
     + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
     b.onclick = () => { if (!full) { R.daemons.push(offer[i]); showShop(); } else if (!poor) showSwap(offer[i]); };
@@ -492,16 +623,16 @@ function showOffer() {
 
 // Shop between rooms: a seeded shelf of items, a paid reroll and paid daemon removal; Continue opens the next room.
 function showShop(restock = true) {
-  if (restock) stockShop(R);
+  if (restock) { stockShop(R); R.legendOffer = false; } // the offer before the shop used it
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
   showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + ' · items stay for the whole run</p>' + owned(true)
-    + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', rackFull(R, id) ? 'rack full' : cr(ITEMS[id].price),
+    + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
       || "<div class='dslot empty'>sold out</div>") + "</div><div class='row'>"
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
-    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST) + '</button>' : '')
+    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? '>Reroll · free ×' + R.freeRerolls : off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST)) + '</button>' : '')
     + "<button class='btn' id='leaveShop'>Continue ›</button></div>");
   $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
@@ -510,6 +641,7 @@ function showShop(restock = true) {
   document.getElementById('buySlot')?.addEventListener('click', () => { if (buySlot(R)) showShop(false); });
   $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => { b.onclick = () => { if (sell(R, b.dataset.sell as ItemId)) showShop(false); }; });
   $('leaveShop').onclick = enterSection;
+  tilt($('modalBox'));
 }
 
 function showSwap(id: DaemonId) {
@@ -539,7 +671,9 @@ const firmCard = (co: Company | undefined, i: number) => {
   const need = COMPANIES[i - 1]?.name ?? '';
   const lock = "<span class='flock'>locked · breach " + need + ' to unlock</span>';
   const won = co && breached().includes(co.id) ? "<span class='fwon'>breached</span>" : '';
-  const front = co ? face('front', won + logo(co.id) + '<b>' + co.name + '</b><p>' + co.text + '</p>' + (isOpen(i) ? "<span class='fhint'>details ›</span>" : lock))
+  const best = co && bestRun(co.id);
+  const front = co ? face('front', won + logo(co.id) + '<b>' + co.name + '</b><p>' + co.text + '</p>'
+    + (best ? "<span class='fbest'>best " + best.data + ' data · ' + fmt(best.ms) + '</span>' : '') + (isOpen(i) ? "<span class='fhint'>details ›</span>" : lock))
     : face('front', logo() + '<b>??? ????????</b><p>Classified. Breach the previous contract to unlock.</p>');
   const back = co ? face('back', '<b>' + co.name + "</b><ol class='frooms'>" + co.sections.map((s) => '<li>' + s.name + "<span class='meta'>" + s.size.n + '×' + s.size.n
     + ' · ' + s.matrices + (s.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + s.quota + '</span></li>').join('')
@@ -731,7 +865,7 @@ function resumeRun(sv: SavedRun) {
   S.dealing = false;
   try {
     for (const a of sv.log) {
-      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else disconnect();
+      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else disconnect();
     }
   } finally { replaying = false; }
 }
@@ -765,16 +899,48 @@ function dealMatrix() {
   S.puzzle = dealRunMatrix(seed, R);
   const cells = placeCells(seed, S.puzzle, R.items);
   if (cells.wild) S.puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
-  M = { node: cells.node, worth: S.puzzle.targets.map((t) => DATA_BY_LEN[t.length]), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
-    split: R.items.includes('split1') || R.items.includes('split2'), jump: R.items.includes('bridge'), loop: R.items.includes('loopback1') || R.items.includes('loopback2'), jumps: [] };
+  // Target data is set before Repeater and Glob reshape the targets.
+  const worth = S.puzzle.targets.map((t) => DATA_BY_LEN[t.length]);
+  const rep = R.items.includes('repeater') ? plantRepeat(seed, S.puzzle) : undefined;
+  if (R.items.includes('glob')) globTarget(seed, S.puzzle.targets);
+  tOrder = [];
+  M = { node: cells.node, worth, rep, rewind: R.items.includes('rewind'), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
+    split: R.items.includes('split1') || R.items.includes('split2'), jump: R.items.includes('bridge'), loop: R.items.includes('loopback1') || R.items.includes('loopback2'),
+    mux: R.items.includes('mux'), jumps: [], tools: false, bounty: bountyHere(R) ? bountyFor(seed, R.items) : undefined, reward: rewardFor(seed) };
   armed = null;
   resetRun();
+  if (M.bounty && R.matrix > 0) bonusIntro(M.bounty); // not on the throwaway board behind the resume dialog
+}
+
+// A bonus matrix opens with its objective flashed over the matrix; the banner glitches in, holds, and fades out.
+function bonusIntro(id: BountyId) {
+  const pane = $('grid').closest('.pane')!;
+  pane.querySelector('.bintro')?.remove();
+  pane.insertAdjacentHTML('beforeend', "<div class='bintro' aria-live='polite'><span class='bnt'>bonus objective</span><b>" + BOUNTIES[id].name
+    + '</b><p>' + BOUNTIES[id].text(runCtx()) + "</p><small>reward: hidden until the matrix is over</small></div>");
+  const el = pane.querySelector<HTMLElement>('.bintro')!;
+  el.onanimationend = () => el.remove();
+}
+
+// Rewind: the last pick's code stays in the buffer, the cell is free again, the lane goes back and the buffer gains a slot.
+function doRewind() {
+  if (!M.rewind || !M.back) return;
+  logAct({ w: 1 });
+  const [r, c] = S.run.path[S.run.path.length - 1];
+  S.run.used.delete(r + ',' + c);
+  Object.assign(S.run, M.back);
+  S.puzzle.l++;
+  M.rewind = false;
+  M.tools = true;
+  M.back = undefined;
+  render();
 }
 
 function doSplit(i: number, at?: number) {
   logAct({ s: i, at });
   ({ targets: S.puzzle.targets, worth: M.worth } = splitTarget(S.puzzle.targets, M.worth, i, at));
   M.split = false;
+  M.tools = true;
   armed = null;
   render();
 }
@@ -790,8 +956,8 @@ function applyCross() {
     : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps),
       ...(isNode(cursor[0], cursor[1]) ? [{ name: 'data node', add: '+' + NODE_DATA, kind: 'data' as const }] : []),
       ...(R.daemons.includes('rotate') && !S.run.path.length
-        ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(5 * rot) : undefined, kind: 'data' as const,
-          ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+5' }) }] : [])];
+        ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(CRON_DATA * rot) : undefined, kind: 'data' as const,
+          ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+' + CRON_DATA }) }] : [])];
   // Name in the daemon's family colour; numbers in their own colours: data blue, boost and multipliers pink.
   $('peek').innerHTML = peek.map((p) => {
     if (typeof p === 'string') return p;
@@ -801,15 +967,16 @@ function applyCross() {
       + " <b class='" + v + (loss ? '' : ' add') + "'>" + p.add + '</b>' + (p.note ? " <span class='note'>" + p.note + '</span>' : '');
   }).join(' · ');
   // Echo the code under the cursor in the codes targets still need: solid for a pick open right now, dotted for a
-  // free cell off the lane (planning ahead). Codes already hit and failed targets stay quiet.
+  // free cell off the lane (planning ahead) or a code already hit in an unfinished target. Done and failed targets stay quiet.
   const code = cursor && !S.over && !blackout() ? S.puzzle.grid[cursor[0]]?.[cursor[1]] : undefined;
   const open = !!code && code !== BLOCK && !isUsed(cursor![0], cursor![1]) && !burning(S.run, cursor![0], cursor![1]);
   const now = !!cursor && legal(cursor[0], cursor[1]);
   const run = S.mode === 'run'; // the other modes keep the plain echo
   document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((s) => {
-    const m = !!code && (run ? (open || now) && !s.classList.contains('hit') && !s.closest('.fail') : now) && fits(code, s.textContent ?? '');
-    s.classList.toggle('peek', m && now);
-    s.classList.toggle('far', m && !now);
+    const hit = s.classList.contains('hit');
+    const m = !!code && (run ? (open || now) && !s.closest('.fail, .done') : now && !hit) && fits(code, s.textContent ?? '');
+    s.classList.toggle('peek', m && now && !hit);
+    s.classList.toggle('far', m && (!now || hit));
   });
 }
 
@@ -882,12 +1049,17 @@ function choose(r: number, c: number) {
     S.puzzle.grid[r][c] = WILD;
     armed = null;
     M.wild = false;
+    M.tools = true;
     render();
     return;
   }
   if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 31); }
   const door = doorOpen(), tool = armed, offLane = !inLane(S.run, r, c);
+  if (tool === 'mux') { S.run.free = S.run.path[S.run.path.length - 1]; M.mux = false; }
+  if (tool) M.tools = true;
+  M.back = { axis: S.run.axis, idx: S.run.idx, free: S.run.free };
   pick(S.run, S.puzzle, r, c);
+  if (M.rep?.[0] === r && M.rep[1] === c && S.run.buffer.length < S.puzzle.l) S.run.buffer.push(S.puzzle.grid[r][c]);
   if (door) sideDoor(S.run, r, c, S.puzzle.grid.length);
   if ((tool === 'jump' || tool === 'loop') && offLane) M.jumps.push(S.run.path.length - 1);
   if (tool === 'jump') M.jump = false;
@@ -895,11 +1067,13 @@ function choose(r: number, c: number) {
   armed = null; // a pick puts any armed tool down
   // A dead end (targets no longer reachable) ends the round right away.
   // Run mode only stops once no remaining target can still be uploaded; the others need all of them.
-  const stuck = S.mode === 'run'
+  // An unused Rewind can still undo a dead end, so it keeps the matrix open.
+  const undo = S.mode === 'run' && M.rewind && !!M.back;
+  const stuck = undo ? false : S.mode === 'run'
     ? !S.puzzle.targets.some((t) => !contains(S.run.buffer, t) && canComplete(S.run, { ...S.puzzle, targets: [t] }, undefined, { ...M, loopAny: loopAny() }))
     : !canComplete(S.run, S.puzzle);
-  // An unused Bridge or Loopback can still move when the lane is spent.
-  const more = S.mode === 'run' && S.run.buffer.length < S.puzzle.l && (M.jump || M.loop);
+  // An unused Bridge, Loopback, Mux or Rewind can still move when the lane is spent.
+  const more = S.mode === 'run' && S.run.buffer.length < S.puzzle.l && (M.jump || M.loop || M.mux || undo);
   const done = more ? score(S.run.buffer, S.puzzle.targets) === S.puzzle.targets.length : isFinished(S.run, S.puzzle);
   if (done || stuck) {
     const sc = score(S.run.buffer, S.puzzle.targets);
@@ -958,22 +1132,18 @@ function finish(sc: number, disconnected = false) {
         + " left on today's matrix.</p><div class='row'><button class='btn' id='retry'>Try again</button></div>";
     }
   } else if (S.mode === 'run') {
+    R.ms = (R.ms ?? 0) + S.elapsed;
     const { score: bill, out } = finishMatrix(R, runCtx(), disconnected);
+    lastBill = bill;
     if (out === 'win' || out === 'lose') endSave();
-    const sec = sections(R)[R.section];
-    const [title, btn, label] = ({
-      continue: ['+' + bill.total + ' data', 'runNext', 'Next matrix'],
-      section: [sec.name + ' breached', 'runSection', 'Next section'],
-      loop: [sec.name + ' breached', 'runLoop', 'Patch notes ›'],
-      win: [COMPANIES[R.company].name + ' breached', 'runNew', 'New run'],
-      lose: ['Run over', 'runNew', 'New run'],
-    } as Record<MatrixOutcome, string[]>)[out];
-    const next = COMPANIES[R.company + 1];
-    const credits = R.earned.map(([why, n]) => "<p class='meta'>" + money(n, '+') + ' · ' + why + '</p>').join('')
-      + (out === 'win' && recordBreach(COMPANIES[R.company].id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
-    showResult(out === 'win' || out === 'section' || out === 'loop' || (out === 'continue' && bill.total > 0),
-      '<h2>' + title + '</h2>' + (endWhy ? "<p class='meta'>auto-disconnect · " + endWhy + '</p>' : '') + billHtml(bill) + '<p>' + sec.name + ' ' + R.data + '/' + quota(R) + '</p>' + credits
-      + "<div class='row'><button class='btn' id='" + btn + "'>" + label + '</button></div>');
+    const co = COMPANIES[R.company], next = COMPANIES[R.company + 1];
+    const credits = R.earned.map(([why, n]) => "<p class='meta'>" + (n ? money(n, '+') + ' · ' : '') + why + '</p>').join('')
+      + (out === 'win' && recordBreach(co.id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
+    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn " + cls + "' id='" + id + "'>" + label + '</button></div>';
+    showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
+      ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›')
+      : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
+        : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run'));
     return;
   } else {
     const c = settle(win);

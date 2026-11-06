@@ -1,4 +1,4 @@
-import { contains, fits, newRun, pick, type Run } from './game';
+import { contains, fits, newRun, pick, WILD, type Run } from './game';
 import { BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
 
@@ -125,13 +125,21 @@ export interface RunState {
   credits: number;
   earned: [string, number][]; // credits from the last finished matrix, by source
   daemons: DaemonId[];
-  stacks: Partial<Record<DaemonId, number>>; // streak daemons' banked stacks
+  stacks: Partial<Record<string, number>>; // by daemon id (string keeps DAEMONS from typing itself) // streak daemons' banked stacks
   lastStart?: number; // column of the previous matrix's first pick (cron/rotate)
   rack: number; // rack slots for items
   items: ItemId[]; // shop items owned, kept for the run
   shelf: ItemId[]; // what the shop offers on this visit
   rerolls: number; // shelf rerolls on this visit
   ice: IceId; // the boss room's rule
+  // Run summary; optional so saves from before them still load.
+  total?: number; // data banked over the whole run
+  ms?: number; // time spent in matrices
+  best?: number; // best single matrix
+  log?: [number, number, number][]; // finished rooms: iteration, room, data
+  carry?: number; // data Overtime carried into this room
+  freeRerolls?: number; // bonus rewards
+  legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
 }
 
 export function newRunState(seed: number, company = 0): RunState {
@@ -159,8 +167,11 @@ export function endMatrix(s: RunState, data: number, emptySlots: number): Matrix
   s.data += data;
   if (data) earn(s, emptySlots + ' empty buffer slots (1 per ' + SLOTS_PER_CREDIT + ')', Math.floor(emptySlots / SLOTS_PER_CREDIT));
   s.scores[s.section].push(data);
+  s.total = (s.total ?? 0) + data;
+  s.best = Math.max(s.best ?? 0, data);
   const goal = quota(s);
   if (played(s) < sections(s)[s.section].matrices) return 'continue';
+  (s.log ??= []).push([s.loop, s.section, s.data]);
   if (s.data < goal) return 'lose';
   earn(s, 'section cleared', SECTION_CREDIT);
   earn(s, s.data - goal + ' data over the quota (1 per ' + SURPLUS_PER_CREDIT + ', max ' + SURPLUS_CAP + ')',
@@ -171,9 +182,12 @@ export function endMatrix(s: RunState, data: number, emptySlots: number): Matrix
 
 // Moves on to the next room; after the boss, starts the next iteration and returns the patch it brought.
 export function nextSection(s: RunState): Patch | undefined {
-  Object.assign(s, { section: s.section + 1, data: 0, restarts: restartsFor(s) });
+  // Overtime: half the data over the quota starts the next room.
+  const carry = s.daemons.includes('overtime') ? Math.max(0, Math.floor((s.data - quota(s)) / 2)) : 0;
+  Object.assign(s, { section: s.section + 1, data: carry, carry, restarts: restartsFor(s) });
+  delete s.stacks.sandbag; // room-scoped
   if (s.section < sections(s).length) return;
-  Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []) });
+  Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0 });
   return deployPatch(s);
 }
 
@@ -182,6 +196,10 @@ export function nextSection(s: RunState): Patch | undefined {
 // jumps: path indices of cells reached off the lane (Bridge, Loopback v2.0); those are no lane moves, so daemons skip them.
 export interface MatrixCtx {
   buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell; jumps?: number[];
+  par?: number; // length of the planted route (Surgical bonus)
+  tools?: boolean; // an item tool was used (Bare hands bonus)
+  bounty?: BountyId;
+  reward?: RewardId;
 }
 
 interface Facts {
@@ -194,6 +212,11 @@ interface Facts {
   edgeJumps: number;
   corner: boolean; // path starts or ends in a corner
   start?: number; // column of the first pick
+  codes: number; // codes in the uploaded targets
+  picks: number;
+  cells: number; // different cells on the path
+  wilds: number; // uploaded targets running through a ** slot
+  echoes: number; // uploaded targets holding a code picked again by Loopback
 }
 
 type Cell = [number, number];
@@ -212,10 +235,21 @@ export function coverage(buf: string[], targets: string[][]): number[] {
   return cover;
 }
 
+// Buffer slots of a target's first match.
+const windowOf = (buf: string[], t: string[]) => {
+  const i = buf.findIndex((_, i) => t.every((c, j) => fits(buf[i + j], c)));
+  return t.map((_, j) => i + j);
+};
+
 function facts({ buf, path, targets, l, n, jumps }: MatrixCtx): Facts {
   const done = targets.filter((t) => contains(buf, t));
   const moves = path.slice(1).flatMap((p, i) => (jumps?.includes(i + 1) ? [] : [moveLen(path[i], p)]));
+  const keys = path.map((p) => p[0] + ',' + p[1]);
+  const again = keys.flatMap((k, i) => (keys.indexOf(k) < i ? [i] : []));
+  const wins = done.map((t) => windowOf(buf, t));
   return {
+    codes: done.reduce((a, t) => a + t.length, 0), picks: path.length, cells: new Set(keys).size,
+    wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length, echoes: wins.filter((w) => w.some((i) => again.includes(i))).length,
     done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
     empty: l - buf.length, light: buf.length <= l / 2,
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
@@ -226,50 +260,81 @@ function facts({ buf, path, targets, l, n, jumps }: MatrixCtx): Facts {
 export interface Effect { flat?: number; boost?: number; mult?: number }
 // streak: a stack that grows each matrix its condition holds and resets when it breaks; `next` gives the stack after
 // this matrix, so the live score already counts it. Matrices that upload nothing leave every stack alone.
-interface Streak { next: (n: number, f: Facts, s: RunState, disconnected: boolean) => number; effect: (n: number) => Effect }
+// goal: what keeps the stack growing, shown while the daemon waits on it.
+interface Streak { goal: string; next: (n: number, f: Facts, s: RunState, disconnected: boolean) => number; effect: (n: number) => Effect }
+// Offer odds per slot, by rarity; a daemon with no rarity is common.
+export const RARITY = { common: 0.7, rare: 0.25, legendary: 0.05 };
+export type Rarity = keyof typeof RARITY;
 interface Daemon {
   name: string;
   family: 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
   text: string;
+  rarity?: Rarity;
+  scope?: 'room'; // its stack or count lasts for one room
   score?: (f: Facts, s: RunState) => Effect | null;
   streak?: Streak;
   end?: (s: RunState, f: Facts, disconnected: boolean) => void; // after a matrix that uploaded something
 }
 
+// Rotate and Uptime pay the same flat data per stack.
+export const CRON_DATA = 7;
+
 export const DAEMONS = {
-  chain: { name: 'Chain', family: 'Splicer', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
+  chain: { name: 'Chain', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
     score: (f) => (f.shared ? { boost: 0.5 * f.shared } : null) },
   compressor: { name: 'Compressor', family: 'Splicer', text: '+5 data per buffer slot shared by 2 uploaded targets',
     score: (f) => (f.shared ? { flat: 5 * f.shared } : null) },
-  fullstack: { name: 'Full stack', family: 'Splicer', text: '×2 when every target is uploaded',
+  fullstack: { name: 'Full stack', family: 'Splicer', rarity: 'legendary', text: '×2 when every target is uploaded',
     score: (f) => (f.all ? { mult: 2 } : null) },
   overflow: { name: 'Overflow', family: 'Ghost', text: '+0.5 boost per empty buffer slot',
     score: (f) => (f.empty ? { boost: 0.5 * f.empty } : null) },
-  light: { name: 'Light footprint', family: 'Ghost', text: '×2 when at most half the buffer is used',
+  light: { name: 'Light footprint', family: 'Ghost', rarity: 'legendary', text: '×2 when at most half the buffer is used',
     score: (f) => (f.light ? { mult: 2 } : null) },
   silent: { name: 'Silent', family: 'Ghost', text: '+$2 each time you end a matrix early with Disconnect',
     end: (s, _f, disconnected) => { if (disconnected) earn(s, 'Silent daemon', 2); } },
-  cache: { name: 'Cache', family: 'Ghost',
+  cache: { name: 'Cache', family: 'Ghost', rarity: 'rare',
     text: '+0.25 boost for every matrix in a row ending with 2+ empty buffer slots, this one included; a full buffer resets the stack',
-    streak: { next: (n, f) => (f.empty === 0 ? 0 : f.empty >= 2 ? n + 1 : n), effect: (n) => ({ boost: 0.25 * n }) } },
+    streak: { goal: 'end with 2+ empty slots', next: (n, f) => (f.empty === 0 ? 0 : f.empty >= 2 ? n + 1 : n), effect: (n) => ({ boost: 0.25 * n }) } },
   longjump: { name: 'Long jump', family: 'Runner', text: '+5 data per move from one end of a lane to the other',
     score: (f) => (f.edgeJumps ? { flat: 5 * f.edgeJumps } : null) },
   corner: { name: 'Corner', family: 'Runner', text: '×1.5 when the path starts or ends in a corner',
     score: (f) => (f.corner ? { mult: 1.5 } : null) },
-  zigzag: { name: 'Zigzag', family: 'Runner', text: '+0.5 boost per move longer than the one before',
+  zigzag: { name: 'Zigzag', family: 'Runner', rarity: 'rare', text: '+0.5 boost per move longer than the one before',
     score: (f) => { const k = f.moves.filter((d, i) => i > 0 && d > f.moves[i - 1]).length; return k ? { boost: 0.5 * k } : null; } },
   // Cron: scheduled jobs. Keep doing the thing every matrix and the stack grows; slip once and it is gone.
-  heartbeat: { name: 'Heartbeat', family: 'Cron', text: '+0.25 boost for every matrix in a row where you upload every target, this one included; missing one resets the stack',
-    streak: { next: (n, f) => (f.all ? n + 1 : 0), effect: (n) => ({ boost: 0.25 * n }) } },
-  rotate: { name: 'Rotate', family: 'Cron', text: '+5 data for every matrix in a row whose first pick is in a different column than the last one; the same column resets the stack',
-    streak: { next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: 5 * n }) } },
-  backup: { name: 'Backup', family: 'Cron', text: '+0.5 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending resets the stack',
-    streak: { next: (n, f) => (f.empty === 1 ? n + 1 : 0), effect: (n) => ({ boost: 0.5 * n }) } },
-  uptime: { name: 'Uptime', family: 'Cron', text: '+10 data for every matrix in a row with no Disconnect and no restart; either resets the stack',
-    streak: { next: (n, _f, _s, disconnected) => (disconnected ? 0 : n + 1), effect: (n) => ({ flat: 10 * n }) } },
+  heartbeat: { name: 'Heartbeat', family: 'Cron', rarity: 'rare', text: '+0.25 boost for every matrix in a row where you upload every target, this one included; missing one resets the stack',
+    streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : 0), effect: (n) => ({ boost: 0.25 * n }) } },
+  rotate: { name: 'Rotate', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row whose first pick is in a different column than the last one; the same column resets the stack',
+    streak: { goal: 'start in a new column', next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: CRON_DATA * n }) } },
+  backup: { name: 'Backup', family: 'Cron', rarity: 'rare', text: '+0.5 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending resets the stack',
+    streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : 0), effect: (n) => ({ boost: 0.5 * n }) } },
+  uptime: { name: 'Uptime', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row with no Disconnect and no restart; either resets the stack',
+    streak: { goal: 'no Disconnect', next: (n, _f, _s, disconnected) => (disconnected ? 0 : n + 1), effect: (n) => ({ flat: CRON_DATA * n }) } },
+  deflate: { name: 'Deflate', family: 'Splicer', rarity: 'legendary', text: '×(codes in uploaded targets ÷ picks), when that beats ×1',
+    score: (f) => (f.picks && f.codes > f.picks ? { mult: Math.round((f.codes / f.picks) * 100) / 100 } : null) },
+  joker: { name: 'Joker', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per uploaded target that runs through a ** slot',
+    score: (f) => (f.wilds ? { boost: 0.5 * f.wilds } : null) },
+  saturate: { name: 'Saturate', family: 'Splicer', rarity: 'rare', text: '×1.5 with a full buffer and every target uploaded',
+    score: (f) => (f.all && f.empty === 0 ? { mult: 1.5 } : null) },
+  echo: { name: 'Echo', family: 'Ghost', rarity: 'rare', text: '+1 boost per uploaded target holding a code Loopback picked again',
+    score: (f) => (f.echoes ? { boost: f.echoes } : null) },
+  crawler: { name: 'Crawler', family: 'Runner', text: '+3 data per different cell on the path',
+    score: (f) => (f.cells ? { flat: 3 * f.cells } : null) },
+  sandbag: { name: 'Sandbag', family: 'Ghost', rarity: 'rare', scope: 'room',
+    text: '+1.5 boost for the rest of the room per matrix you Disconnect with at most 1 target uploaded',
+    score: (_f, s) => (s.stacks.sandbag ? { boost: 1.5 * s.stacks.sandbag } : null),
+    end: (s, f, disconnected) => { if (disconnected && f.done.length <= 1) s.stacks.sandbag = (s.stacks.sandbag ?? 0) + 1; } },
+  allin: { name: 'All-in', family: 'Splicer', rarity: 'rare', text: 'A bet on every matrix: ×3 when every target is uploaded, ×0.5 when one is missing',
+    score: (f) => ({ mult: f.all ? 3 : 0.5 }) },
+  overtime: { name: 'Overtime', family: 'Cron', rarity: 'rare', scope: 'room', text: 'Half the data over a room\'s quota carries into the next room' },
+  warmup: { name: 'Warm-up', family: 'Cron', scope: 'room', text: '+0.5 boost per matrix already played in this room',
+    score: (_f, s) => (played(s) ? { boost: 0.5 * played(s) } : null) },
 } satisfies Record<string, Daemon>;
 export type DaemonId = keyof typeof DAEMONS;
+export const rarityOf = (id: DaemonId): Rarity => (DAEMONS[id] as Daemon).rarity ?? 'common';
 export const streakOf = (id: DaemonId) => (DAEMONS[id] as Daemon).streak;
+// How long a daemon's effect lasts: one matrix, or a stack kept for the whole run.
+export const scopeOf = (id: DaemonId): 'matrix' | 'room' | 'run' => (DAEMONS[id] as Daemon).scope ?? (streakOf(id) ? 'run' : 'matrix');
 
 // Restarting a matrix breaks an Uptime streak.
 export function restartMatrix(s: RunState): void {
@@ -324,7 +389,90 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
   s.earned = [];
   const score = scoreMatrix(ctx, s);
   daemonsAfterMatrix(ctx, s, disconnected);
+  // After the streaks moved, so a stack reward is not overwritten.
+  if (ctx.bounty && bountyMet(ctx.bounty, ctx)) {
+    payReward(s, 'bonus · ' + BOUNTIES[ctx.bounty].name, ctx.reward ?? 'cash');
+    if (ctx.reward === 'double') { score.mult *= 2; score.total *= 2; }
+  }
   return { score, out: endMatrix(s, score.total, ctx.l - ctx.buf.length) };
+}
+
+// Bonus objectives: one per matrix, drawn from its seed and shown from the start; meeting it pays credits.
+// Bonuses are rare (one matrix per iteration), so what they pay is big.
+export const BOUNTY_CREDITS = 5;
+export const BOUNTY_REROLLS = 3;
+export const BOUNTY_STACKS = 2;
+export const BOUNTIES = {
+  surgical: { name: 'Surgical', text: (c?: MatrixCtx) => (c?.par ? 'every target in ' + c.par + ' picks or fewer' : 'every target in no more picks than the planted route'), met: (f: Facts, c: MatrixCtx) => f.all && f.picks <= (c.par ?? 0) },
+  corners: { name: 'Corners', text: () => 'start and end in a corner', met: (f: Facts, c: MatrixCtx) => !!f.done.length && isCorner(c.path[0], c.n) && isCorner(c.path[c.path.length - 1], c.n) },
+  clean: { name: 'Clean', text: () => 'upload with 3+ empty buffer slots', met: (f: Facts) => !!f.done.length && f.empty >= 3 },
+  fullhouse: { name: 'Full house', text: () => 'every target with a full buffer', met: (f: Facts) => f.all && f.empty === 0 },
+  barehands: { name: 'Bare hands', text: () => 'upload without using an item tool', met: (f: Facts, c: MatrixCtx) => !!f.done.length && !c.tools },
+  tiptoe: { name: 'Tiptoe', text: () => 'upload with no move longer than 2 cells', met: (f: Facts) => !!f.done.length && f.moves.every((d) => d <= 2) },
+  wild: { name: 'Wild', text: () => '2 uploaded targets through a ** slot (only with a Wildcard)', met: (f: Facts) => f.wilds >= 2 },
+};
+export type BountyId = keyof typeof BOUNTIES;
+// Bonus matrices: BOUNTIES_PER_LOOP of an iteration's matrices outside the boss room, drawn from the run seed, carry a bonus objective.
+export const BOUNTIES_PER_LOOP = 1;
+// Never in the boss room.
+export function bountyHere(s: RunState): boolean {
+  if (isBoss(s)) return false;
+  const rooms = sections(s).slice(0, -1), total = rooms.reduce((a, r) => a + r.matrices, 0);
+  const at = rooms.slice(0, s.section).reduce((a, r) => a + r.matrices, 0) + played(s);
+  const picks = shuffled(Array.from({ length: total }, (_, i) => i), rng(hashStr(s.seed + '/bounties/' + s.loop))).slice(0, BOUNTIES_PER_LOOP);
+  return picks.includes(at);
+}
+// Wild only comes up for a run with a Wildcard.
+export const bountyFor = (seed: number, items: ItemId[] = []): BountyId => {
+  const ids = (Object.keys(BOUNTIES) as BountyId[]).filter((id) => id !== 'wild' || items.some((i) => i === 'wildcard1' || i === 'wildcard2'));
+  return ids[Math.floor(rng(hashStr(seed + '/bounty'))() * ids.length)];
+};
+// What a met bonus pays, drawn per matrix.
+export const REWARDS = {
+  cash: '+$' + BOUNTY_CREDITS,
+  rerolls: BOUNTY_REROLLS + ' free rerolls',
+  stack: '+' + BOUNTY_STACKS + ' stacks on every streak daemon',
+  legend: 'a legendary daemon in the next offer',
+  double: '×2 data for this matrix',
+};
+export type RewardId = keyof typeof REWARDS;
+export const rewardFor = (seed: number): RewardId => {
+  const ids = Object.keys(REWARDS) as RewardId[];
+  return ids[Math.floor(rng(hashStr(seed + '/reward'))() * ids.length)];
+};
+// No streak daemon installed: the stack reward pays credits instead. Double is applied by finishMatrix.
+function payReward(s: RunState, why: string, id: RewardId): void {
+  const streaks = s.daemons.filter((d) => streakOf(d));
+  const note = (text: string) => s.earned.push([why + ' · ' + text, 0]);
+  if (id === 'rerolls') { s.freeRerolls = (s.freeRerolls ?? 0) + BOUNTY_REROLLS; note(REWARDS.rerolls); }
+  else if (id === 'legend') { s.legendOffer = true; note(REWARDS.legend); }
+  else if (id === 'double') note(REWARDS.double);
+  else if (id === 'stack' && streaks.length) { for (const d of streaks) s.stacks[d] = (s.stacks[d] ?? 0) + BOUNTY_STACKS; note(REWARDS.stack); }
+  else earn(s, why, BOUNTY_CREDITS);
+}
+export const bountyMet = (id: BountyId, ctx: MatrixCtx) => BOUNTIES[id].met(facts(ctx), ctx);
+
+// Repeater: a planted-route cell inside exactly one target pushes its code twice; that target gets the doubled code
+// and the buffer one more slot, so the plant stays solvable. Returns the cell.
+export function plantRepeat(seed: number, p: Puzzle): Cell | undefined {
+  if (!p.path) return;
+  const buf = p.path.map(([r, c]) => p.grid[r][c]);
+  const cover = coverage(buf, p.targets);
+  const spots = cover.flatMap((k, i) => (k === 1 ? [i] : []));
+  if (!spots.length) return;
+  const i = spots[Math.floor(rng(hashStr(seed + '/repeat'))() * spots.length)];
+  const t = p.targets.find((t) => contains(buf, t) && windowOf(buf, t).includes(i))!;
+  const j = i - windowOf(buf, t)[0];
+  t.splice(j, 0, t[j]);
+  p.l++;
+  return p.path[i];
+}
+
+// Glob: one code of one target becomes **, which takes any code; the same for a matrix seed.
+export function globTarget(seed: number, targets: string[][]): void {
+  const r = rng(hashStr(seed + '/glob'));
+  const t = targets[Math.floor(r() * targets.length)];
+  t[Math.floor(r() * t.length)] = WILD;
 }
 
 // Three daemons the run doesn't own yet, the same for a given run seed and section.
@@ -334,7 +482,17 @@ const visit = (s: RunState) => s.section + (s.loop ? '.' + s.loop : '');
 // With every slot full the offer still comes; taking one swaps out an installed daemon.
 export function offerDaemons(s: RunState): DaemonId[] {
   const r = rng(hashStr(s.seed + '/offer/' + visit(s)));
-  return shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id)), r).slice(0, 3);
+  const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id)), r);
+  const out: DaemonId[] = [];
+  const lead = s.legendOffer && (pool.find((id) => rarityOf(id) === 'legendary') ?? pool.find((id) => rarityOf(id) === 'rare'));
+  if (lead) out.push(lead);
+  // Each slot rolls a rarity, then takes the first unpicked daemon of it; an empty rarity falls back to any.
+  while (out.length < 3 && out.length < pool.length) {
+    const x = r(), tier: Rarity = x < RARITY.legendary ? 'legendary' : x < RARITY.legendary + RARITY.rare ? 'rare' : 'common';
+    const left = pool.filter((id) => !out.includes(id));
+    out.push(left.find((id) => rarityOf(id) === tier) ?? left[0]);
+  }
+  return out;
 }
 
 const shuffled = <T>(a: T[], r: () => number) => {
@@ -389,6 +547,10 @@ export const ITEMS = {
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
   sim: { name: 'Burner SIM', ver: '1.0', kind: 'prepaid SIM', price: 3, text: 'Once per room, before your first move, swap the matrix for a fresh one' },
+  glob: { name: 'Glob', ver: '1.0', kind: 'pattern ROM', price: 4, text: 'In every matrix one code of one target turns into **, which takes any code' },
+  repeater: { name: 'Repeater', ver: '1.0', kind: 'signal repeater', price: 3, text: 'In every matrix one cell (×2) puts its code in the buffer twice; one target holds that code doubled' },
+  rewind: { name: 'Rewind', ver: '1.0', kind: 'tape deck', price: 4, text: 'Once per matrix, take back your last pick: its code stays, so uploads stay, but the cell is free, your lane returns and the buffer gains a slot' },
+  mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 3;
@@ -411,8 +573,9 @@ export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter(
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
 export function stockShop(s: RunState, reroll = false): boolean {
   if (reroll) {
-    if (s.credits < REROLL_COST) return false;
-    s.credits -= REROLL_COST;
+    if (s.freeRerolls) s.freeRerolls--;
+    else if (s.credits < REROLL_COST) return false;
+    else s.credits -= REROLL_COST;
     s.rerolls++;
   } else s.rerolls = 0;
   s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls))).slice(0, SHELF);
