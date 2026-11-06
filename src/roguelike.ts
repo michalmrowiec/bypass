@@ -58,8 +58,8 @@ export const isBoss = (s: RunState) => s.section === sections(s).length - 1;
 
 // Iterations: after the boss the company patches itself and the rooms come round again, quotas doubled; the last one wins.
 export const LOOPS = 3;
-export const QUOTA_GROWTH = 2;
-export const quota = (s: RunState, i = s.section) => sections(s)[i].quota * QUOTA_GROWTH ** s.loop;
+export const QUOTA_GROWTH = 2.5;
+export const quota = (s: RunState, i = s.section) => Math.round(sections(s)[i].quota * QUOTA_GROWTH ** s.loop);
 
 // A patch adds one ICE rule to one room, live from iteration `loop` on.
 export interface Patch { ice: IceId; room: number; loop: number }
@@ -314,8 +314,8 @@ export const DAEMONS = {
     score: (f) => (f.picks && f.codes > f.picks ? { mult: Math.round((f.codes / f.picks) * 100) / 100 } : null) },
   joker: { name: 'Joker', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per uploaded target that runs through a ** slot',
     score: (f) => (f.wilds ? { boost: 0.5 * f.wilds } : null) },
-  saturate: { name: 'Saturate', family: 'Splicer', rarity: 'rare', text: '×1.5 with a full buffer and every target uploaded',
-    score: (f) => (f.all && f.empty === 0 ? { mult: 1.5 } : null) },
+  saturate: { name: 'Saturate', family: 'Splicer', rarity: 'rare', text: '×1.25 with a full buffer and every target uploaded',
+    score: (f) => (f.all && f.empty === 0 ? { mult: 1.25 } : null) },
   echo: { name: 'Echo', family: 'Ghost', rarity: 'rare', text: '+1 boost per uploaded target holding a code Loopback picked again',
     score: (f) => (f.echoes ? { boost: f.echoes } : null) },
   crawler: { name: 'Crawler', family: 'Runner', text: '+3 data per different cell on the path',
@@ -324,8 +324,8 @@ export const DAEMONS = {
     text: '+1.5 boost for the rest of the room per matrix you Disconnect with at most 1 target uploaded',
     score: (_f, s) => (s.stacks.sandbag ? { boost: 1.5 * s.stacks.sandbag } : null),
     end: (s, f, disconnected) => { if (disconnected && f.done.length <= 1) s.stacks.sandbag = (s.stacks.sandbag ?? 0) + 1; } },
-  allin: { name: 'All-in', family: 'Splicer', rarity: 'rare', text: 'A bet on every matrix: ×3 when every target is uploaded, ×0.5 when one is missing',
-    score: (f) => ({ mult: f.all ? 3 : 0.5 }) },
+  allin: { name: 'All-in', family: 'Splicer', rarity: 'rare', text: 'A bet on every matrix: ×2 when every target is uploaded, ×0.5 when one is missing',
+    score: (f) => ({ mult: f.all ? 2 : 0.5 }) },
   overtime: { name: 'Overtime', family: 'Cron', rarity: 'rare', scope: 'room', text: 'Half the data over a room\'s quota carries into the next room' },
   warmup: { name: 'Warm-up', family: 'Cron', scope: 'room', text: '+0.5 boost per matrix already played in this room',
     score: (_f, s) => (played(s) ? { boost: 0.5 * played(s) } : null) },

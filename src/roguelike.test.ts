@@ -321,20 +321,20 @@ describe('companies', () => {
 });
 
 describe('iterations', () => {
-  it('doubles the quotas each iteration and wins after the third boss', () => {
+  it('raises the quotas ×2.5 each iteration and wins after the third boss', () => {
     const s = newRunState(1);
     s.section = BOSS;
     s.scores[BOSS] = [0];
     expect(endMatrix(s, 1000, 0)).toBe('loop');
     const p = nextSection(s)!;
-    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 50]);
+    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 63]);
     expect(COMPANIES[0].patches).toContain(p.ice);
     Object.assign(s, { loop: 2, section: BOSS, data: 0 });
     s.scores[BOSS] = [0];
-    expect(endMatrix(s, 999, 0)).toBe('lose');
+    expect(endMatrix(s, quota(s) - 1, 0)).toBe('lose');
     s.scores[BOSS] = [0];
     s.data = 0;
-    expect(endMatrix(s, 1000, 0)).toBe('win');
+    expect(endMatrix(s, quota(s), 0)).toBe('win');
   });
 
   it('draws the same patch from the same seed and shows it once its room is entered', () => {
@@ -487,7 +487,7 @@ describe('playtest daemons, bounties and Glob', () => {
 
   it('Deflate, Crawler and Saturate read codes, cells and a full buffer', () => {
     expect(fired(ctx, 'deflate', 'crawler', 'saturate')).toEqual([['deflate', { mult: 1.25 }], ['crawler', { flat: 12 }]]);
-    expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.5 }]]);
+    expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.25 }]]);
   });
 
   it('Joker counts targets through **, Echo targets holding a re-picked code', () => {
@@ -532,7 +532,7 @@ describe('round 3: All-in, Overtime, Repeater, rewards', () => {
   const run = (...daemons: DaemonId[]) => ({ ...newRunState(1), daemons });
 
   it('All-in bets ×3 on every target, ×0.5 otherwise', () => {
-    expect(scoreMatrix(ctx, run('allin')).fired).toEqual([['allin', { mult: 3 }]]);
+    expect(scoreMatrix(ctx, run('allin')).fired).toEqual([['allin', { mult: 2 }]]);
     expect(scoreMatrix({ ...ctx, targets: [...ctx.targets, ['X', 'Y']] }, run('allin')).fired).toEqual([['allin', { mult: 0.5 }]]);
   });
 

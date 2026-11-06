@@ -441,7 +441,7 @@ const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
     + '</small><p>' + it.text + "</p><span class='price'>" + foot + '</span></' + tag + '>';
 };
 
-let catalogTab: 'daemons' | 'items' | 'bonuses' = 'daemons';
+let catalogTab: 'daemons' | 'items' | 'bonuses' | 'ice' = 'daemons';
 
 // Dev cheats on the catalog: toggle daemons and items (a v2.0 and its v1.0 replace each other), add credits, re-deal, skip a room.
 function wireDev(ds: DaemonId[], its: ItemId[]) {
@@ -490,6 +490,8 @@ function showCatalog() {
     }).join('') + '</div>'
     : catalogTab === 'items' ? '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
+    : catalogTab === 'ice' ? '<p class="meta">' + Object.keys(ICE).length + " ICE rules · the SOC runs one from the company's pool; patches deploy more between iterations, into any room</p>"
+      + (Object.keys(ICE) as IceId[]).map((id) => iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE')).join('')
     : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · its reward stays hidden: '
       + Object.values(REWARDS).join(', ') + "</p><div class='blist'>"
       + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
@@ -499,10 +501,10 @@ function showCatalog() {
   const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal; a bonus goes on this matrix</span>"
     + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Re-deal</button>"
     + (!isBoss(R) || R.loop < LOOPS - 1 ? "<button class='btn' id='devRoom'>" + (isBoss(R) ? 'Next iteration' : 'Next room') + '</button>' : '') + '</div>';
-  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('bonuses') + '</div>'
+  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('bonuses') + tab('ice') + '</div>'
     + "<div class='catbody'>" + devBar + body + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
-  for (const t of ['daemons', 'items', 'bonuses'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
+  for (const t of ['daemons', 'items', 'bonuses', 'ice'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
   if (dev) wireDev(ds, its);
   const close = () => { hideResult(); focusGrid(); };
   $('closeCatalog').onclick = close;
@@ -535,8 +537,11 @@ function roomSummary(bill: Score, credits: string) {
 function runSummary(won: boolean, bill: Score, credits: string) {
   const co = COMPANIES[R.company], total = R.total ?? 0, ms = R.ms ?? 0;
   const prev = bestRun(co.id), fresh = recordBest(co.id, { data: total, ms, won });
-  const rows = (R.log ?? []).map(([loop, room, data]) => '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data
-    + '</span> / ' + co.sections[room].quota * QUOTA_GROWTH ** loop + '</td></tr>').join('');
+  // ×quota per room shows where the run was loose or tight.
+  const rows = (R.log ?? []).map(([loop, room, data]) => {
+    const goal = Math.round(co.sections[room].quota * QUOTA_GROWTH ** loop);
+    return '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data + '</span> / ' + goal + ' <small>×' + (data / goal).toFixed(2) + '</small></td></tr>';
+  }).join('');
   const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
   return "<div class='roomsum'><p class='meta'>" + co.name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small(bill)
@@ -671,7 +676,7 @@ const shownIce = (i: number) => roomIce(R, i).filter((id) => (id === R.ice && i 
   || R.patches.some((p) => p.ice === id && p.room === i && p.loop <= R.loop && revealed(R, p)));
 const burnText = (n: number) => (n === Infinity ? 'locks for good' : 'locks for ' + n + (n > 1 ? ' moves' : ' move'));
 const iceRule = (id: IceId, tag = 'ICE') => "<p class='iceRule'><b>" + tag + ' · ' + ICE[id].name + '</b> ' + ICE[id].text
-  + (id === 'corruption' ? ' · now ' + burnText(burnOf(R)) : '') + '</p>';
+  + (id === 'corruption' && burnOf(R) ? ' · now ' + burnText(burnOf(R)) : '') + '</p>';
 const iceTags = (ids: IceId[]) => ids.map((id) => "<i class='iceTag' title='" + ICE[id].text + "'>" + ICE[id].name + '</i>').join('');
 
 // Contract carousel: one 3D card per company (logo front, rooms and ICE on the back). The next locked company shows in full,
