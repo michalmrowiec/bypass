@@ -13,6 +13,7 @@
   --cyan:#3dd9ff;
   --data:#2ee6d6;
   --gold:#ffd23f;
+  --violet:#b48cff; /* Repeater ×2, nothing else */
   --boost:#ff3d8b;
   --done:#5af2a8;
   --bad:#ff3d8b;
@@ -332,7 +333,7 @@ button.unit{cursor:pointer}
 .hw:is(:hover,:focus-visible) .g-led{animation:rgbled 1.2s linear infinite}
 .hw:is(:hover,:focus-visible) .g-tip{transform:translate(6px,16px) rotate(28deg);opacity:.25}
 .hw:is(:hover,:focus-visible) .g-pulse{opacity:1;animation:pulseflow 1s linear infinite}
-.hw:is(:hover,:focus-visible) .g-pulse.late{animation-delay:.5s}
+.hw:is(:hover,:focus-visible) .g-pulse.late{animation-delay:-.5s} /* negative: starts mid-run, no idle dash */
 @keyframes rgbled{0%,100%{fill:var(--mint)}33%{fill:var(--cyan)}66%{fill:var(--pink)}}
 @keyframes pulseflow{to{stroke-dashoffset:0}}
 .tabs{display:flex;gap:8px;margin:0 0 12px}
@@ -345,11 +346,39 @@ button.unit{cursor:pointer}
 .g-act{fill:var(--mint-dim)}
 .g-dial circle{fill:#1a2024;stroke:var(--mint)}
 .g-dial path{stroke:var(--mint)}
-.g-dial{transform-origin:66px 35px;transition:transform .4s}
+.g-dial{transform-origin:66px 37px}
+.g-tick{fill:none;stroke:var(--mint-dim);stroke-width:1}
 .hw:is(:hover,:focus-visible) .g-star{animation:gspin 2s linear infinite}
 .hw:is(:hover,:focus-visible) .g-reticle{animation:gspin 6s linear infinite reverse}
 .hw:is(:hover,:focus-visible) .g-act{animation:gblink .3s steps(1) infinite}
-.hw:is(:hover,:focus-visible) .g-dial{transform:rotate(135deg)}
+.hw:is(:hover,:focus-visible) .g-dial{animation:gtune 1.4s ease-in-out infinite}
+@keyframes gtune{0%,100%{transform:rotate(-60deg)}50%{transform:rotate(60deg)}}
+/* Split: the in-pulse runs first, then both out-pulses together; pathLength=100 keeps the timing equal on every cable. */
+.g-flow{fill:none;stroke:var(--mint);stroke-width:2;stroke-linecap:round;stroke-dasharray:14 100;stroke-dashoffset:14;opacity:0}
+.hw:is(:hover,:focus-visible) .g-flow{opacity:1}
+.hw:is(:hover,:focus-visible) .g-flow.in{animation:gin .7s linear infinite}
+.hw:is(:hover,:focus-visible) .g-flow.out{animation:gout .7s linear infinite}
+@keyframes gin{0%{stroke-dashoffset:14}35%,100%{stroke-dashoffset:-100}}
+@keyframes gout{0%,38%{stroke-dashoffset:14}100%{stroke-dashoffset:-100}}
+.g-lever{transform-origin:88px 42px}
+.g-in1,.g-in2{fill:none;stroke:var(--mint);stroke-width:2;opacity:0}
+.hw:is(:hover,:focus-visible) .g-lever{animation:gmux 1.6s linear infinite}
+.hw:is(:hover,:focus-visible) .g-in1{animation:gmux1 1.6s steps(1) infinite}
+.hw:is(:hover,:focus-visible) .g-in2{animation:gmux2 1.6s steps(1) infinite}
+@keyframes gmux{0%,40%{transform:none}50%,90%{transform:rotate(-63deg)}}
+@keyframes gmux1{0%{opacity:1}45%{opacity:0}95%{opacity:1}}
+@keyframes gmux2{0%{opacity:0}45%{opacity:1}95%{opacity:0}}
+.g-core{fill:#08090a;stroke:#39424a}
+.hw:is(:hover,:focus-visible) .g-core{animation:gcore .8s steps(1) infinite}
+@keyframes gcore{0%,40%{fill:var(--mint)}}
+.hw:is(:hover,:focus-visible) .g-burn{animation:gburn 1.2s steps(1) infinite}
+@keyframes gburn{30%,40%,65%{stroke:var(--pink)}35%,45%{stroke:#9aa5ab}}
+.g-out{fill:none;stroke:var(--mint);stroke-width:2;opacity:0}
+.hw:is(:hover,:focus-visible) .g-out{opacity:1}
+.g-big{font-size:9px}
+.g-x2{font-size:14px;font-weight:700;fill:var(--violet)}
+.g-mid{font-size:7px}
+.g-cash{fill:var(--gold);font:700 11px var(--mono)}
 @keyframes gspin{to{transform:rotate(360deg)}}
 .g-wrench{fill:none;stroke:#9aa5ab;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .g-shaft{fill:none;stroke:#9aa5ab;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -362,13 +391,37 @@ button.unit{cursor:pointer}
 @keyframes grake{to{transform:translateX(4px) rotate(-3deg)}}
 @keyframes gwave{0%,100%{stroke:var(--mint-dim)}40%{stroke:var(--mint)}}
 @keyframes gblink{50%{fill:var(--data)}}
+.g-tongue{fill:#08090a}
+.g-gold{fill:#2b2410;stroke:#b8962e;stroke-width:1.2}
+.g-padln{fill:none;stroke:#b8962e;stroke-width:1}
+.hw:is(:hover,:focus-visible) .g-gold{animation:ggold 1.4s ease-in-out infinite}
+@keyframes ggold{50%{fill:#6b5718}}
+.g-fin{fill:#1c2226;stroke:#9aa5ab;stroke-width:.8}
+.g-fan{fill:#2a3238;stroke:#9aa5ab;stroke-width:.8;transform-origin:75px 42px}
+.hw:is(:hover,:focus-visible) .g-fan{animation:gspin .5s linear infinite}
+.g-busy,.g-track,.g-fill{opacity:0}
+.g-track{fill:#08090a}
+.g-fill{fill:var(--mint);transform-box:fill-box;transform-origin:left;transform:scaleX(0)}
+.hw:is(:hover,:focus-visible) .g-idle{opacity:0}
+.hw:is(:hover,:focus-visible) :is(.g-busy,.g-track,.g-fill){opacity:1}
+.hw:is(:hover,:focus-visible) .g-fill{animation:gcopy 1.6s steps(8) infinite}
+@keyframes gcopy{to{transform:scaleX(1)}}
+.hw:is(:hover,:focus-visible) .g-read{animation:gread .7s steps(1) infinite}
+@keyframes gread{0%,30%{fill:var(--mint)}}
+.g-ast{fill:var(--pink)}
+.hw:is(:hover,:focus-visible) .g-ast{animation:gast .8s steps(1) infinite}
+@keyframes gast{50%{fill:var(--ink)}}
+.g-band{fill:none;stroke:#5a3a26;stroke-width:3}
+.g-spoke{fill:none;stroke:#9aa5ab;stroke-width:1.6;stroke-linecap:round}
+.g-reel{transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .g-reel{animation:gspin .9s linear infinite reverse}
 /* Item cells: a wildcard flickers in pink, a data node carries its bonus in the corner. */
 .cell.wild,.slot.wild{color:var(--pink);animation:rgb 3s steps(1) infinite}
 .cell .ntag{position:absolute;top:1px;right:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--data);pointer-events:none}
 .cell:has(.ntag){border-color:color-mix(in srgb,var(--data) 45%,transparent)}
 .cell.used .ntag{display:none}
-.cell .rtag{color:var(--gold)}
-.cell:has(.rtag){border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
+.cell .rtag{color:var(--violet)}
+.cell:has(.rtag){border-color:color-mix(in srgb,var(--violet) 45%,transparent)}
 /* Firewall ICE: sealed cells. */
 .cell.ice{color:color-mix(in srgb,var(--pink) 55%,transparent);background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(255,61,139,.07) 5px 10px)}
 .isep{color:var(--muted)}

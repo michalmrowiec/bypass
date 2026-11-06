@@ -35,13 +35,15 @@ const ssd = "<rect class='g-pcb' x='14' y='26' width='128' height='32' rx='2'/>"
   + [0, 1, 3, 4, 5, 6].map((i) => "<rect class='g-pin' x='6' y='" + (29 + i * 3.8) + "' width='8' height='2.2'/>").join('')
   + "<circle class='g-hole' cx='136' cy='42' r='3.5'/><rect class='g-chip' x='22' y='31' width='20' height='22'/>"
   + "<rect class='g-chip' x='50' y='30' width='34' height='24'/><rect class='g-chip' x='90' y='30' width='34' height='24'/>"
-  + "<text class='g-silk' x='54' y='44'>+15 DATA</text><circle class='g-act' cx='32' cy='42' r='2.5'/>";
+  + "<text class='g-silk g-big' x='67' y='45' text-anchor='middle'>+15</text><text class='g-silk g-big' x='107' y='45' text-anchor='middle'>DATA</text><circle class='g-act' cx='32' cy='42' r='2.5'/>";
 
-// Y-splitter: one cable in, two out; v2.0 has a dial on the junction.
-const splitter = (dial: boolean) => "<path class='g-wire' d='M28 35H58'/>"
-  + cable('M74 35C96 35 98 18 122 18', true) + cable('M74 35C96 35 98 52 122 52', true)
-  + "<rect class='g-plug' x='58' y='28' width='16' height='14' rx='3'/>"
-  + (dial ? "<g class='g-dial'><circle cx='66' cy='35' r='5'/><path d='M66 35v-5'/></g>" : '')
+// Y-splitter: one pulse comes in from the left and splits in two at the junction; v2.0 has a tuning dial that sweeps.
+const flow = (d: string, part: string) => "<path class='g-wire' d='" + d + "'/><path class='g-flow " + part + "' pathLength='100' d='" + d + "'/>";
+const splitter = (tune: boolean) => flow('M28 35H58', 'in') + flow('M74 35C96 35 98 18 122 18', 'out') + flow('M74 35C96 35 98 52 122 52', 'out')
+  + (tune
+    ? "<rect class='g-plug' x='53' y='23' width='26' height='24' rx='3'/><path class='g-tick' d='M57 27l2 2M66 25v3M75 27l-2 2'/>"
+      + "<g class='g-dial'><circle cx='66' cy='37' r='6'/><path d='M66 37v-6'/></g>"
+    : "<rect class='g-plug' x='58' y='28' width='16' height='14' rx='3'/>")
   + plug(6, false) + plug(144, true, 9) + plug(144, true, 43);
 
 // Lockpick set: a hooked pick over a tension wrench; the pick rakes on hover.
@@ -57,42 +59,58 @@ const antenna = "<rect class='g-plug' x='48' y='58' width='54' height='14' rx='3
 const loopback = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + plug(22, false);
 const loopback2 = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + cable('M44 35C66 35 84 22 92 34C99 46 70 50 44 37', true) + plug(22, false);
 
-// USB stick with an activity LED.
-const thumb = "<rect class='g-pcb' x='28' y='28' width='72' height='28' rx='5'/><rect class='g-steel' x='100' y='33' width='24' height='18'/>"
-  + "<rect class='g-hole' x='107' y='38' width='4' height='4'/><rect class='g-hole' x='115' y='38' width='4' height='4'/>"
-  + "<circle class='g-act' cx='40' cy='42' r='2.5'/><text class='g-silk' x='50' y='45'>+5 DATA</text>";
-// Smart card with a gold contact pad.
-const chip = "<rect class='g-plug' x='32' y='16' width='86' height='54' rx='6'/><rect class='g-chip' x='44' y='30' width='24' height='20' rx='3'/>"
-  + "<text class='g-silk' x='76' y='62'>CREDIT</text>";
+// USB stick: grip body, lanyard hole, label screen and a metal plug; on hover the screen runs a copy bar.
+const thumb = "<rect class='g-plug' x='20' y='24' width='86' height='36' rx='8'/><rect class='g-hole' x='26' y='37' width='9' height='10' rx='3'/>"
+  + "<rect class='g-pcb' x='42' y='31' width='48' height='22' rx='2'/><text class='g-silk g-mid g-idle' x='66' y='45' text-anchor='middle'>+5 DATA</text>"
+  + "<text class='g-silk g-mid g-busy' x='66' y='42' text-anchor='middle'>COPY</text><rect class='g-track' x='47' y='45' width='38' height='3'/><rect class='g-fill' x='47' y='45' width='38' height='3'/>"
+  + "<rect class='g-steel' x='106' y='30' width='26' height='24' rx='1'/><rect class='g-tongue' x='108' y='34' width='22' height='7'/>"
+  + "<rect class='g-hole' x='113' y='45' width='4' height='4'/><rect class='g-hole' x='121' y='45' width='4' height='4'/>"
+  + "<circle class='g-act' cx='98' cy='42' r='2.2'/>";
+// Credit card: a small gold chip, a card number, a $ and a small contactless mark; the chip shimmers on hover.
+const chip = "<rect class='g-plug' x='20' y='14' width='110' height='58' rx='3'/><rect class='g-gold' x='32' y='28' width='18' height='14' rx='2'/>"
+  + "<path class='g-padln' d='M32 35h18M41 28v14'/>"
+  + "<path class='g-wave' d='M108 23a3 3 0 0 1 0 6'/><path class='g-wave w2' d='M111 21a6 6 0 0 1 0 10'/><path class='g-wave w3' d='M114 19a9 9 0 0 1 0 14'/>"
+  + "<text class='g-silk' x='32' y='54'>4071 ···· ···· 0x00</text><text class='g-silk' x='32' y='64'>CREDIT</text><text class='g-cash' x='116' y='60' text-anchor='middle'>$</text>";
 // A probe sending pings to the right.
 const ping = "<rect class='g-plug' x='26' y='34' width='26' height='16' rx='3'/><circle class='g-act' cx='34' cy='42' r='2'/>"
   + "<path class='g-wave' d='M62 32a14 14 0 0 1 0 20'/><path class='g-wave w2' d='M74 24a26 26 0 0 1 0 36'/><path class='g-wave w3' d='M86 16a38 38 0 0 1 0 52'/>";
-// Finned heatsink on a base plate.
-const heatsink = "<rect class='g-plug' x='30' y='58' width='90' height='10' rx='2'/>"
-  + [34, 44, 54, 64, 74, 84, 94, 104].map((x) => "<rect class='g-steel' x='" + x + "' y='24' width='5' height='34'/>").join('');
+// Cooler: a finned block with a fan in front; the fan spins up on hover.
+const blade = (k: number) => "<path d='M75 42c1-9 7-15 15-15c-2 6-7 12-15 15z' transform='rotate(" + k * 72 + " 75 42)'/>";
+const heatsink = Array.from({ length: 15 }, (_, i) => "<rect class='g-fin' x='" + (24 + i * 7) + "' y='20' width='3' height='44'/>").join('')
+  + "<rect class='g-plug' x='47' y='14' width='56' height='56' rx='4'/><circle class='g-hole' cx='75' cy='42' r='24'/>"
+  + [[52, 19], [98, 19], [52, 65], [98, 65]].map(([x, y]) => "<circle class='g-steel' cx='" + x + "' cy='" + y + "' r='2'/>").join('')
+  + "<g class='g-fan'>" + [0, 1, 2, 3, 4].map(blade).join('') + "</g><circle class='g-steel' cx='75' cy='42' r='5'/>";
 
-// Prepaid SIM: cut corner, gold contacts.
-const sim = "<path class='g-plug' d='M40 16h56l14 14v40H40z'/><rect class='g-chip' x='56' y='32' width='34' height='26' rx='3'/>"
-  + "<path class='g-cut' d='M73 32v26M56 45h34'/><text class='g-silk' x='46' y='26'>PREPAID</text>";
+// Burner SIM: a prepaid SIM card; on hover its contacts shimmer and its edge flickers as if it burns out.
+const sim = "<path class='g-plug g-burn' d='M50 10h38l12 12v52H50z'/><rect class='g-gold' x='59' y='30' width='32' height='24' rx='3'/>"
+  + "<path class='g-padln' d='M75 30v24M59 42h32M59 36h8M83 48h8'/><text class='g-silk' x='75' y='67' text-anchor='middle'>PREPAID</text>";
 
 // Pattern ROM: a DIP chip with ** printed on it.
 const rom = "<rect class='g-plug' x='38' y='22' width='74' height='40' rx='3'/>"
-  + [44, 54, 64, 74, 84, 94, 104].map((x) => "<rect class='g-pin' x='" + x + "' y='14' width='3' height='8'/><rect class='g-pin' x='" + x + "' y='62' width='3' height='8'/>").join('')
-  + "<circle class='g-hole' cx='46' cy='42' r='3'/><text class='g-silk' x='62' y='48'>** ROM</text>";
-// Multiplexer: two lines in, a switch, one line out.
-const mux = "<path class='g-wire' d='M20 26H56M20 58H56M94 42H130'/><path class='g-plug' d='M56 16L94 28V56L56 68z'/>"
-  + "<path class='g-shaft' d='M62 26L88 42'/><circle class='g-act' cx='62' cy='26' r='2.5'/>";
+  + [44, 54, 64, 74, 84, 94, 104].map((x, i) => "<rect class='g-pin g-read' style='animation-delay:" + i * 0.1 + "s' x='" + x + "' y='14' width='3' height='8'/>"
+    + "<rect class='g-pin g-read' style='animation-delay:" + i * 0.1 + "s' x='" + x + "' y='62' width='3' height='8'/>").join('')
+  + "<circle class='g-hole' cx='46' cy='42' r='3'/><text class='g-silk' x='62' y='48'><tspan class='g-ast'>**</tspan> ROM</text>";
+// Multiplexer: two lines in, a switch, one line out; on hover the switch flips between the inputs.
+const mux = "<path class='g-wire' d='M20 26H56M20 58H56M94 42H130'/><path class='g-out' d='M94 42H130'/><path class='g-plug' d='M56 16L94 28V56L56 68z'/>"
+  + "<path class='g-in1' d='M20 26H56'/><path class='g-in2' d='M20 58H56'/>"
+  + "<g class='g-lever'><path class='g-shaft' d='M62 26L88 42'/><circle class='g-act' cx='62' cy='26' r='2.5'/></g>";
 
 // Repeater: a box with an antenna stub and two pulses going out.
-const repeater = "<rect class='g-plug' x='40' y='30' width='56' height='30' rx='3'/><circle class='g-act' cx='50' cy='45' r='2.5'/><text class='g-silk' x='58' y='49'>×2</text>"
+const repeater = "<rect class='g-plug' x='40' y='30' width='56' height='30' rx='3'/><circle class='g-act' cx='50' cy='45' r='2.5'/><text class='g-silk g-x2' x='72' y='50' text-anchor='middle'>×2</text>"
   + "<path class='g-wave' d='M104 36a10 10 0 0 1 0 18'/><path class='g-wave w2' d='M112 30a18 18 0 0 1 0 30'/>";
-// Tape deck: a cassette with two reels.
-const tape = "<rect class='g-plug' x='30' y='22' width='90' height='46' rx='4'/><circle class='g-steel' cx='56' cy='42' r='9'/><circle class='g-steel' cx='94' cy='42' r='9'/>"
-  + "<circle class='g-hole' cx='56' cy='42' r='3'/><circle class='g-hole' cx='94' cy='42' r='3'/><path class='g-cut' d='M48 60h54'/>";
+// Tape deck: a cassette whose spoked reels spin backwards on hover.
+const reel = (x: number) => "<g class='g-reel'><circle class='g-steel' cx='" + x + "' cy='40' r='10'/><circle class='g-hole' cx='" + x + "' cy='40' r='3.5'/>"
+  + "<path class='g-spoke' d='M" + x + " 31v4M" + x + " 45v4M" + (x - 9) + " 40h4M" + (x + 5) + " 40h4'/></g>";
+const tape = "<rect class='g-plug' x='28' y='20' width='94' height='50' rx='4'/><rect class='g-pcb' x='44' y='29' width='62' height='22' rx='11'/>"
+  + "<path class='g-band' d='M56 50H94'/>" + reel(56) + reel(94) + "<path class='g-cut' d='M48 62h54'/><text class='g-silk' x='66' y='27'>REW</text>";
 
-// Co-processor: a socketed chip under a heat spreader.
-const socket = "<rect class='g-plug' x='40' y='14' width='70' height='56' rx='3'/><rect class='g-steel' x='54' y='26' width='42' height='32' rx='2'/>"
-  + "<text class='g-silk' x='59' y='45'>CO-PROC</text><circle class='g-act' cx='46' cy='20' r='2.5'/>";
+// Co-processor: a square chip with pins on all four sides (unlike the two-row ROM); its four cores light up in turn on hover.
+const sidePins = [18, 22.5, 27, 31.5, 36, 40.5, 45, 49.5, 54, 58.5, 63].map((y) => "<rect class='g-pin' x='41' y='" + y + "' width='6' height='2.4'/><rect class='g-pin' x='103' y='" + y + "' width='6' height='2.4'/>").join('');
+const socket = contacts(51, 99, 8, [0, 0]) + contacts(51, 99, 70, [0, 0]) + sidePins
+  + "<rect class='g-plug' x='47' y='14' width='56' height='56' rx='3'/><rect class='g-steel' x='56' y='23' width='38' height='38' rx='2'/>"
+  + "<text class='g-silk' x='75' y='35' text-anchor='middle'>CO-PROC</text>"
+  + [0, 1, 2, 3].map((i) => "<rect class='g-core' style='animation-delay:" + i * 0.2 + "s' x='" + (61 + i * 7.5) + "' y='42' width='5' height='12'/>").join('')
+  + "<circle class='g-act' cx='52' cy='19' r='2'/>";
 
 const ART: Record<ItemId, string> = {
   buffer1: ram(0, 6),
