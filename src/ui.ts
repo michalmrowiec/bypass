@@ -747,9 +747,9 @@ function showShop(restock = true) {
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
   showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + (bonusCash() ? " <span class='bnt'>bonus</span> incl. " + money(bonusCash(), '+') : '')
     + (R.charges ? " · <span class='bnt'>bonus</span> ×2 data charge ×" + R.charges : '') + ' · items stay for the whole run</p>' + owned(true)
-    + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
+    + "<div class='wares shelf'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
-      || "<div class='dslot empty'>sold out</div>") + '</div>' + logFold() + "<div class='row'>"
+      || "<div class='dslot empty'>sold out</div>") + '</div>' + "<div class='row'>"
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST)) + '</button>' : '')
     + "<button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
