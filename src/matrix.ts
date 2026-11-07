@@ -9,7 +9,7 @@ import {
 
 type Cell = [number, number];
 export type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
-export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind' };
+export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', bridge2: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind' };
 
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
 // tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
@@ -28,6 +28,7 @@ export const ctxOf = (s: RunState): Ctx => ({ items: s.items, daemons: s.daemons
 export interface Board { puzzle: Puzzle; run: Run; m: ItemState; armed: Tool | null; ctx: Ctx; over: boolean }
 
 export const loopAny = (b: Board) => b.ctx.items.includes('loopback2');
+export const jumpAny = (b: Board) => b.ctx.items.includes('bridge2');
 
 const isUsed = (b: Board, r: number, c: number) => b.run.used.has(r + ',' + c);
 const same = (p: Cell | undefined, r: number, c: number) => !!p && p[0] === r && p[1] === c;
@@ -41,10 +42,14 @@ const doorEdge = (b: Board, r: number, c: number) => isDoorOpen(b) && onEdge(b, 
 // Blackout ICE: the SOC's targets stay hidden until the first pick.
 export const isBlackout = (b: Board) => b.ctx.ice.includes('blackout') && !b.run.path.length && !b.over;
 // Encryption: a free cell's code shows only in the line you pick in; an armed Bridge also sees the 8 cells around the last pick.
-const bridgeSees = (b: Board, r: number, c: number) => {
+const nextToLast = (b: Board, r: number, c: number) => {
   const p = lastPick(b);
-  return b.armed === 'jump' && !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1;
+  return !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1;
 };
+const bridgeSees = (b: Board, r: number, c: number) => b.armed === 'jump' && nextToLast(b, r, c);
+// Bridge v1.0 reaches the 8 cells around the last pick, so it needs one; v2.0 reaches the whole matrix.
+// shortcut: the reach solver still lets a v1.0 jump land anywhere, so a stuck matrix may run on; fine while it is rare.
+export const jumpReady = (b: Board) => b.m.jump && (jumpAny(b) || !!lastPick(b));
 export const isEncrypted = (b: Board, r: number, c: number) => !b.over && b.ctx.ice.includes('encryption') && !bridgeSees(b, r, c)
   && !isUsed(b, r, c) && !inLane(b.run, r, c) && !doorEdge(b, r, c);
 
@@ -54,7 +59,7 @@ export function canPick(b: Board, r: number, c: number): boolean {
   if (b.over || grid[r][c] === BLOCK || burning(b.run, r, c)) return false;
   switch (b.armed) {
     case 'wild': return !isUsed(b, r, c) && grid[r][c] !== WILD && !same(b.m.rep, r, c);
-    case 'jump': return !isUsed(b, r, c);
+    case 'jump': return !isUsed(b, r, c) && (jumpAny(b) || nextToLast(b, r, c));
     case 'loop': return isUsed(b, r, c) && (loopAny(b) || inLane(b.run, r, c));
     case 'mux': return !isUsed(b, r, c) && muxLane(b, r, c);
     default: return isLegal(b.run, r, c) || doorEdge(b, r, c);
@@ -98,7 +103,7 @@ export function dealBoard(seed: number, s: RunState): Board {
   if (has('glob')) globTarget(seed, puzzle.targets);
   const m: ItemState = {
     ...emptyItems(), node: cells.node, trap: roomIce(s).includes('honeypot') ? trapCell(seed, puzzle, [cells.wild, cells.node]) : undefined, worth, rep,
-    rewind: has('rewind'), cuts: cutMarks(seed, puzzle.targets), wild: has('wildcard2'), split: has('split1') || has('split2'), jump: has('bridge'),
+    rewind: has('rewind'), cuts: cutMarks(seed, puzzle.targets), wild: has('wildcard2'), split: has('split1') || has('split2'), jump: has('bridge') || has('bridge2'),
     loop: has('loopback1') || has('loopback2'), mux: has('mux'), bounty: bountyHere(s) ? bountyFor(seed, s.items) : undefined, rewards: rewardsFor(seed, s.daemons),
   };
   return { puzzle, run: startRun(s), m, armed: null, ctx: ctxOf(s), over: false };

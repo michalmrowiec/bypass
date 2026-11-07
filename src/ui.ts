@@ -6,11 +6,11 @@ import {
 import { gear } from './gear';
 import { hacker, logo } from './logos';
 import {
-  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, loopAny, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, NODE_DATA, offerDaemons, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -94,7 +94,7 @@ const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(
 const rowName = (r: number) => (S.mode === 'run' && COMPANIES[R.company].rowLabel?.(r)) || addr(r);
 const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabel?.(c)) || '+' + c;
 
-const TAG = { node: "<i class='ntag'>+" + NODE_DATA + '</i>', trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
+const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
 
 function render() {
   const { grid, targets, l } = S.puzzle;
@@ -140,7 +140,7 @@ function render() {
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
   $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
-    : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
+    : armed === 'jump' ? 'bridge: pick ' + (jumpAny(B()) ? 'any free cell' : 'a free cell next to your last pick') : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
     : axis === 'row' ? 'pick in row ' + rowName(idx) : 'pick in col ' + colName(idx);
   const buf = $('buffer');
@@ -409,7 +409,7 @@ function renderDaemons() {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
     const ready = !!t && !S.over && !offer.length
-      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? M.jump : t === 'mux' ? M.mux && !start && !S.run.free : t === 'rewind' ? M.rewind && !!M.back : M.loop && !start);
+      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? M.mux && !start && !S.run.free : t === 'rewind' ? M.rewind && !!M.back : M.loop && !start);
     const on = ready && armed === t;
     const hint = !ready ? '' : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
@@ -437,7 +437,10 @@ function renderDaemons() {
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   $('items').querySelectorAll<HTMLElement>('.unit.hw').forEach((el, i) => {
-    const show = () => { $('lcd').innerHTML = units[i].spec; }, hide = () => { $('lcd').innerHTML = lcd; };
+    // A ready Bridge lights the cells it can reach while pointed at.
+    const reach = (on: boolean) => units[i].t === 'jump' && units[i].ready && document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) =>
+      c.classList.toggle('reach', on && canPick({ ...B(), armed: 'jump' }, +c.id[1], +c.id[2])));
+    const show = () => { $('lcd').innerHTML = units[i].spec; reach(true); }, hide = () => { $('lcd').innerHTML = lcd; reach(false); };
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
     if (el.dataset.tool) el.onclick = () => {
@@ -1013,7 +1016,7 @@ function applyCross() {
     : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
     : armed === 'loop' ? ['loopback: ' + S.puzzle.grid[cursor[0]][cursor[1]] + ' again']
     : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps),
-      ...(cellView(B(), cursor[0], cursor[1]).tags.includes('node') ? [{ name: 'data node', add: '+' + NODE_DATA, kind: 'data' as const }] : []),
+      ...(cellView(B(), cursor[0], cursor[1]).tags.includes('node') ? [{ name: 'data node', add: '+' + nodeData(R.items), kind: 'data' as const }] : []),
       ...(R.daemons.includes('rotate') && !S.run.path.length
         ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(CRON_DATA * rot) : undefined, kind: 'data' as const,
           ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+' + CRON_DATA }) }] : [])];

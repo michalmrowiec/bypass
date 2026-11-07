@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { COMPANIES, dealRunMatrix, newRunState, type RunState } from './roguelike';
 import { BLOCK } from './generator';
 import { newRun, pick, WILD } from './game';
-import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
+import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, jumpReady, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
 
 // 5x5 board with codes 'A'..'Y' in reading order.
 const grid = () => Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => String.fromCharCode(65 + r * 5 + c)));
@@ -106,8 +106,18 @@ describe('pick rules', () => {
     expect([b.run.path.length, b.puzzle.grid[2][2], b.m.wild, b.armed]).toEqual([0, WILD, false, null]);
   });
 
+  it('bridge v1.0 reaches only the 8 cells around the last pick, v2.0 the whole matrix', () => {
+    const b = at(board({ items: ['bridge'] }), 0, 2);
+    b.armed = 'jump';
+    expect([canPick(b, 1, 1), canPick(b, 1, 3), canPick(b, 3, 3)]).toEqual([true, true, false]);
+    expect(jumpReady({ ...board({ items: ['bridge'] }), m: { ...emptyItems(), jump: true } })).toBe(false);
+    const far = at(board({ items: ['bridge2'] }), 0, 2);
+    far.armed = 'jump';
+    expect(canPick(far, 3, 3)).toBe(true);
+  });
+
   it('a bridge off the lane records a jump', () => {
-    const b = board({}, { armed: 'jump' });
+    const b = board({ items: ['bridge2'] }, { armed: 'jump' });
     b.m.jump = true;
     expect(applyPick(b, 3, 3)).toBe('picked');
     expect([b.m.jumps, b.m.jump, b.m.tools]).toEqual([[0], false, true]);

@@ -75,12 +75,12 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Short key | 3 | najdłuższy target −1 kod, bufor bez zmian |
 | Linker v1/v2 | 4/4 | +1 połączenie targetów; v2 jedno połączenie na 2 kody |
 | Wildcard v1/v2 | 4/4 | komórka `**` pasuje do wszystkiego; v1 losowa poza trasą, v2 wybierasz (nie na ×2) |
-| Data node | 3 | komórka +15 data |
+| Data node v1/v2 | 3/3 | komórka +15 / +30 data |
 | Split v1/v2 | 4/3 | przed 1. ruchem tniesz target; v1 w losowym miejscu, v2 tam, gdzie chcesz |
 | Side door | 3 | pierwszy wybór z dowolnej krawędzi |
-| Bridge | 5 | raz na matrycę skok na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół) |
+| Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
-| Thumb drive | 2 | +5 data, gdy matryca coś wgra |
+| Thumb drive v1/v2 | 2/2 | +5 / +10 data, gdy matryca coś wgra |
 | Credit chip | 2 | +$1 za zaliczony pokój |
 | Ping | 2 | zaznacza start rozwiązania |
 | Heatsink | 2 | Corruption krótsza o 1 ruch |

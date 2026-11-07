@@ -438,6 +438,8 @@ describe('economy', () => {
     const s = { ...newRunState(1), items: ['thumb'] as ItemId[] };
     expect(scoreMatrix(ctx, s).total).toBe(40);
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, s).total).toBe(0);
+    expect(scoreMatrix(ctx, { ...s, items: ['thumb2'] }).gear).toEqual([['thumb2', { flat: 10 }]]);
+    expect(scoreMatrix({ ...ctx, node: ctx.path[0] }, { ...s, items: ['datanode2'] }).gear).toEqual([['datanode2', { flat: 30 }]]);
     const h = { ...newRunState(1), loop: 1, items: ['heatsink'] as ItemId[], patches: [{ ice: 'corruption' as const, room: 0, loop: 1 }] };
     expect(burnOf(h, 0)).toBe(0);
     h.patches.push({ ice: 'corruption', room: 0, loop: 1 }, { ice: 'corruption', room: 0, loop: 1 });

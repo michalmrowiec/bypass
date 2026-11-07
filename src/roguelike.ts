@@ -379,12 +379,15 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [], ice: [] };
   const node = ctx.node;
   if (node && ctx.path.some((p) => p[0] === node[0] && p[1] === node[1])) {
-    sc.flat += NODE_DATA;
-    sc.gear.push(['datanode', { flat: NODE_DATA }]);
+    const v = nodeData(s.items);
+    sc.flat += v;
+    sc.gear.push([s.items.includes('datanode2') ? 'datanode2' : 'datanode', { flat: v }]);
   }
-  if (f.done.length && s.items.includes('thumb')) {
-    sc.flat += THUMB_DATA;
-    sc.gear.push(['thumb', { flat: THUMB_DATA }]);
+  const thumb = s.items.includes('thumb2') ? 'thumb2' : s.items.includes('thumb') ? 'thumb' : undefined;
+  if (f.done.length && thumb) {
+    const v = thumb === 'thumb2' ? 2 * THUMB_DATA : THUMB_DATA;
+    sc.flat += v;
+    sc.gear.push([thumb, { flat: v }]);
   }
   for (const id of s.daemons) {
     const d = DAEMONS[id] as Daemon;
@@ -578,14 +581,17 @@ export const ITEMS = {
   wildcard1: { name: 'Wildcard', ver: '1.0', kind: 'master key', price: 4, text: 'In every matrix one random cell off the solution path turns into **, which fits any code' },
   wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into ** (not the ×2 cell)', needs: 'wildcard1' },
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
+  datanode2: { name: 'Data node', ver: '2.0', kind: 'NVMe SSD', price: 3, text: 'Upgrades v1.0: the node cell holds +30 data', needs: 'datanode' },
   split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; the parts share its data' },
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target is cut', needs: 'split1' },
   sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
-  bridge: { name: 'Bridge', ver: '1.0', kind: 'antenna', price: 5, text: 'Once per matrix, arm it to jump to any free cell off your lane; daemons skip the jump as a move' },
+  bridge: { name: 'Bridge', ver: '1.0', kind: 'antenna', price: 3, text: 'Once per matrix, arm it to jump off your lane to a free cell next to your last pick, diagonals too; daemons skip the jump as a move' },
+  bridge2: { name: 'Bridge', ver: '2.0', kind: 'long-range antenna', price: 4, text: 'Upgrades v1.0: the jump reaches any free cell on the matrix, even before your first pick', needs: 'bridge' },
   loopback1: { name: 'Loopback', ver: '1.0', kind: 'loopback plug', price: 3, text: 'Once per matrix, arm it to pick a used cell in your lane again; its code goes into the buffer once more' },
   loopback2: { name: 'Loopback', ver: '2.0', kind: 'twin loopback', price: 3, text: 'Upgrades v1.0: the used cell can be anywhere on the matrix; daemons skip that jump as a move', needs: 'loopback1' },
   // Cheap, modest modules: filler for the shelf and a use for spare credits.
   thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+5 data in every matrix that uploads a target' },
+  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 2, text: 'Upgrades v1.0: +10 data in every matrix that uploads a target', needs: 'thumb' },
   chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: '+$1 for every room you clear' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
@@ -668,6 +674,7 @@ export function swapDaemon(s: RunState, out: DaemonId, id: DaemonId): boolean {
 }
 
 export const NODE_DATA = 15;
+export const nodeData = (items: ItemId[]) => (items.includes('datanode2') ? 2 * NODE_DATA : NODE_DATA);
 const NODE_ON_PATH = 0.2;
 
 // Item cells of a matrix, the same for its seed: the Wildcard v1.0 cell never lies on the planted solution path,
@@ -681,7 +688,7 @@ export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: C
   const open = cells.filter((c) => p.grid[c[0]][c[1]] !== BLOCK);
   const wild = items.includes('wildcard1') ? pickCell(open.filter((c) => !onPath(c))) : undefined;
   const nodeOnPath = r() < NODE_ON_PATH;
-  const node = items.includes('datanode') ? pickCell(open.filter((c) => c !== wild && onPath(c) === nodeOnPath)) : undefined;
+  const node = items.includes('datanode') || items.includes('datanode2') ? pickCell(open.filter((c) => c !== wild && onPath(c) === nodeOnPath)) : undefined;
   return { wild, node };
 }
 
