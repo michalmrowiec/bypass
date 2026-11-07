@@ -722,7 +722,7 @@ function showPatch(p: Patch) {
     + "<li>" + (hardened ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[p.ice].name + '</b>: ' + ICE[p.ice].text
     + (p.ice === 'corruption' ? '; it now ' + burnText(burnOf(R, p.room)) : '') + '</li>'
     + '<li>Deployed in one room. You will see which when you get there.</li>'
-    + '</ul>' + logFold() + "<div class='row'><button class='btn' id='patchOk'>Continue ›</button></div>");
+    + '</ul>' + "<div class='row'><button class='btn' id='patchOk'>Continue ›</button></div>");
   $('patchOk').onclick = showOffer;
 }
 
@@ -924,7 +924,6 @@ const note = (text: string) => { if (S.mode === 'run') logEvent(R, text); };
 const toolName = (t: Tool) => ITEMS[(Object.keys(TOOLS) as ItemId[]).find((id) => TOOLS[id] === t)!].name;
 const logHtml = () => "<pre class='termlog'>" + (R.events ?? []).map((e) => e.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n') + '</pre>';
 // Shop, offer and patch screens lock the board, so they carry the log as a fold-out.
-const logFold = () => "<details class='logfold' ontoggle='this.lastChild.scrollTop=1e9'><summary>log</summary>" + logHtml() + '</details>';
 
 function showLog() {
   showResult(true, '<h2>Event log</h2>' + logHtml() + "<div class='row'><button class='btn' id='closeLog'>Close</button></div>");
