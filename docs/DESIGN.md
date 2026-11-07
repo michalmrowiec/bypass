@@ -98,3 +98,11 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - **Kredyty za niewykorzystane macierze:** za blisko Balatro.
 - **Tasowanie kodów co 3 ruchy:** psuje planowanie.
 - **Inne znaki „deszyfrowania”:** niezauważalne.
+
+## 6. Jak dodać nową mechanikę
+
+- **Wpis w tabeli:** `ICE`, `ITEMS` lub `DAEMONS` w `src/roguelike.ts` (nazwa i tekst zasady). Firma: `COMPANIES`.
+- **Punktacja** (daemon, item, ICE zmieniające wynik): `scoreMatrix` i `facts` w `src/roguelike.ts`.
+- **Matryca** (co widać, co da się kliknąć, co robi kliknięcie): `src/matrix.ts`. Rozdanie w `dealBoard`, wygląd komórki w `cellView`, legalność w `canPick`, skutki w `applyPick`. `ui.ts` tylko to rysuje.
+- **Nowy rodzaj ruchu** (skok, ponowne kliknięcie…): również `Tools` w `src/solver.ts`, inaczej gra źle wykryje ślepy zaułek.
+- **Testy:** przypadek w `src/matrix.test.ts`. `src/content.test.ts` sam sprawdza, że każdy wpis z tabel daje rozwiązywalne matryce.

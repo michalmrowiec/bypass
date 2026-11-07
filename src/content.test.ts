@@ -1,0 +1,47 @@
+// Guards for content: every ICE, item and company pool deals matrices that can be solved.
+// Loops run over the content tables, so new entries are covered without editing this file.
+import { describe, expect, it } from 'vitest';
+import { canComplete } from './solver';
+import { dealBoard, isStuck, loopAny } from './matrix';
+import { COMPANIES, ICE, ITEMS, newRunState, type IceId, type ItemId, type RunState } from './roguelike';
+
+const SEEDS = Array.from({ length: 20 }, (_, i) => i + 1);
+const boss = (company: number) => COMPANIES[company].sections.length - 1;
+
+// Seeds whose deal cannot upload every target; under Throttle (by design) not even one.
+// A small solver budget keeps this fast; past it the solver says yes, so this can miss a bad deal but never flags a good one.
+function unsolvable(s: RunState): number[] {
+  return SEEDS.filter((seed) => {
+    const b = dealBoard(seed, s);
+    return b.ctx.ice.includes('throttle') ? isStuck(b, true) : !canComplete(b.run, b.puzzle, 20_000, { ...b.m, loopAny: loopAny(b) });
+  });
+}
+
+describe('content solvability', () => {
+  for (const id of Object.keys(ICE) as IceId[]) {
+    it('ICE ' + id + ' deals solvable matrices', () => {
+      const company = COMPANIES.findIndex((c) => c.ice.includes(id) || c.patches.includes(id));
+      expect(unsolvable({ ...newRunState(3, Math.max(company, 0)), section: boss(Math.max(company, 0)), ice: id })).toEqual([]);
+    });
+  }
+
+  for (const id of Object.keys(ITEMS) as ItemId[]) {
+    it('item ' + id + ' deals solvable matrices', () => {
+      const needs = (ITEMS[id] as { needs?: ItemId }).needs;
+      const items = needs ? [needs, id] : [id];
+      for (const section of [0, boss(0)]) expect(unsolvable({ ...newRunState(3), section, items })).toEqual([]);
+    });
+  }
+
+  COMPANIES.forEach((co, i) => {
+    it(co.name + ': its whole ICE pool at once is solvable', () => {
+      const [ice, ...rest] = [...new Set([...co.ice, ...co.patches])];
+      const room = boss(i);
+      expect(unsolvable({ ...newRunState(3, i), section: room, ice, patches: rest.map((p) => ({ ice: p, room, loop: 0 })) })).toEqual([]);
+    });
+  });
+
+  it('every ICE and item has a name and rule text', () => {
+    for (const e of [...Object.values(ICE), ...Object.values(ITEMS)]) expect(e.name && e.text).toBeTruthy();
+  });
+});
