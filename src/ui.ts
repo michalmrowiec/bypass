@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -487,8 +487,6 @@ const daemonText = (id: DaemonId) => {
   return DAEMONS[id].text + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '')
     + (st && n && R.daemons.includes(id) && R.bonus?.includes('stack') ?" <span class='bnt'>bonus</span> +" + BOUNTY_STACKS + ' stacks' : '');
 };
-// Credits from bonus rewards claimed since the last shop.
-const bonusCash = () => (R.bonus ?? []).filter((b) => b === 'cash').length * BOUNTY_CREDITS;
 
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
 const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
@@ -759,7 +757,7 @@ function showShop(restock = true) {
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
-  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits) + (bonusCash() ? " <span class='bnt'>bonus</span> incl. " + money(bonusCash(), '+') : '')
+  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits)
     + (R.charges ? " · <span class='bnt'>bonus</span> ×2 data charge ×" + R.charges : '') + ' · items stay for the whole run</p>' + owned(true)
     + "<div class='wares shelf'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
