@@ -28,6 +28,8 @@
 
 Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 
+**Ikony itemów:** wersja v2.0 ma małe akcenty: zielone części (piny, paski USB), różowe diody i różowy celownik; nigdy całe ramki. Klasa `.gear.v2` jest nadawana każdemu id kończącemu się na `2`. Wersja v3.0 dostanie w przyszłości własny, inny akcent.
+
 ## 3. Nazewnictwo i fabuła
 - Gracz to **pentester / red team**, a firmy same zlecają mu kontrakt. Możliwy twist: podejrzany zleceniodawca.
 - **Daemon** oznacza pasywne ulepszenie (proces w tle w Uniksie). **Breach** jako słowo jest OK.

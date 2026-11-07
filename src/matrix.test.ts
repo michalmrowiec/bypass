@@ -116,6 +116,14 @@ describe('pick rules', () => {
     expect(canPick(far, 3, 3)).toBe(true);
   });
 
+  it('a bridge v1.0 with no free neighbour is no move left', () => {
+    const b = at(board({ items: ['bridge'] }), 0, 2);
+    b.m.jump = true;
+    expect(hasMoves(b)).toBe(true);
+    for (const [r, c] of [[0, 1], [0, 3], [1, 1], [1, 2], [1, 3]]) b.puzzle.grid[r][c] = BLOCK;
+    expect(hasMoves(b)).toBe(false);
+  });
+
   it('a bridge off the lane records a jump', () => {
     const b = board({ items: ['bridge2'] }, { armed: 'jump' });
     b.m.jump = true;

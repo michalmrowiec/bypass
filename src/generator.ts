@@ -20,6 +20,7 @@ export interface Puzzle {
   targets: string[][];
   l: number;
   path?: [number, number][]; // cells the solution was planted on (generate only)
+  belt?: { row: number; base: string[] }; // Conveyor: the row's codes before any pick
 }
 
 export function hashStr(s: string): number {

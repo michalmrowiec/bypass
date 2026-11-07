@@ -34,8 +34,9 @@ Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
 | **Kestrel Logistics** (spedycja) | Reception 5×5·1·25 → Offices 6×6·2·90 → Server Room 7×7·3·320 → SOC 7×7·2·250 | Firewall, Throttle, Blackout | + Corruption |
 | **Meridian Health** (szpital) | Lobby 6×6·1·50 → Wards 7×7·2·150 → Records 8×8·2·300 → SOC 8×8·2·400 | + Encryption | + Encryption |
 | **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 30 · Mailroom 45 · Paralegals 100 · Partners 140 · Archive 180 · Vault 220 · SOC 260 | + Honeypot, Dead cells | + Honeypot, Dead cells |
+| **Argus Telecom** (telekom) | wszystko 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·70 · Switching 3·160 · Backbone 3·250 · Exchange 4·330 · SOC 3·360. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
 
-Każda firma ma ICE poprzedniej i dokłada własne.
+Każda firma ma ICE poprzedniej i dokłada własne. ICE może też być stałe dla firmy (`always`, w każdym pokoju) albo przypisane do pokoju (`Section.ice`).
 
 ## 5. ICE
 - **Firewall:** zablokowany wiersz albo kolumna `##`, nigdy wiersz 0.
@@ -45,6 +46,7 @@ Każda firma ma ICE poprzedniej i dokłada własne.
 - **Encryption:** kody `??` poza linią wyboru.
 - **Honeypot:** pułapka poza trasą, ×0,5 wyniku.
 - **Dead cells:** 2–3 martwe pola `##`.
+- **Conveyor:** jeden wiersz (nigdy górny) to taśma: różowe strzałki biegną wzdłuż górnej i dolnej krawędzi komórek, a etykieta wiersza jest różowa ze znacznikiem `»`. Zużyte komórki taśmy pokazują wyszarzony kod, który akurat pod nimi stoi. Po każdym wyborze jego kody przesuwają się o 1 w prawo, z zawinięciem, także pod zużytymi komórkami; pola `##` stoją. Zaplanowane rozwiązanie uwzględnia przesunięcia. Skrót: przy taśmie wykrywanie „no target left” jest wyłączone.
 
 Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Hot breach.
 
@@ -121,6 +123,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Podgląd daemonów pod macierzą:** wartość teraz, przyrost albo utrata.
 - **Podświetlanie kodów:** kod spod kursora jest podkreślony w targetach. Najechanie na kod w targecie obrysowuje jego komórki w macierzy.
 - **Podsumowania:** osobne po matrycy, po pokoju i po runie. Na każdym jest przycisk **View matrix** (Esc albo klik wraca).
+- **ICE w kontrakcie:** ICE stałe firmy jest przy jej nazwie („every room”), ICE pokoju przy pokoju. Karta firmy pokazuje oba.
 - **Pozostałe:** katalog z zakładkami daemons / items / bonuses / ice, tooltipy, briefing z animowanym hakerem, motywowy scrollbar.
 
 ## 11. Narzędzia

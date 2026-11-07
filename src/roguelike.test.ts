@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  burnOf, COMPANIES, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
+  beltRow, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -657,10 +657,21 @@ describe('new ICE: Dead cells, Honeypot; company pools', () => {
     expect(hit.total).toBe(Math.floor(clean / 2));
   });
 
-  it('every company keeps the ICE of the one before', () => {
+  it('every company keeps the ICE of the one before (in its pools or in every room)', () => {
     for (let i = 1; i < COMPANIES.length; i++) {
-      for (const id of COMPANIES[i - 1].patches) expect(COMPANIES[i].patches).toContain(id);
-      for (const id of COMPANIES[i - 1].ice) expect(COMPANIES[i].ice).toContain(id);
+      const always = COMPANIES[i].always ?? [];
+      for (const id of COMPANIES[i - 1].patches) expect([...COMPANIES[i].patches, ...always]).toContain(id);
+      for (const id of COMPANIES[i - 1].ice) expect([...COMPANIES[i].ice, ...always]).toContain(id);
     }
+  });
+
+  it('Argus throttles every room and runs a belt from the Backbone on', () => {
+    const argus = COMPANIES.findIndex((c) => c.id === 'argus');
+    const s = newRunState(1, argus);
+    expect(roomIce({ ...s, section: 0 })).toEqual(['throttle']);
+    expect(roomIce({ ...s, section: 2 })).toEqual(['throttle', 'conveyor']);
+    const p = dealRunMatrix(7, { ...s, section: 2 });
+    expect(p.belt && p.belt.row > 0).toBe(true);
+    expect(beltRow(['A', 'B', BLOCK, 'C'], 1)).toEqual(['C', 'A', BLOCK, 'B']);
   });
 });

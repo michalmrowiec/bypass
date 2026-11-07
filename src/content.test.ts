@@ -2,7 +2,8 @@
 // Loops run over the content tables, so new entries are covered without editing this file.
 import { describe, expect, it } from 'vitest';
 import { canComplete } from './solver';
-import { dealBoard, isStuck, loopAny } from './matrix';
+import { applyPick, canPick, dealBoard, isStuck, loopAny, type Board } from './matrix';
+import { contains } from './game';
 import { COMPANIES, ICE, ITEMS, newRunState, type IceId, type ItemId, type RunState } from './roguelike';
 
 const SEEDS = Array.from({ length: 20 }, (_, i) => i + 1);
@@ -13,8 +14,18 @@ const boss = (company: number) => COMPANIES[company].sections.length - 1;
 function unsolvable(s: RunState): number[] {
   return SEEDS.filter((seed) => {
     const b = dealBoard(seed, s);
+    if (b.puzzle.belt) return !beltPlanWorks(b);
     return b.ctx.ice.includes('throttle') ? isStuck(b, true) : !canComplete(b.run, b.puzzle, 20_000, { ...b.m, loopAny: loopAny(b) });
   });
+}
+
+// The solver cannot see a moving belt, so a Conveyor deal replays its planted path: every pick legal,
+// then all targets uploaded (one under Throttle).
+function beltPlanWorks(b: Board): boolean {
+  const path = b.puzzle.path ?? [];
+  for (const [r, c] of path) { if (!canPick(b, r, c)) return false; applyPick(b, r, c); }
+  const up = b.puzzle.targets.filter((t) => contains(b.run.buffer, t)).length;
+  return b.ctx.ice.includes('throttle') ? up > 0 : up === b.puzzle.targets.length;
 }
 
 describe('content solvability', () => {

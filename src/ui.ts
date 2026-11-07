@@ -94,6 +94,7 @@ const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(
 const rowName = (r: number) => (S.mode === 'run' && COMPANIES[R.company].rowLabel?.(r)) || addr(r);
 const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabel?.(c)) || '+' + c;
 
+let beltSeen = 0;
 const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
 
 function render() {
@@ -117,14 +118,18 @@ function render() {
   const lastCol = S.mode === 'run' && R.daemons.includes('rotate') && !S.run.path.length && !S.over ? R.lastStart : undefined;
   for (let c = 0; c < n; c++) hx(colName(c), free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
   const bd = B();
+  // Conveyor: the belt slides only on the render right after a pick.
+  const moved = !!S.puzzle.belt && S.run.path.length > 0 && S.run.path.length !== beltSeen;
+  beltSeen = S.run.path.length;
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-    if (c === 0) hx(rowName(r), free ? r === free[0] : axis === 'row' && r === idx);
+    if (c === 0) hx(rowName(r), free ? r === free[0] : axis === 'row' && r === idx, S.puzzle.belt?.row === r ? ' belt' : '');
     const b = document.createElement('button');
     b.className = 'cell';
     b.id = 'c' + r + c;
     const v = cellView(bd, r, c);
     b.textContent = v.hidden ? '??' : v.code;
     b.classList.add(...v.cls);
+    if (moved && v.cls.includes('belt')) b.classList.add('shift');
     for (const t of v.tags) b.insertAdjacentHTML('beforeend', TAG[t]);
     if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
@@ -611,7 +616,7 @@ function renderSteps() {
   const live = S.over ? null : scoreMatrix(runCtx(), R).total;
   const co = COMPANIES[R.company];
   const bonusRooms = bountySpots(R).filter(([i, j]) => i < R.section || (i === R.section && j <= played(R))).map(([i]) => i);
-  $('stepList').innerHTML = "<div class='coTag'>" + logo(co.id) + '<span>' + co.name + '<small>run ' + (R.loop + 1) + '/' + LOOPS + '</small></span></div>'
+  $('stepList').innerHTML = "<div class='coTag'>" + logo(co.id) + '<span>' + co.name + '<small>run ' + (R.loop + 1) + '/' + LOOPS + (co.always ? ' · every room: ' + iceTags(co.always) : '') + '</small></span></div>'
     + sections(R).map((sec, i) => {
     const got = R.scores[i];
     const state = i < R.section ? 'done' : i === R.section ? 'now' : '';
@@ -729,8 +734,10 @@ function showSwap(id: DaemonId) {
 }
 
 // ICE the contract shows for a room: the boss rule from the start, a patch once its room has been entered.
-const shownIce = (i: number) => roomIce(R, i).filter((id) => (id === R.ice && i === sections(R).length - 1)
-  || R.patches.some((p) => p.ice === id && p.room === i && p.loop <= R.loop && revealed(R, p)));
+// Company-wide ICE shows next to the company name instead.
+const shownIce = (i: number) => roomIce(R, i).filter((id) => !COMPANIES[R.company].always?.includes(id) && ((id === R.ice && i === sections(R).length - 1)
+  || sections(R)[i].ice?.includes(id)
+  || R.patches.some((p) => p.ice === id && p.room === i && p.loop <= R.loop && revealed(R, p))));
 const burnText = (n: number) => (n === Infinity ? 'locks for good' : 'locks for ' + n + (n > 1 ? ' moves' : ' move'));
 const iceRule = (id: IceId, tag = 'ICE') => "<p class='iceRule'><b>" + tag + ' · ' + ICE[id].name + '</b> ' + ICE[id].text
   + (id === 'corruption' && burnOf(R) ? ' · now ' + burnText(burnOf(R)) : '') + '</p>';
@@ -755,8 +762,9 @@ const firmCard = (co: Company | undefined, i: number) => {
   // ICE the previous company did not have.
   const prev = COMPANIES[i - 1], fresh = co && prev ? [...co.ice, ...co.patches].filter((id) => !prev.ice.includes(id) && !prev.patches.includes(id)) : [];
   const back = co ? face('back', '<b>' + co.name + "</b><table class='frooms'><tr><th>room</th><th>size</th><th>matrices</th><th>quota</th></tr>"
-    + co.sections.map((s) => '<tr><td>' + s.name + '</td><td>' + s.size.n + '×' + s.size.n + '</td><td>' + s.matrices + '</td><td>' + s.quota + '</td></tr>').join('')
+    + co.sections.map((s) => '<tr><td>' + s.name + (s.ice ? ' ' + iceTags(s.ice) : '') + '</td><td>' + s.size.n + '×' + s.size.n + '</td><td>' + s.matrices + '</td><td>' + s.quota + '</td></tr>').join('')
     + "</table><p class='meta'>" + LOOPS + ' iterations, quotas ×' + QUOTA_GROWTH + ' each</p>'
+    + (co.always ? "<p class='meta'>in every room:<br>" + iceTags(co.always) + '</p>' : '')
     + "<p class='meta'>boss ICE, one per run:<br>" + iceTags(co.ice, fresh) + '</p>' + "<p class='meta'>patches between iterations:<br>" + iceTags(co.patches, fresh) + '</p>'
     + (fresh.length ? "<p class='meta'><span class='newkey'>bold</span> = new in this contract</p>" : '') + (isOpen(i) ? '' : lock)) : '';
   return "<div class='fcard" + (!co ? ' locked' : isOpen(i) ? '' : ' sealed') + "' role='button' tabindex='0' aria-label='" + (co ? co.name : 'Locked contract') + "'><div class='ftilt'><div class='finner'>"

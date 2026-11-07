@@ -3,7 +3,7 @@ import { burning, contains, inLane, isLegal, newRun, pick, WILD, type Run } from
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
-  bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
+  beltRow, beltSrc, bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
   type BountyId, type DaemonId, type IceId, type ItemId, type RewardId, type RunState,
 } from './roguelike';
 
@@ -89,6 +89,8 @@ export function cellView(b: Board, r: number, c: number): CellView {
   // With a Loopback in the deck, used cells keep their code, greyed out, so a re-pick can be planned.
   if (b.ctx.items.some((id) => TOOLS[id] === 'loop')) cls.push('memo');
   if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length)) cls.push('corner');
+  // Belt row: used cells show, greyed, the code sliding under them, so the belt stays readable.
+  if (b.puzzle.belt?.row === r && code !== BLOCK) cls.push('belt', 'memo');
   return { code, hidden, cls, tags, burnLeft };
 }
 
@@ -97,6 +99,7 @@ export function dealBoard(seed: number, s: RunState): Board {
   const puzzle = dealRunMatrix(seed, s);
   const cells = placeCells(seed, puzzle, s.items);
   if (cells.wild) puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
+  if (cells.wild && puzzle.belt?.row === cells.wild[0]) puzzle.belt.base[cells.wild[1]] = WILD;
   // Target data is set before Repeater and Glob reshape the targets.
   const worth = puzzle.targets.map((t) => DATA_BY_LEN[t.length]);
   const rep = has('repeater') ? plantRepeat(seed, puzzle) : undefined;
@@ -122,6 +125,7 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
   if (tool) m.tools = true;
   if (tool === 'wild') {
     puzzle.grid[r][c] = WILD;
+    if (puzzle.belt?.row === r) puzzle.belt.base[beltSrc(puzzle.belt.base, c, run.path.length)] = WILD;
     m.wild = false;
     return 'placed';
   }
@@ -134,6 +138,7 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
   if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);
   if (tool === 'jump') m.jump = false;
   if (tool === 'loop') m.loop = false;
+  if (puzzle.belt) puzzle.grid[puzzle.belt.row] = beltRow(puzzle.belt.base, run.path.length);
   return 'picked';
 }
 
@@ -144,12 +149,16 @@ const canUndo = (b: Board) => b.m.rewind && !!b.m.back;
 export function isStuck(b: Board, runMode: boolean): boolean {
   const { run, puzzle } = b;
   if (runMode && canUndo(b)) return false;
+  // shortcut: the solver cannot see a moving belt, so a run matrix with one ends only when the buffer or lane runs out.
+  if (runMode && puzzle.belt) return false;
   if (!runMode) return !canComplete(run, puzzle);
   return !puzzle.targets.some((t) => !contains(run.buffer, t) && canComplete(run, { ...puzzle, targets: [t] }, undefined, { ...b.m, loopAny: loopAny(b) }));
 }
 
 // An unused Bridge, Loopback, Mux or Rewind can still move when the lane is spent.
-export const hasMoves = (b: Board) => b.run.buffer.length < b.puzzle.l && (b.m.jump || b.m.loop || b.m.mux || canUndo(b));
+// A Bridge counts only while some cell is in its reach (v1.0 needs a free neighbour of the last pick).
+const canJump = (b: Board) => b.m.jump && b.puzzle.grid.some((row, r) => row.some((_, c) => canPick({ ...b, armed: 'jump' }, r, c)));
+export const hasMoves = (b: Board) => b.run.buffer.length < b.puzzle.l && (canJump(b) || b.m.loop || b.m.mux || canUndo(b));
 
 // Rewind: the last pick's code stays in the buffer, the cell is free again, the lane goes back and the buffer gains a slot.
 export function rewind(b: Board): boolean {

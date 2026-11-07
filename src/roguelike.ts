@@ -15,15 +15,17 @@ export const ICE = {
   encryption: { name: 'Encryption', text: 'Codes stay encrypted (??) outside the line you pick in' },
   honeypot: { name: 'Honeypot', text: 'One marked cell off the solution path is a trap; a path through it halves the matrix score' },
   deadcells: { name: 'Dead cells', text: 'A few scattered cells are dead (##); the solution routes around them' },
+  conveyor: { name: 'Conveyor', text: 'One row is a belt: after every pick its codes slide one cell right, wrapping around and under used cells' },
 };
 // Each company keeps the ICE of the one before and adds its own.
 export type IceId = keyof typeof ICE;
 
-export interface Section { name: string; quota: number; matrices: number; size: Size; brief: string }
-// ice: the boss rule pool; patches: what the company deploys between iterations.
+// ice: rules this room always runs, on top of the company's.
+export interface Section { name: string; quota: number; matrices: number; size: Size; brief: string; ice?: IceId[] }
+// ice: the boss rule pool; patches: what the company deploys between iterations; always: ICE in every room.
 // codes: the company's own code pool, same size as the default one, so it only changes the look; so do the row and column labels.
 export interface Company {
-  id: string; name: string; text: string; codes: string[]; sections: Section[]; ice: IceId[]; patches: IceId[];
+  id: string; name: string; text: string; codes: string[]; sections: Section[]; ice: IceId[]; patches: IceId[]; always?: IceId[];
   rowLabel?: (r: number) => string; colLabel?: (c: number) => string;
 }
 export const COMPANIES: Company[] = [{
@@ -73,6 +75,24 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells'],
+}, {
+  id: 'argus',
+  name: 'Argus Telecom',
+  text: 'National carrier. Thousands of short calls a second, and never enough bandwidth.',
+  codes: ['E1', 'T3', '4G', '7F', 'B2'],
+  rowLabel: (r) => 'T' + (r + 1), // trunk
+  colLabel: (c) => 'P' + String(c + 1).padStart(2, '0'), // port
+  // Many matrices of many short targets, always throttled: links and buffer win here, empty-slot builds starve.
+  always: ['throttle'],
+  sections: [
+    { name: 'Call Center', quota: 70, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
+    { name: 'Switching', quota: 160, matrices: 3, size: { n: 6, lens: [2, 2, 3, 3], links: [1, 2], slack: 0 }, brief: 'Racks that route every call in the region, patched by hand since the nineties.' },
+    { name: 'Backbone', quota: 250, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
+    { name: 'Exchange', quota: 330, matrices: 4, size: { n: 6, lens: [2, 2, 3, 3, 3], links: [2], slack: 0 }, brief: 'Peering with every other carrier. Short sessions, lots of them.' },
+    { name: 'SOC', quota: 360, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
+  ],
+  ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
+  patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
 }];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || breached.includes(COMPANIES[i - 1]?.id);
@@ -92,7 +112,8 @@ export const revealed = (s: RunState, p: Patch) => s.loop > p.loop || s.section 
 
 // The ICE rules in a room: the boss rule plus the patches deployed there.
 export const roomIce = (s: RunState, i = s.section): IceId[] =>
-  [...new Set([...(i === sections(s).length - 1 ? [s.ice] : []), ...live(s).filter((p) => p.room === i).map((p) => p.ice)])];
+  [...new Set([...(COMPANIES[s.company].always ?? []), ...(sections(s)[i].ice ?? []),
+    ...(i === sections(s).length - 1 ? [s.ice] : []), ...live(s).filter((p) => p.room === i).map((p) => p.ice)])];
 
 // Corruption lasts one move per Corruption patch (at least 1), for good from the third.
 export function burnOf(s: RunState, i = s.section): number {
@@ -502,7 +523,7 @@ export const bountyMet = (id: BountyId, ctx: MatrixCtx) => BOUNTIES[id].met(fact
 // and the buffer one more slot, so the plant stays solvable. Returns the cell.
 export function plantRepeat(seed: number, p: Puzzle): Cell | undefined {
   if (!p.path) return;
-  const buf = p.path.map(([r, c]) => p.grid[r][c]);
+  const buf = planBuf(p);
   const cover = coverage(buf, p.targets);
   const spots = cover.flatMap((k, i) => (k === 1 ? [i] : []));
   if (!spots.length) return;
@@ -760,6 +781,46 @@ export function dealRunMatrix(seed: number, s: RunState): Puzzle {
   // Blackout: redeal until every top-row start can still upload some target.
   if (rules.includes('blackout')) {
     for (let k = 1; k < 50 && !p.grid[0].every((_, c) => startsWell(p, c, size.burn)); k++) p = deal(hashStr(seed + '/' + k));
+  }
+  return rules.includes('conveyor') ? addBelt(seed, p) : p;
+}
+
+// Conveyor: belt slots skip ## cells; after k picks the code at slot j came from slot j - k.
+const beltSlots = (base: string[]) => base.flatMap((v, i) => (v === BLOCK ? [] : [i]));
+const wrap = (i: number, m: number) => ((i % m) + m) % m;
+// Where the code now at column c was before any pick.
+export function beltSrc(base: string[], c: number, k: number): number {
+  const slots = beltSlots(base);
+  return slots[wrap(slots.indexOf(c) - k, slots.length)];
+}
+export function beltRow(base: string[], k: number): string[] {
+  const out = [...base];
+  for (const s of beltSlots(base)) out[s] = base[beltSrc(base, s, k)];
+  return out;
+}
+
+// The buffer the planted solution fills, reading belt cells as they will be at each pick.
+export const planBuf = (p: Puzzle) => (p.path ?? []).map(([r, c], t) => (p.belt?.row === r ? p.belt.base[beltSrc(p.belt.base, c, t)] : p.grid[r][c]));
+
+// Picks a belt row (never the top one) and pre-rotates it so every planted pick in it still finds its code.
+// Rows the solution uses come first; a row it never uses always fits.
+function addBelt(seed: number, p: Puzzle): Puzzle {
+  const r = rng(hashStr(seed + '/belt')), path = p.path ?? [];
+  const rows = p.grid.map((_, i) => i).filter((i) => i > 0 && p.grid[i].some((v) => v !== BLOCK)).sort(() => r() - 0.5);
+  const onPath = new Set(path.map(([i]) => i));
+  for (const row of [...rows.filter((i) => onPath.has(i)), ...rows.filter((i) => !onPath.has(i))]) {
+    const base = [...p.grid[row]], set = new Map<number, string>();
+    const fits = path.every(([pr, c], t) => {
+      if (pr !== row) return true;
+      const src = beltSrc(base, c, t), code = p.grid[row][c];
+      if (set.has(src) && set.get(src) !== code) return false;
+      set.set(src, code);
+      return true;
+    });
+    if (!fits) continue;
+    for (const [i, code] of set) base[i] = code;
+    p.grid[row] = [...base];
+    return { ...p, belt: { row, base } };
   }
   return p;
 }

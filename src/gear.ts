@@ -31,11 +31,12 @@ const masterKey = "<circle class='g-steel' cx='28' cy='42' r='17'/><path class='
 const reticle = "<g class='g-reticle'><circle cx='28' cy='42' r='24'/><path d='M28 11v7M28 66v7M-3 42h7M52 42h7'/></g>";
 
 // M.2 drive: gold fingers, controller, two flash chips and an activity LED.
-const ssd = "<rect class='g-pcb' x='14' y='26' width='128' height='32' rx='2'/>"
-  + [0, 1, 3, 4, 5, 6].map((i) => "<rect class='g-pin' x='6' y='" + (29 + i * 3.8) + "' width='8' height='2.2'/>").join('')
+// v2.0: green fingers that light up in turn on hover, like the Glob ROM, and a pink LED.
+const ssdArt = (v2: boolean) => "<rect class='g-pcb' x='14' y='26' width='128' height='32' rx='2'/>"
+  + [0, 1, 3, 4, 5, 6].map((i, k) => "<rect class='g-pin" + (v2 ? " g-green g-read' style='animation-delay:" + k * 0.1 + "s" : '') + "' x='6' y='" + (29 + i * 3.8) + "' width='8' height='2.2'/>").join('')
   + "<circle class='g-hole' cx='136' cy='42' r='3.5'/><rect class='g-chip' x='22' y='31' width='20' height='22'/>"
   + "<rect class='g-chip' x='50' y='30' width='34' height='24'/><rect class='g-chip' x='90' y='30' width='34' height='24'/>"
-  + "<text class='g-silk g-big' x='67' y='45' text-anchor='middle'>+15</text><text class='g-silk g-big' x='107' y='45' text-anchor='middle'>DATA</text><circle class='g-act' cx='32' cy='42' r='2.5'/>";
+  + "<text class='g-silk g-big' x='67' y='45' text-anchor='middle'>" + (v2 ? '+30' : '+15') + "</text><text class='g-silk g-big' x='107' y='45' text-anchor='middle'>DATA</text><circle class='g-act" + (v2 ? ' g-pink' : '') + "' cx='32' cy='42' r='2.5'/>";
 
 // Y-splitter: one pulse comes in from the left and splits in two at the junction; v2.0 has a tuning dial that sweeps.
 const flow = (d: string, part: string) => "<path class='g-wire' d='" + d + "'/><path class='g-flow " + part + "' pathLength='100' d='" + d + "'/>";
@@ -55,15 +56,22 @@ const antenna = "<rect class='g-plug' x='48' y='58' width='54' height='14' rx='3
   + "<path class='g-shaft' d='M75 58V26'/><circle class='g-steel' cx='75' cy='24' r='3'/>"
   + "<path class='g-wave' d='M67 24a8 8 0 0 1 16 0'/><path class='g-wave w2' d='M61 24a14 14 0 0 1 28 0'/><path class='g-wave w3' d='M55 24a20 20 0 0 1 40 0'/>";
 
+// Bridge v2.0: a twin-mast array on a wider base, each mast with its own waves.
+const mast = (x: number, cls = '') => "<g class='" + cls + "'><path class='g-shaft' d='M" + x + " 58V26'/><circle class='g-steel' cx='" + x + "' cy='24' r='3'/>"
+  + "<path class='g-wave' d='M" + (x - 8) + " 24a8 8 0 0 1 16 0'/><path class='g-wave w2' d='M" + (x - 14) + " 24a14 14 0 0 1 28 0'/>"
+  + "<path class='g-wave w3' d='M" + (x - 20) + " 24a20 20 0 0 1 40 0'/></g>";
+const antennaPair = "<rect class='g-plug' x='30' y='58' width='90' height='14' rx='3'/><circle class='g-act' cx='70' cy='65' r='2'/><circle class='g-act g-off' cx='80' cy='65' r='2'/>"
+  + mast(48) + mast(102, 'g-off');
+
 // Loopback plug: the cable leaves the plug and comes straight back into it.
 const loopback = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + plug(22, false);
 const loopback2 = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + cable('M44 35C66 35 84 22 92 34C99 46 70 50 44 37', true) + plug(22, false);
 
 // USB stick: grip body, lanyard hole, label screen and a metal plug; on hover the screen runs a copy bar.
 const thumb = "<rect class='g-plug' x='20' y='24' width='86' height='36' rx='8'/><rect class='g-hole' x='26' y='37' width='9' height='10' rx='3'/>"
-  + "<rect class='g-pcb' x='42' y='31' width='48' height='22' rx='2'/><text class='g-silk g-mid g-idle' x='66' y='45' text-anchor='middle'>+5 DATA</text>"
-  + "<text class='g-silk g-mid g-busy' x='66' y='42' text-anchor='middle'>COPY</text><rect class='g-track' x='47' y='45' width='38' height='3'/><rect class='g-fill' x='47' y='45' width='38' height='3'/>"
-  + "<rect class='g-steel' x='106' y='30' width='26' height='24' rx='1'/><rect class='g-tongue' x='108' y='34' width='22' height='7'/>"
+  + "<rect class='g-pcb' x='40' y='31' width='52' height='22' rx='2'/><text class='g-silk g-lbl g-idle' x='66' y='45' text-anchor='middle'>+5 DATA</text>"
+  + "<text class='g-silk g-lbl g-busy' x='66' y='42' text-anchor='middle'>COPY</text><rect class='g-track' x='45' y='46' width='42' height='3'/><rect class='g-fill' x='45' y='46' width='42' height='3'/>"
+  + "<rect class='g-steel' x='106' y='30' width='26' height='24' rx='1'/><rect class='g-tongue' x='108' y='34' width='22' height='2.8'/><rect class='g-tongue' x='108' y='38.2' width='22' height='2.8'/>"
   + "<rect class='g-hole' x='113' y='45' width='4' height='4'/><rect class='g-hole' x='121' y='45' width='4' height='4'/>"
   + "<circle class='g-act' cx='98' cy='42' r='2.2'/>";
 // Credit card: a small gold chip, a card number, a $ and a small contactless mark; the chip shimmers on hover.
@@ -113,24 +121,25 @@ const socket = contacts(51, 99, 8, [0, 0]) + contacts(51, 99, 70, [0, 0]) + side
   + "<circle class='g-act' cx='52' cy='19' r='2'/>";
 
 const ART: Record<ItemId, string> = {
-  buffer1: ram(0, 6),
+  buffer1: ram(11, 6), // module spans x 10..118, so +11 centres it in the 150 box
   buffer2: ram(10, 0) + ram(-4, 14),
   shortkey: key,
   linker1: cable('M28 35C55 -6 85 76 120 35') + plugs,
   linker2: cable('M28 31C55 -10 85 72 120 31') + cable('M28 39C55 80 85 0 120 39', true) + plugs,
   wildcard1: masterKey,
   wildcard2: masterKey + reticle,
-  datanode: ssd,
-  datanode2: ssd + "<rect class='g-chip' x='48' y='31' width='20' height='22'/>",
+  datanode: ssdArt(false),
+  datanode2: ssdArt(true),
   split1: splitter(false),
   split2: splitter(true),
   sidedoor: lockpick,
   bridge: antenna,
-  bridge2: antenna + "<path class='g-wave w3' d='M49 24a26 26 0 0 1 52 0'/>",
+  bridge2: antennaPair,
   loopback1: loopback,
   loopback2,
   thumb,
-  thumb2: thumb + "<rect class='g-hole' x='40' y='37' width='9' height='10' rx='3'/>",
+  // v2.0: the same stick with a +10 label, green USB 3 strips, a pink LED and a faster copy.
+  thumb2: thumb.replace('+5 DATA', '+10 DATA').replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-green'"),
   chip,
   ping,
   heatsink,
@@ -142,4 +151,5 @@ const ART: Record<ItemId, string> = {
   socket,
 };
 
-export const gear = (id: ItemId) => "<svg class='gear' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';
+// Every v2.0 id ends in 2; those get the v2 accents (.gear.v2 in style.css).
+export const gear = (id: ItemId) => "<svg class='gear" + (id.endsWith('2') ? ' v2' : '') + "' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';
