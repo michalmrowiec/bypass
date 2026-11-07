@@ -740,7 +740,7 @@ function showOffer() {
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
     + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
-    + logFold() + "<div class='row'><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
+    + "<div class='row'><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   $('offerCatalog').onclick = () => showCatalog(showOffer);
   $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
     b.onclick = () => { if (!full) { R.daemons.push(offer[i]); note('offer · installed ' + dmnFile(offer[i])); showShop(); } else if (!poor) showSwap(offer[i]); };
