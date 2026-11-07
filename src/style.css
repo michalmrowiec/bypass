@@ -233,6 +233,8 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .bounty.met .bstate{color:var(--mint)}
 .blist{display:flex;flex-direction:column;gap:8px}
 /* Catalog: the same height on every tab; the list scrolls, tabs and Close stay put. */
+.catsearch{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:5px 10px;font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line)}
+.catsearch:focus{outline:none;border-color:var(--cyan)}
 .catbody{height:min(62vh,560px);overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 4px 2px;margin:0 -6px 12px 0}
 button.bounty{font:inherit;font-size:12px;text-align:left;cursor:pointer;border:0;width:100%}
 button.bounty:hover{color:var(--ink)}
@@ -714,6 +716,8 @@ button.chip:hover{border-color:var(--gold)}
 .tally b.met{color:var(--mint)}
 .tally .goal{font-size:14px;color:var(--muted)}
 #steps .credits{position:absolute;top:10px;right:16px;z-index:1;margin:0;font-size:12px;color:var(--gold)}
+/* Wide layout: keep the rooms clear of the credits in the top-right corner (many-room companies wrap sooner). */
+@media (min-width:1280px){#steps .steplist{padding-right:110px}}
 /* Below the wide run layout the rooms reach the top-right corner, so credits sit right above the data tally. */
 @media (max-width:1279px){
   #steps{display:flex;flex-direction:column}

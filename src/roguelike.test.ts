@@ -518,7 +518,7 @@ describe('playtest daemons, bounties and Glob', () => {
 
   it('Deflate, Crawler and Saturate read codes, cells and a full buffer', () => {
     expect(fired(ctx, 'deflate', 'crawler', 'saturate')).toEqual([['deflate', { mult: 1.25 }], ['crawler', { flat: 12 }]]);
-    expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.25 }]]);
+    expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.8 }]]);
   });
 
   it('Joker counts targets through **, Echo targets holding a re-picked code', () => {

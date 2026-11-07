@@ -271,6 +271,7 @@ interface Facts {
   all: boolean;
   shared: number; // buffer slots inside 2+ uploaded targets
   empty: number;
+  slots: number; // buffer length
   light: boolean; // at most half the buffer used
   moves: number[]; // length of each move along its lane
   edgeJumps: number;
@@ -315,7 +316,7 @@ function facts({ buf, path, targets, l, n, jumps }: MatrixCtx): Facts {
     codes: done.reduce((a, t) => a + t.length, 0), picks: path.length, cells: new Set(keys).size,
     wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length, echoes: wins.filter((w) => w.some((i) => again.includes(i))).length,
     done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
-    empty: l - buf.length, light: buf.length <= l / 2,
+    empty: l - buf.length, slots: l, light: buf.length <= l / 2,
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
     start: path[0]?.[1],
   };
@@ -378,8 +379,8 @@ export const DAEMONS = {
     score: (f) => (f.picks && f.codes > f.picks ? { mult: Math.round((f.codes / f.picks) * 100) / 100 } : null) },
   joker: { name: 'Joker', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per uploaded target that runs through a ** slot',
     score: (f) => (f.wilds ? { boost: 0.5 * f.wilds } : null) },
-  saturate: { name: 'Saturate', family: 'Splicer', rarity: 'rare', text: '×1.25 with a full buffer and every target uploaded',
-    score: (f) => (f.all && f.empty === 0 ? { mult: 1.25 } : null) },
+  saturate: { name: 'Saturate', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.2 per buffer slot) with a full buffer and every target uploaded',
+    score: (f) => (f.all && f.empty === 0 ? { mult: Math.round(10 + 2 * f.slots) / 10 } : null) },
   echo: { name: 'Echo', family: 'Ghost', rarity: 'rare', text: '+1 boost per uploaded target holding a code Loopback picked again',
     score: (f) => (f.echoes ? { boost: f.echoes } : null) },
   crawler: { name: 'Crawler', family: 'Runner', text: '+3 data per different cell on the path',
@@ -499,10 +500,11 @@ export const BOUNTIES = {
 export type BountyId = keyof typeof BOUNTIES;
 // Bonus matrices: BOUNTIES_PER_LOOP of an iteration's matrices outside the boss room, drawn from the run seed, carry a bonus objective.
 export const BOUNTIES_PER_LOOP = 1;
-// [room, matrix in room] of this iteration's bonus matrices; never in the boss room.
+// [room, matrix in room] of this iteration's bonus matrices; never in the boss room,
+// nor on the run's first matrix (restarting a run would fish for one).
 export function bountySpots(s: RunState): [number, number][] {
   const rooms = sections(s).slice(0, -1), total = rooms.reduce((a, r) => a + r.matrices, 0);
-  const picks = shuffled(Array.from({ length: total }, (_, i) => i), rng(hashStr(s.seed + '/bounties/' + s.loop))).slice(0, BOUNTIES_PER_LOOP);
+  const picks = shuffled(Array.from({ length: total }, (_, i) => i).filter((k) => s.loop || k), rng(hashStr(s.seed + '/bounties/' + s.loop))).slice(0, BOUNTIES_PER_LOOP);
   return picks.map((k) => {
     let i = 0;
     while (k >= rooms[i].matrices) k -= rooms[i++].matrices;
@@ -649,7 +651,7 @@ export const ITEMS = {
   mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
-export const SHELF = 3;
+export const SHELF = 4;
 export const THUMB_DATA = 5;
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;

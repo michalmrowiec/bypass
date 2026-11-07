@@ -548,10 +548,15 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
 // Every daemon and item, also a dev aid; installed daemons show what they add to the live matrix.
 // Where Close leads when the catalog was opened from the shop or a daemon offer; kept across tab switches.
 let catalogBack: (() => void) | null = null;
+let catalogQuery = '';
 function showCatalog(back?: (() => void) | null) {
   if (back !== undefined) catalogBack = back;
   const now = scoreMatrix(runCtx(), R), fired = new Map(now.fired);
-  const ds = Object.keys(DAEMONS) as DaemonId[], its = Object.keys(ITEMS) as ItemId[];
+  // Daemons grouped by family (in definition order), common to legendary within each.
+  const fams = [...new Set(Object.values(DAEMONS).map((d) => d.family))], rank = ['common', 'rare', 'legendary'];
+  const ds = (Object.keys(DAEMONS) as DaemonId[]).sort((a, b) => fams.indexOf(DAEMONS[a].family) - fams.indexOf(DAEMONS[b].family)
+    || rank.indexOf(rarityOf(a)) - rank.indexOf(rarityOf(b)));
+  const its = Object.keys(ITEMS) as ItemId[];
   const dev = import.meta.env.DEV; // dev server only: the catalog doubles as a cheat panel
   const tag = dev ? 'button' : 'div';
   const tab = (t: typeof catalogTab) => "<button class='btn' id='tab-" + t + "' aria-pressed='" + (catalogTab === t) + "'>" + t + '</button>';
@@ -574,9 +579,20 @@ function showCatalog(back?: (() => void) | null) {
     + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Restart room</button>"
     + (!isBoss(R) || R.loop < LOOPS - 1 ? "<button class='btn' id='devRoom'>" + (isBoss(R) ? 'Next iteration' : 'Next room') + '</button>' : '') + '</div>';
   showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('bonuses') + tab('ice') + '</div>'
+    + "<input id='catSearch' class='catsearch' type='search' autocomplete='off' placeholder='search " + catalogTab + "' aria-label='Search " + catalogTab + "'>"
     + "<div class='catbody'>" + devBar + body + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
   for (const t of ['daemons', 'items', 'bonuses', 'ice'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
+  // Search hides the entries whose text misses the query; the query stays across tabs and re-renders.
+  const search = $('catSearch') as HTMLInputElement;
+  const filter = () => {
+    const q = catalogQuery.trim().toLowerCase();
+    $('modalBox').querySelectorAll<HTMLElement>('.dlist .dslot, .wares .ware, .catbody .icebtn, .blist .bounty')
+      .forEach((el) => { el.style.display = q && !(el.textContent ?? '').toLowerCase().includes(q) ? 'none' : ''; });
+  };
+  search.value = catalogQuery;
+  search.oninput = () => { catalogQuery = search.value; filter(); };
+  filter();
   if (dev) wireDev(ds, its);
   const close = () => {
     const b = catalogBack;
