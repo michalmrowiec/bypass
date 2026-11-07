@@ -58,7 +58,7 @@ Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Ho
 
 | rodzina | daemony |
 |---|---|
-| **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×1,25 (rare), All-in ×2/×0,5 (rare) |
+| **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×(1 + 0,2 za slot bufora) (legendary), All-in ×2/×0,5 (rare) |
 | **Ghost** (minimalizm) | Overflow, Light footprint (legendary), Silent, Cache (rare, stack), Echo (rare), Sandbag (rare, room) |
 | **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler |
 | **Cron** (serie) | Heartbeat (rare), Rotate (+7), Backup (rare), Uptime (+7), Overtime (rare, room), Warm-up (room) |
@@ -82,7 +82,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Side door | 3 | pierwszy wybór z dowolnej krawędzi |
 | Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
-| Thumb drive v1/v2 | 2/2 | +5 / +10 data, gdy matryca coś wgra |
+| Thumb drive v1/v2 | 2/2 | +4 / +8 data za każdy wgrany target |
 | Credit chip | 2 | +$1 za zaliczony pokój |
 | Ping | 2 | zaznacza start rozwiązania |
 | Heatsink | 2 | Corruption krótsza o 1 ruch |
@@ -94,7 +94,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Co-processor | 8 | +1 slot daemona |
 
 ## 8. Bonusy (cele bonusowe)
-- **1 matryca na iterację** (`BOUNTIES_PER_LOOP`), nigdy w SOC. Na starcie pokazuje się plansza celu, która znika po kliknięciu „Got it” albo po pierwszym ruchu.
+- **1 matryca na iterację** (`BOUNTIES_PER_LOOP`), nigdy w SOC ani na pierwszej matrycy runu. Na starcie pokazuje się plansza celu, która znika po kliknięciu „Got it” albo po pierwszym ruchu.
 - **Cele:**
   - **Surgical:** wszystkie targety w liczbie picków nie większej niż zaplanowana trasa.
   - **Corners:** start i koniec w rogu.
@@ -105,7 +105,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
   - **Wild:** 2 targety przez `**`; tylko z Wildcardem.
 - **Nagroda:** na podsumowaniu klikasz „Roll reward”, losują się **2 nagrody** i wybierasz jedną. Dalej da się przejść dopiero po odbiorze.
   - +$5;
-  - 3 darmowe rerolle;
+  - 3 darmowe rerolle (zajmują najtańsze kroki rosnącej ceny);
   - +2 stacki na każdym daemonie ze streakiem (tylko gdy masz taki daemon);
   - legendary na czele następnej oferty;
   - **ładunek ×2 data**: consumable w cyjanowej ramce, aktywowany ręcznie na dowolnej późniejszej matrycy, 1 na matrycę, ładunki się zbierają.
@@ -115,7 +115,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $3 na pokój.
 - **Inne źródła:** +$1 za pokój; +$1 za matrycę z wgranymi wszystkimi targetami.
 - **Puste sloty bufora:** $1 za każde 2, gdy matryca skończy się sama; po Disconnect $1 za każde 3. Daemon Silent dokłada do tego +$2.
-- **Koszty:** reroll oferty $1, półka w sklepie ma 3 itemy.
+- **Koszty:** reroll w sklepie $1, potem $2, $3… w tej samej wizycie (od nowa w następnym sklepie); półka ma 4 itemy.
 
 ## 10. UI (najważniejsze)
 - **Kontrakt:** pokoje, pola z wynikami macierzy, ICE i łatki, badge bonusu, licznik kredytów i danych pokoju.
@@ -124,11 +124,11 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Podświetlanie kodów:** kod spod kursora jest podkreślony w targetach. Najechanie na kod w targecie obrysowuje jego komórki w macierzy.
 - **Podsumowania:** osobne po matrycy, po pokoju i po runie. Na każdym jest przycisk **View matrix** (Esc albo klik wraca).
 - **ICE w kontrakcie:** ICE stałe firmy jest przy jej nazwie („every room”), ICE pokoju przy pokoju. Karta firmy pokazuje oba.
-- **Pozostałe:** katalog z zakładkami daemons / items / bonuses / ice, tooltipy, briefing z animowanym hakerem, motywowy scrollbar.
+- **Pozostałe:** katalog z zakładkami daemons / items / bonuses (z listą nagród) / ice, wyszukiwarką i daemonami po rodzinach i rzadkości, tooltipy, briefing z animowanym hakerem, motywowy scrollbar.
 
 ## 11. Narzędzia
 - **Symulator balansu** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt`.
   - Robi pełne runy po zaplanowanej trasie na stałych buildach (none / commons / splicer / topfull / drafted).
   - Nie zna itemów, Encryption ani Honeypota.
   - ⚠ Ostatni wynik jest sprzed wydłużenia targetów od 2. iteracji.
-- **Wnioski z ostatniego symulowania:** same progi są OK. Łatwość bierze się ze stackowania mnożników na „wszystkie targety”, dlatego osłabiliśmy All-in i Saturate.
+- **Wnioski z ostatniego symulowania:** same progi są OK. Łatwość bierze się ze stackowania mnożników na „wszystkie targety”, dlatego osłabiliśmy All-in (Saturate potem wzmocniony do legendary, warunek ma najtrudniejszy).

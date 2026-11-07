@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, coverage, CRON_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -189,7 +189,9 @@ function render() {
     const gaps = cut && !blind && R.items.includes('split2');
     el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut ? ' cut' : '');
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
-    const state = st.done ? 'Uploaded' + worth : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
+    // Thumb drive pays per uploaded target, so each one shows its share.
+    const thumb = S.mode === 'run' && st.done ? thumbData(R.items) : 0;
+    const state = st.done ? 'Uploaded' + worth + (thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + '</span>' : '') : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
       : worth ? worth.trim() + ' data' : 'Target ' + (i + 1);
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"

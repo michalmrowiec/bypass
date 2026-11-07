@@ -69,7 +69,7 @@ const loopback2 = cable('M44 31C78 31 108 6 122 30C134 52 92 64 44 39') + cable(
 
 // USB stick: grip body, lanyard hole, label screen and a metal plug; on hover the screen runs a copy bar.
 const thumb = "<rect class='g-plug' x='20' y='24' width='86' height='36' rx='8'/><rect class='g-hole' x='26' y='37' width='9' height='10' rx='3'/>"
-  + "<rect class='g-pcb' x='40' y='31' width='52' height='22' rx='2'/><text class='g-silk g-lbl g-idle' x='66' y='45' text-anchor='middle'>+5 DATA</text>"
+  + "<rect class='g-pcb' x='40' y='31' width='52' height='22' rx='2'/><text class='g-silk g-lbl g-idle' x='66' y='45' text-anchor='middle'>+4 DATA</text>"
   + "<text class='g-silk g-lbl g-busy' x='66' y='42' text-anchor='middle'>COPY</text><rect class='g-track' x='45' y='46' width='42' height='3'/><rect class='g-fill' x='45' y='46' width='42' height='3'/>"
   + "<rect class='g-steel' x='106' y='30' width='26' height='24' rx='1'/><rect class='g-tongue' x='108' y='34' width='22' height='2.8'/><rect class='g-tongue' x='108' y='38.2' width='22' height='2.8'/>"
   + "<rect class='g-hole' x='113' y='45' width='4' height='4'/><rect class='g-hole' x='121' y='45' width='4' height='4'/>"
@@ -138,8 +138,8 @@ const ART: Record<ItemId, string> = {
   loopback1: loopback,
   loopback2,
   thumb,
-  // v2.0: the same stick with a +10 label, green USB 3 strips, a pink LED and a faster copy.
-  thumb2: thumb.replace('+5 DATA', '+10 DATA').replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-green'"),
+  // v2.0: the same stick with a +8 label, green USB 3 strips, a pink LED and a faster copy.
+  thumb2: thumb.replace('+4 DATA', '+8 DATA').replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-green'"),
   chip,
   ping,
   heatsink,

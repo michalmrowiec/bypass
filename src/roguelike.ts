@@ -421,7 +421,7 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   }
   const thumb = s.items.includes('thumb2') ? 'thumb2' : s.items.includes('thumb') ? 'thumb' : undefined;
   if (f.done.length && thumb) {
-    const v = thumb === 'thumb2' ? 2 * THUMB_DATA : THUMB_DATA;
+    const v = thumbData(s.items) * f.done.length;
     sc.flat += v;
     sc.gear.push([thumb, { flat: v }]);
   }
@@ -638,8 +638,8 @@ export const ITEMS = {
   loopback1: { name: 'Loopback', ver: '1.0', kind: 'loopback plug', price: 3, text: 'Once per matrix, arm it to pick a used cell in your lane again; its code goes into the buffer once more' },
   loopback2: { name: 'Loopback', ver: '2.0', kind: 'twin loopback', price: 3, text: 'Upgrades v1.0: the used cell can be anywhere on the matrix; daemons skip that jump as a move', needs: 'loopback1' },
   // Cheap, modest modules: filler for the shelf and a use for spare credits.
-  thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+5 data in every matrix that uploads a target' },
-  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 2, text: 'Upgrades v1.0: +10 data in every matrix that uploads a target', needs: 'thumb' },
+  thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+4 data for every uploaded target' },
+  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 2, text: 'Upgrades v1.0: +8 data for every uploaded target', needs: 'thumb' },
   chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: '+$1 for every room you clear' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
@@ -652,7 +652,8 @@ export const ITEMS = {
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 4;
-export const THUMB_DATA = 5;
+export const THUMB_DATA = 4; // per uploaded target
+export const thumbData = (items: ItemId[]) => (items.includes('thumb2') ? 2 : items.includes('thumb') ? 1 : 0) * THUMB_DATA;
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
