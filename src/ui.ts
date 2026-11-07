@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -403,7 +403,8 @@ function renderDaemons() {
     const id = R.daemons[i];
     if (!id) return "<div class='dslot empty'>slot " + (i + 1) + (i >= DAEMON_SLOTS ? ' · co-processor' : '') + ' · empty</div>';
     const e = fired.get(id);
-    return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : '');
+    const c = carryFoot(id, sc.total);
+    return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : c ? c[0] : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : c ? c[1] : '');
   }).join('');
   lastFired = [...fired.keys()];
   tilt($('daemons'));
@@ -464,6 +465,12 @@ const dfoot = (id: DaemonId) => {
   return st && !S.over ? "<span class='hold'>" + st.goal + ' → ' + fmtEffect(st.effect((R.stacks[id] ?? 0) + 1)) + '</span>' : 'standby';
 };
 let lastBill: Score | null = null;
+
+// Overtime over the room's quota (live matrix included): what passes on, lit like a firing daemon.
+const carryFoot = (id: DaemonId, live: number) => {
+  const n = id === 'overtime' ? overtimeCarry(R, R.data + (S.over ? 0 : live)) : 0;
+  return n ? ['<span>+' + n + ' data</span><span>→ next room</span>', ' on carry'] : null;
+};
 
 // An installed streak daemon (or Sandbag, whose stack lasts a room) also shows its current stack.
 const daemonText = (id: DaemonId) => {
@@ -537,15 +544,15 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
 
 // Every daemon and item, also a dev aid; installed daemons show what they add to the live matrix.
 function showCatalog() {
-  const fired = new Map(scoreMatrix(runCtx(), R).fired);
+  const now = scoreMatrix(runCtx(), R), fired = new Map(now.fired);
   const ds = Object.keys(DAEMONS) as DaemonId[], its = Object.keys(ITEMS) as ItemId[];
   const dev = import.meta.env.DEV; // dev server only: the catalog doubles as a cheat panel
   const tag = dev ? 'button' : 'div';
   const tab = (t: typeof catalogTab) => "<button class='btn' id='tab-" + t + "' aria-pressed='" + (catalogTab === t) + "'>" + t + '</button>';
   const body = catalogTab === 'daemons'
     ? '<p class="meta">' + ds.length + ' daemons · installed ' + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist'>" + ds.map((id, i) => {
-      const e = fired.get(id);
-      return card(id, i, tag, daemonText(id), e ? fmtEffect(e) : R.daemons.includes(id) ? 'standby' : 'not installed', e ? ' on' : '');
+      const e = fired.get(id), c = carryFoot(id, now.total);
+      return card(id, i, tag, daemonText(id), e ? fmtEffect(e) : c ? c[0] : R.daemons.includes(id) ? 'standby' : 'not installed', e ? ' on' : c ? c[1] : '');
     }).join('') + '</div>'
     : catalogTab === 'items' ? '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
@@ -615,7 +622,7 @@ function runSummary(won: boolean, bill: Score, credits: string) {
 // Overtime: the data it carried in, and what the room passes on so far (nothing past the boss room).
 function overtimeNote(got: number) {
   if (!R.daemons.includes('overtime')) return '';
-  const next = isBoss(R) ? 0 : Math.max(0, Math.floor((got - quota(R)) / 2));
+  const next = overtimeCarry(R, got);
   const bits = [R.carry ? 'incl. +' + R.carry + ' carried in' : '', next ? '+' + next + ' to next room' : ''].filter(Boolean);
   return bits.length ? "<span class='ot c-cron'>overtime · " + bits.join(' · ') + '</span>' : '';
 }
@@ -633,7 +640,9 @@ function renderSteps() {
       if (j < got.length) return "<span class='box " + (got[j] ? 'ok' : 'zero') + "'>" + got[j] + '</span>';
       return i === R.section && j === got.length && live !== null ? "<span class='box live'>" + (live || '··') + '</span>' : "<span class='box'></span>";
     }).join('');
-    const total = i === R.section ? R.data + (live ?? 0) : got.reduce((a, b) => a + b, R.carried?.[i] ?? 0);
+    // A finished room's logged total includes the data Overtime carried in.
+    const total = i === R.section ? R.data + (live ?? 0)
+      : R.log?.find(([l, r]) => l === R.loop && r === i)?.[2] ?? got.reduce((a, b) => a + b, 0);
     return "<div class='step " + state + "'><span class='sname'>" + sec.name + ' ' + iceTags(shownIce(i)) + (bonusRooms.includes(i) ? " <span class='bnt off'>bonus</span>" : '') + "</span><span class='squota'>"
       + (state ? "<b class='" + (total >= quota(R, i) ? 'met' : '') + "'>" + total + '</b>/' : 'quota ') + quota(R, i) + "</span><div class='boxes'>" + boxes + '</div></div>';
   }).join("<span class='sarrow' aria-hidden='true'>›</span>");

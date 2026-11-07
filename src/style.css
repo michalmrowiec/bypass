@@ -277,6 +277,10 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
 #daemons .dcard:not(.on){opacity:.72}
 .dcard.on{--edge:var(--fc);filter:drop-shadow(0 8px 8px rgba(0,0,0,.55)) drop-shadow(0 0 9px color-mix(in srgb,var(--fc) 70%,transparent))}
 .dcard.on i::before{content:"●";color:var(--mint)}
+.dcard.carry i,.dcard.carry i::before{color:var(--fc)}
+.dcard.carry i{justify-content:flex-start}
+.dcard.carry i>span{white-space:nowrap}
+.dcard.carry i>span:last-child{margin-left:auto}
 .dcard.just{animation:ignite .7s ease-out}
 @keyframes ignite{0%{filter:brightness(1.8) drop-shadow(0 0 14px var(--fc))}}
 button.dcard{cursor:pointer}

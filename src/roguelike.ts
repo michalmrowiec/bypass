@@ -185,7 +185,6 @@ export interface RunState {
   best?: number; // best single matrix
   log?: [number, number, number][]; // finished rooms: iteration, room, data
   carry?: number; // data Overtime carried into this room
-  carried?: number[]; // per room this iteration: data Overtime carried in
   freeRerolls?: number; // bonus rewards
   legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
   charges?: number; // bonus reward: ×2 data charges, spent by hand on a matrix
@@ -230,15 +229,17 @@ export function endMatrix(s: RunState, data: number, emptySlots: number, per = S
   return !isBoss(s) ? 'section' : s.loop < LOOPS - 1 ? 'loop' : 'win';
 }
 
+// Overtime: half the data over the quota starts the next room (none past the boss).
+export const overtimeCarry = (s: RunState, data = s.data) =>
+  s.daemons.includes('overtime') && !isBoss(s) ? Math.max(0, Math.floor((data - quota(s)) / 2)) : 0;
+
 // Moves on to the next room; after the boss, starts the next iteration and returns the patch it brought.
 export function nextSection(s: RunState): Patch | undefined {
-  // Overtime: half the data over the quota starts the next room.
-  const carry = s.daemons.includes('overtime') ? Math.max(0, Math.floor((s.data - quota(s)) / 2)) : 0;
+  const carry = overtimeCarry(s);
   Object.assign(s, { section: s.section + 1, data: carry, carry, restarts: restartsFor(s) });
-  (s.carried ??= [])[s.section] = carry;
   delete s.stacks.sandbag; // room-scoped
   if (s.section < sections(s).length) return;
-  Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, carried: [] });
+  Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0 });
   return deployPatch(s);
 }
 
