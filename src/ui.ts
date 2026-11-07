@@ -549,6 +549,13 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
 // Where Close leads when the catalog was opened from the shop or a daemon offer; kept across tab switches.
 let catalogBack: (() => void) | null = null;
 let catalogQuery = '';
+const REWARD_NOTES: Record<RewardId, string> = {
+  cash: 'credits right away',
+  rerolls: 'shop rerolls that take the cheapest steps of a visit\'s rising price',
+  stack: 'only offered with a streak daemon installed',
+  legend: 'the next daemon offer leads with a legendary (a rare if none is left)',
+  double: 'spend it by hand on a later matrix to double its data',
+};
 function showCatalog(back?: (() => void) | null) {
   if (back !== undefined) catalogBack = back;
   const now = scoreMatrix(runCtx(), R), fired = new Map(now.fired);
@@ -569,10 +576,11 @@ function showCatalog(back?: (() => void) | null) {
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
     : catalogTab === 'ice' ? '<p class="meta">' + Object.keys(ICE).length + " ICE rules · the SOC runs one from the company's pool; patches deploy more between iterations, into any room</p>"
       + (Object.keys(ICE) as IceId[]).map((id) => '<' + tag + " class='icebtn' data-ice='" + id + "'>" + iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE') + '</' + tag + '>').join('')
-    : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · meeting it lets you pick 1 of 2 rewards: '
-      + Object.values(REWARDS).join(', ') + "</p><div class='blist'>"
-      + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
+    : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · meeting it lets you pick 1 of 2 rewards</p>'
+      + "<div class='blist'>" + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
         + BOUNTIES[id].name + '</b> ' + BOUNTIES[id].text() + (dev && M.bounty === id ? "<span class='bstate'>on this matrix</span>" : '') + '</' + tag + '>').join('') + '</div>'
+      + "<h3 class='catsec'>rewards</h3><p class='meta'>" + Object.keys(REWARDS).length + " rewards · a met bonus offers 2 of them, you take 1</p><div class='blist'>"
+      + (Object.keys(REWARDS) as RewardId[]).map((id) => "<div class='bounty reward'><span class='bnt'>reward</span><b>" + REWARDS[id] + '</b> ' + REWARD_NOTES[id] + '</div>').join('') + '</div>'
       + (dev ? "<p class='meta'>dev · the two rewards this matrix's bonus offers</p><div class='row devbar'>" + (Object.keys(REWARDS) as RewardId[]).map((r) => "<button class='btn' data-reward='" + r + "'"
         + (M.rewards.includes(r) ? " aria-pressed='true'" : '') + '>' + REWARDS[r] + '</button>').join('') + '</div>' : '');
   const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal; a bonus goes on this matrix</span>"

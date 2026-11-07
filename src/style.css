@@ -232,6 +232,10 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .bounty.met{color:var(--ink)}
 .bounty.met .bstate{color:var(--mint)}
 .blist{display:flex;flex-direction:column;gap:8px}
+/* Catalog: the rewards get their own section, solid cyan instead of the bonuses' marching mint. */
+.catsec{margin:22px 0 6px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan)}
+.bounty.reward{background:none;border:1px solid color-mix(in srgb,var(--cyan) 40%,transparent);animation:none}
+.bounty.reward .bnt{background:var(--cyan)}
 /* Catalog: the same height on every tab; the list scrolls, tabs and Close stay put. */
 .catsearch{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:5px 10px;font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line)}
 .catsearch:focus{outline:none;border-color:var(--cyan)}
