@@ -15,18 +15,27 @@ const star = (x: number, y: number, r: number) => `M${x} ${y - r}L${x + r * .3} 
 // u: a per-render prefix, so gradient ids never clash between copies of one logo on the page.
 const LOGOS: Record<string, (u: string) => string> = {
   // Kestrel Logistics: a wing in three strokes.
-  kestrel: (u) => `<defs>${lin(u + 'a', [0, 30, 0, 100], '1 2 3')}</defs>`
-    + `<g fill='url(#${u}a)'><path d='M30 30H100L92 48H22Z'/><path d='M24 56H84L76 74H16Z'/><path d='M18 82H62L54 100H10Z'/></g>`,
+  // The gradient rides on a tall rect clipped to the wing; CSS sways it so the colours drift up and down.
+  kestrel: (u) => `<defs>${lin(u + 'a', [0, 30, 0, 100], '1 2 3')}`
+    + `<clipPath id='${u}c'><path d='M30 30H100L92 48H22Z'/><path d='M24 56H84L76 74H16Z'/><path d='M18 82H62L54 100H10Z'/></clipPath></defs>`
+    + `<g clip-path='url(#${u}c)'><rect class='lg-sway' x='0' y='10' width='120' height='110' fill='url(#${u}a)'/></g>`,
   // Meridian Health: a cross with a heartbeat running through it.
   meridian: (u) => `<defs>${lin(u + 'a', [10, 10, 110, 110], '1 2')}</defs>`
     + `<path fill='url(#${u}a)' d='M52 10H68A8 8 0 0 1 76 18V44H102A8 8 0 0 1 110 52V68A8 8 0 0 1 102 76H76V102A8 8 0 0 1 68 110H52A8 8 0 0 1 44 102V76H18A8 8 0 0 1 10 68V52A8 8 0 0 1 18 44H44V18A8 8 0 0 1 52 10Z'/>`
     + `<path d='${ecg}' fill='none' stroke='${BG}' stroke-width='6' stroke-linejoin='round' stroke-linecap='round'/>`
     + `<path class='lg-trace' pathLength='100' d='${ecg}' fill='none' style='stroke:var(--lg3)' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round'/>`,
   // Ashgrove & Pike: a courthouse front, pediment over three columns.
-  ashgrove: (u) => `<defs>${lin(u + 'a', [0, 14, 0, 106], '1 2')}</defs>`
-    + `<g fill='url(#${u}a)'><path d='M60 14L106 40H14Z'/><rect x='20' y='45' width='80' height='7'/>`
+  ashgrove: (u) => `<defs>${lin(u + 'a', [0, 14, 0, 106], '1 2')}`
+    + `<radialGradient id='${u}r' gradientUnits='userSpaceOnUse' cx='60' cy='44' r='44'><stop offset='.4' style='stop-color:var(--lg1)'/><stop offset='.95' style='stop-color:var(--lg1)' stop-opacity='0'/></radialGradient></defs>`
+    // Sunrise behind the roof: rays from a point hidden by the pediment (above the cornice gap), so they rise along both slopes, fade inside the viewBox and grow/shrink in turn.
+    + `<g fill='url(#${u}r)'>` + [-70, -56, -42, -28, -14, 0, 14, 28, 42, 56, 70].map((a, i) => {
+      const p = (d: number) => { const t = (a + d) * Math.PI / 180; return (60 + 44 * Math.sin(t)).toFixed(1) + ' ' + (44 - 44 * Math.cos(t)).toFixed(1); };
+      return `<path class='lg-ray' style='animation-delay:${i % 2 ? -2.5 : 0}s' d='M60 44L${p(-3)}L${p(3)}Z'/>`;
+    }).join('') + '</g>'
+    // Building at 85%, base kept in place, to leave room for the rays.
+    + `<g transform='translate(9 15.9) scale(.85)'><g fill='url(#${u}a)'><path d='M60 14L106 40H14Z'/><rect x='20' y='45' width='80' height='7'/>`
     + `<rect x='27' y='56' width='13' height='38'/><rect x='53.5' y='56' width='13' height='38'/><rect x='80' y='56' width='13' height='38'/><rect x='14' y='98' width='92' height='8'/></g>`
-    + `<path d='M46 33H74' stroke='${BG}' stroke-width='3' stroke-linecap='round'/><circle cx='60' cy='27' r='3' style='fill:var(--lg3)'/>`,
+    + `<path d='M46 33H74' stroke='${BG}' stroke-width='3' stroke-linecap='round'/></g>`,
   // Not in the game yet: logos for future contracts.
   // Aurum Capital: a folded A over an emerald bar.
   aurum: (u) => `<defs>${lin(u + 'a', [0, 16, 0, 104], '1 2')}${lin(u + 'b', [0, 16, 0, 104], '2 4')}</defs>`
