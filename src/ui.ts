@@ -633,7 +633,7 @@ function renderSteps() {
       if (j < got.length) return "<span class='box " + (got[j] ? 'ok' : 'zero') + "'>" + got[j] + '</span>';
       return i === R.section && j === got.length && live !== null ? "<span class='box live'>" + (live || '··') + '</span>' : "<span class='box'></span>";
     }).join('');
-    const total = i === R.section ? R.data + (live ?? 0) : got.reduce((a, b) => a + b, 0);
+    const total = i === R.section ? R.data + (live ?? 0) : got.reduce((a, b) => a + b, R.carried?.[i] ?? 0);
     return "<div class='step " + state + "'><span class='sname'>" + sec.name + ' ' + iceTags(shownIce(i)) + (bonusRooms.includes(i) ? " <span class='bnt off'>bonus</span>" : '') + "</span><span class='squota'>"
       + (state ? "<b class='" + (total >= quota(R, i) ? 'met' : '') + "'>" + total + '</b>/' : 'quota ') + quota(R, i) + "</span><div class='boxes'>" + boxes + '</div></div>';
   }).join("<span class='sarrow' aria-hidden='true'>›</span>");

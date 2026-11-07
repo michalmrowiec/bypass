@@ -563,7 +563,7 @@ describe('round 3: All-in, Overtime, Repeater, rewards', () => {
     const s = run('overtime');
     s.data = quota(s) + 41;
     nextSection(s);
-    expect([s.data, s.carry]).toEqual([20, 20]);
+    expect([s.data, s.carry, s.carried?.[1]]).toEqual([20, 20, 20]);
   });
 
   it('Repeater doubles a code in one target and the plant still solves', () => {
