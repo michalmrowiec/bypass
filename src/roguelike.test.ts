@@ -167,6 +167,16 @@ describe('shop', () => {
     expect(forSale(s)).not.toContain('buffer1');
   });
 
+  it('logs successful shop actions only', () => {
+    const s = { ...rich(1, ['bridge']), shelf: ['bridge2'] as ItemId[] };
+    expect(buy(s, 'bridge2')).toBe(false);
+    expect(s.events).toBeUndefined();
+    s.credits = 4;
+    buy(s, 'bridge2');
+    sell(s, 'bridge2');
+    expect(s.events).toEqual(['shop · bought Bridge v2.0 −$4 (replaces Bridge v1.0)', 'shop · sold Bridge v2.0 +$3']);
+  });
+
   it('charges for items, rerolls and daemon swaps', () => {
     const s = { ...rich(3), shelf: ['buffer1'] as ItemId[], daemons: ['chain'] as DaemonId[] };
     expect(buy(s, 'buffer1')).toBe(false);

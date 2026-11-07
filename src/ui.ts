@@ -11,7 +11,7 @@ import {
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
-  type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
@@ -543,7 +543,10 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
 }
 
 // Every daemon and item, also a dev aid; installed daemons show what they add to the live matrix.
-function showCatalog() {
+// Where Close leads when the catalog was opened from the shop or a daemon offer; kept across tab switches.
+let catalogBack: (() => void) | null = null;
+function showCatalog(back?: (() => void) | null) {
+  if (back !== undefined) catalogBack = back;
   const now = scoreMatrix(runCtx(), R), fired = new Map(now.fired);
   const ds = Object.keys(DAEMONS) as DaemonId[], its = Object.keys(ITEMS) as ItemId[];
   const dev = import.meta.env.DEV; // dev server only: the catalog doubles as a cheat panel
@@ -572,7 +575,12 @@ function showCatalog() {
   tilt($('modalBox'));
   for (const t of ['daemons', 'items', 'bonuses', 'ice'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
   if (dev) wireDev(ds, its);
-  const close = () => { hideResult(); focusGrid(); };
+  const close = () => {
+    const b = catalogBack;
+    catalogBack = null;
+    $('modal').onkeydown = null;
+    if (b) b(); else { hideResult(); focusGrid(); }
+  };
   $('closeCatalog').onclick = close;
   $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
 }
@@ -631,7 +639,12 @@ function overtimeNote(got: number) {
 function renderSteps() {
   const live = S.over ? null : scoreMatrix(runCtx(), R).total;
   const co = COMPANIES[R.company];
-  const bonusRooms = bountySpots(R).filter(([i, j]) => i < R.section || (i === R.section && j <= played(R))).map(([i]) => i);
+  const spots = bountySpots(R).filter(([i, j]) => i < R.section || (i === R.section && j <= played(R)));
+  // Bonus tag per reached bonus matrix: grey while in play (or unknown on old saves), lit if met, struck through if missed.
+  const bonusTags = (i: number) => spots.filter(([k]) => k === i).map(([, j]) => {
+    const st = j >= R.scores[i].length || !R.bonusHits ? 'off' : R.bonusHits.includes(bonusKey(R.loop, i, j)) ? 'won' : 'off lost';
+    return " <span class='bnt " + st + "'>bonus</span>";
+  }).join('');
   $('stepList').innerHTML = "<div class='coTag'>" + logo(co.id) + '<span>' + co.name + '<small>run ' + (R.loop + 1) + '/' + LOOPS + (co.always ? ' · every room: ' + iceTags(co.always) : '') + '</small></span></div>'
     + sections(R).map((sec, i) => {
     const got = R.scores[i];
@@ -643,7 +656,7 @@ function renderSteps() {
     // A finished room's logged total includes the data Overtime carried in.
     const total = i === R.section ? R.data + (live ?? 0)
       : R.log?.find(([l, r]) => l === R.loop && r === i)?.[2] ?? got.reduce((a, b) => a + b, 0);
-    return "<div class='step " + state + "'><span class='sname'>" + sec.name + ' ' + iceTags(shownIce(i)) + (bonusRooms.includes(i) ? " <span class='bnt off'>bonus</span>" : '') + "</span><span class='squota'>"
+    return "<div class='step " + state + "'><span class='sname'>" + sec.name + ' ' + iceTags(shownIce(i)) + bonusTags(i) + "</span><span class='squota'>"
       + (state ? "<b class='" + (total >= quota(R, i) ? 'met' : '') + "'>" + total + '</b>/' : 'quota ') + quota(R, i) + "</span><div class='boxes'>" + boxes + '</div></div>';
   }).join("<span class='sarrow' aria-hidden='true'>›</span>");
   // The room's data tally, big: white until the quota is met, then green.
@@ -676,7 +689,7 @@ function showPatch(p: Patch) {
     + "<li>" + (hardened ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[p.ice].name + '</b>: ' + ICE[p.ice].text
     + (p.ice === 'corruption' ? '; it now ' + burnText(burnOf(R, p.room)) : '') + '</li>'
     + '<li>Deployed in one room. You will see which when you get there.</li>'
-    + "</ul><div class='row'><button class='btn' id='patchOk'>Continue ›</button></div>");
+    + '</ul>' + logFold() + "<div class='row'><button class='btn' id='patchOk'>Continue ›</button></div>");
   $('patchOk').onclick = showOffer;
 }
 
@@ -698,11 +711,12 @@ function showOffer() {
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
     + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
-    + "<div class='row'><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
+    + logFold() + "<div class='row'><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
+  $('offerCatalog').onclick = () => showCatalog(showOffer);
   $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
-    b.onclick = () => { if (!full) { R.daemons.push(offer[i]); showShop(); } else if (!poor) showSwap(offer[i]); };
+    b.onclick = () => { if (!full) { R.daemons.push(offer[i]); note('offer · installed ' + dmnFile(offer[i])); showShop(); } else if (!poor) showSwap(offer[i]); };
   });
-  $('skipDaemon').onclick = () => showShop();
+  $('skipDaemon').onclick = () => { note('offer · skipped'); showShop(); };
   tilt($('modalBox'));
 }
 
@@ -716,10 +730,11 @@ function showShop(restock = true) {
     + (R.charges ? " · <span class='bnt'>bonus</span> ×2 data charge ×" + R.charges : '') + ' · items stay for the whole run</p>' + owned(true)
     + "<div class='wares'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
-      || "<div class='dslot empty'>sold out</div>") + "</div><div class='row'>"
+      || "<div class='dslot empty'>sold out</div>") + '</div>' + logFold() + "<div class='row'>"
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(REROLL_COST) + '>Reroll · ' + cr(REROLL_COST)) + '</button>' : '')
-    + "<button class='btn' id='leaveShop'>Continue ›</button></div>");
+    + "<button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
+  $('shopCatalog').onclick = () => showCatalog(() => showShop(false));
   $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
@@ -865,7 +880,27 @@ function showCompanies(seed: number, back: Mode) {
   place();
 }
 
-const newMatrix = () => { dealMatrix(); checkpoint('matrix'); };
+const newMatrix = () => { dealMatrix(); logHead(); checkpoint('matrix'); };
+
+// Event log: a header per dealt matrix; a resumed intro deals the same matrix again, so a repeat is skipped.
+function logHead() {
+  const h = '── iteration ' + (R.loop + 1) + ' · ' + sections(R)[R.section].name + ' · matrix ' + (played(R) + 1) + ' ──';
+  if (R.events?.at(-1) !== h) logEvent(R, h);
+}
+const note = (text: string) => { if (S.mode === 'run') logEvent(R, text); };
+const toolName = (t: Tool) => ITEMS[(Object.keys(TOOLS) as ItemId[]).find((id) => TOOLS[id] === t)!].name;
+const logHtml = () => "<pre class='termlog'>" + (R.events ?? []).map((e) => e.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n') + '</pre>';
+// Shop, offer and patch screens lock the board, so they carry the log as a fold-out.
+const logFold = () => "<details class='logfold' ontoggle='this.lastChild.scrollTop=1e9'><summary>log</summary>" + logHtml() + '</details>';
+
+function showLog() {
+  showResult(true, '<h2>Event log</h2>' + logHtml() + "<div class='row'><button class='btn' id='closeLog'>Close</button></div>");
+  const pre = $('modalBox').querySelector('.termlog')!;
+  pre.scrollTop = pre.scrollHeight;
+  const close = () => { $('modal').onkeydown = null; hideResult(); focusGrid(); };
+  $('closeLog').onclick = close;
+  $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
+}
 
 function disconnect() {
   logAct({ d: 1 });
@@ -979,6 +1014,7 @@ function resumeRun(sv: SavedRun) {
 // Section intro: the route so far, then the room's brief and terms; the matrix pours in on Breach.
 function enterSection() {
   dealMatrix();
+  logHead();
   checkpoint('intro');
   const rooms = sections(R);
   const sec = rooms[R.section];
@@ -1035,11 +1071,13 @@ function rewindPeek(on: boolean) {
 function doRewind() {
   if (!rewind(B())) return;
   logAct({ w: 1 });
+  note('Rewind · last pick undone');
   render();
 }
 
 function doSplit(i: number, at?: number) {
   logAct({ s: i, at });
+  note(toolName('split') + ' · split target ' + S.puzzle.targets[i].join(' '));
   ({ targets: S.puzzle.targets, worth: M.worth } = splitTarget(S.puzzle.targets, M.worth, i, at));
   M.split = false;
   M.tools = true;
@@ -1148,9 +1186,16 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 function choose(r: number, c: number) {
   if (!legal(r, c)) return;
   logAct(armed ? { r, c, t: armed } : { r, c });
-  const bd = B();
+  const bd = B(), tool = armed, cell = rowName(r) + '·' + colName(c);
+  const isUp = (t: string[]) => targetProgress(S.run.buffer, t, S.puzzle.l, false).done;
+  const was = S.puzzle.targets.map(isUp);
   const placed = applyPick(bd, r, c) === 'placed';
   armed = bd.armed;
+  if (placed) note((tool ? toolName(tool) + ' · ' : '') + 'placed on ' + cell);
+  else {
+    const up = S.puzzle.targets.filter((t, i) => !was[i] && isUp(t));
+    note('pick ' + cell + ' → ' + S.run.buffer.at(-1) + (tool ? ' [' + toolName(tool) + ']' : '') + up.map((t) => ' · upload ' + t.join(' ')).join(''));
+  }
   if (placed) return render();
   document.querySelector('.bintro')?.remove();
   if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 31); }
@@ -1197,6 +1242,7 @@ function nearestPickable(r: number, c: number): HTMLElement | null {
 // Burner SIM: a spent ×2 charge goes back, the matrix is dealt again.
 function burnSim() {
   if (M.charge) R.charges = (R.charges ?? 0) + 1;
+  note('Burner SIM · matrix dealt again');
   restartMatrix(R);
   newMatrix();
 }
@@ -1206,6 +1252,7 @@ function useCharge() {
   R.charges--;
   M.charge = true;
   logAct({ x: 1 });
+  note('×2 data charge spent');
   render();
 }
 
@@ -1519,7 +1566,8 @@ export function init() {
   $('modeTrain').onclick = () => setMode('train');
   $('modeSprint').onclick = () => setMode('sprint');
   $('modeRun').onclick = () => setMode('run');
-  $('catalogBtn').onclick = showCatalog;
+  $('catalogBtn').onclick = () => showCatalog(null);
+  $('logBtn').onclick = showLog;
   $('exportSave').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([exportBackup()], { type: 'application/json' }));

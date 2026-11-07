@@ -131,6 +131,7 @@ function deployPatch(s: RunState): Patch {
     // A rule already in that room adds nothing, except Corruption, which grows.
     if (k < 30 && p.ice !== 'corruption' && roomIce(s, p.room).includes(p.ice)) continue;
     s.patches.push(p);
+    logEvent(s, 'patch · new ICE ' + ICE[p.ice].name + ' in a hidden room');
     return p;
   }
 }
@@ -189,12 +190,20 @@ export interface RunState {
   legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
   charges?: number; // bonus reward: ×2 data charges, spent by hand on a matrix
   bonus?: RewardId[]; // bonus rewards claimed since the last shop, marked in the offer and shop
+  events?: string[]; // what happened in the run, shown to the player as a log
+  bonusHits?: string[]; // bonus matrices met, as 'loop.room.matrix'; missing on saves from before it, where outcomes are unknown
 }
+
+export const bonusKey = (loop: number, room: number, matrix: number) => loop + '.' + room + '.' + matrix;
+
+export const logEvent = (s: RunState, text: string) => { (s.events ??= []).push(text); };
+export const dmnFile = (id: DaemonId) => DAEMONS[id].family.toLowerCase() + '/' + DAEMONS[id].name.toLowerCase().replace(/ /g, '_') + '.dmn';
+const itemName = (id: ItemId) => ITEMS[id].name + ' v' + ITEMS[id].ver;
 
 export function newRunState(seed: number, company = 0): RunState {
   const { ice, sections: rooms } = COMPANIES[company];
   return {
-    seed, company, loop: 0, patches: [], matrix: 0, section: 0, data: 0, scores: rooms.map(() => []), restarts: 0, credits: 0, earned: [], daemons: [], stacks: {}, rack: RACK_BASE, items: [], shelf: [], rerolls: 0,
+    seed, company, loop: 0, patches: [], matrix: 0, section: 0, data: 0, scores: rooms.map(() => []), restarts: 0, credits: 0, earned: [], daemons: [], stacks: {}, rack: RACK_BASE, items: [], shelf: [], rerolls: 0, bonusHits: [],
     ice: ice[Math.floor(rng(hashStr(seed + '/ice'))() * ice.length)],
   };
 }
@@ -221,6 +230,7 @@ export function endMatrix(s: RunState, data: number, emptySlots: number, per = S
   const goal = quota(s);
   if (played(s) < sections(s)[s.section].matrices) return 'continue';
   (s.log ??= []).push([s.loop, s.section, s.data]);
+  logEvent(s, 'room ' + (s.data < goal ? 'failed' : 'cleared') + ' · ' + s.data + '/' + goal + ' data');
   if (s.data < goal) return 'lose';
   earn(s, 'section cleared', SECTION_CREDIT);
   earn(s, s.data - goal + ' data over the quota (1 per ' + SURPLUS_PER_CREDIT + ', max ' + SURPLUS_CAP + ')',
@@ -239,7 +249,8 @@ export function nextSection(s: RunState): Patch | undefined {
   Object.assign(s, { section: s.section + 1, data: carry, carry, restarts: restartsFor(s) });
   delete s.stacks.sandbag; // room-scoped
   if (s.section < sections(s).length) return;
-  Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0 });
+  // A save from before bonus tracking starts recording with the new iteration.
+  Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, bonusHits: s.bonusHits ?? [] });
   return deployPatch(s);
 }
 
@@ -454,11 +465,22 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
   daemonsAfterMatrix(ctx, s, disconnected);
   const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
   if (facts(ctx).all) earn(s, 'every target uploaded', FULL_CREDIT);
-  return { score, met, out: endMatrix(s, score.total, ctx.l - ctx.buf.length, disconnected ? DC_SLOTS_PER_CREDIT : SLOTS_PER_CREDIT) };
+  logEvent(s, 'matrix over' + (disconnected ? ' (disconnect)' : '') + ' · ' + facts(ctx).done.length + '/' + ctx.targets.length + ' uploaded · ' + score.total + ' data');
+  if (ctx.bounty) {
+    if (met) s.bonusHits?.push(bonusKey(s.loop, s.section, played(s)));
+    logEvent(s, 'bonus ' + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[ctx.bounty].name);
+  }
+  const out = endMatrix(s, score.total, ctx.l - ctx.buf.length, disconnected ? DC_SLOTS_PER_CREDIT : SLOTS_PER_CREDIT);
+  for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
+  return { score, met, out };
 }
 
 // Pays a met bonus once the player claims it on the summary; after the streaks moved, so a stack reward is not overwritten.
-export const claimReward = (s: RunState, bounty: BountyId, reward: RewardId) => payReward(s, 'bonus · ' + BOUNTIES[bounty].name, reward);
+export const claimReward = (s: RunState, bounty: BountyId, reward: RewardId) => {
+  const id = payReward(s, 'bonus · ' + BOUNTIES[bounty].name, reward);
+  logEvent(s, 'bonus · ' + BOUNTIES[bounty].name + ' · ' + REWARDS[id]);
+  return id;
+};
 
 // Bonus objectives: one per matrix, drawn from its seed and shown from the start; meeting it pays credits.
 // Bonuses are rare (one matrix per iteration), so what they pay is big.
@@ -653,6 +675,7 @@ export function stockShop(s: RunState, reroll = false): boolean {
     else if (s.credits < REROLL_COST) return false;
     else s.credits -= REROLL_COST;
     s.rerolls++;
+    logEvent(s, 'shop · reroll');
   } else s.rerolls = 0;
   s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls))).slice(0, SHELF);
   return true;
@@ -665,11 +688,13 @@ export function buy(s: RunState, id: ItemId): boolean {
   s.items = s.items.filter((o) => o !== it.needs).concat(id);
   s.restarts = Math.max(s.restarts, restartsFor(s)); // a SIM bought in the shop works in the next room
   s.shelf = s.shelf.filter((o) => o !== id);
+  logEvent(s, 'shop · bought ' + itemName(id) + ' −$' + it.price + (it.needs ? ' (replaces ' + itemName(it.needs as ItemId) + ')' : ''));
   return true;
 }
 
 export function buySlot(s: RunState): boolean {
   if (s.rack >= RACK_MAX || s.credits < slotCost(s)) return false;
+  logEvent(s, 'shop · rack slot +1 −$' + slotCost(s));
   s.credits -= slotCost(s);
   s.rack++;
   return true;
@@ -685,6 +710,7 @@ export function sell(s: RunState, id: ItemId, drop?: DaemonId): boolean {
   s.credits += sellValue(id);
   s.items = s.items.filter((o) => o !== id);
   s.restarts = Math.min(s.restarts, restartsFor(s));
+  logEvent(s, 'shop · sold ' + itemName(id) + ' +$' + sellValue(id) + (drop && !s.daemons.includes(drop) ? ' · dropped ' + dmnFile(drop) : ''));
   return true;
 }
 
@@ -694,6 +720,7 @@ export function swapDaemon(s: RunState, out: DaemonId, id: DaemonId): boolean {
   if (s.credits < SWAP_COST || i < 0) return false;
   s.credits -= SWAP_COST;
   s.daemons[i] = id;
+  logEvent(s, 'offer · swapped ' + dmnFile(out) + ' for ' + dmnFile(id) + ' −$' + SWAP_COST);
   return true;
 }
 
