@@ -320,7 +320,7 @@ interface Daemon {
   family: 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
   text: string;
   rarity?: Rarity;
-  scope?: 'room'; // its stack or count lasts for one room
+  scope?: 'room' | 'run'; // room: its stack or count lasts for one room; run: it reaches past the room
   score?: (f: Facts, s: RunState) => Effect | null;
   streak?: Streak;
   end?: (s: RunState, f: Facts, disconnected: boolean) => void; // after a matrix that uploaded something
@@ -376,7 +376,7 @@ export const DAEMONS = {
     end: (s, f, disconnected) => { if (disconnected && f.done.length <= 1) s.stacks.sandbag = (s.stacks.sandbag ?? 0) + 1; } },
   allin: { name: 'All-in', family: 'Splicer', rarity: 'rare', text: 'A bet on every matrix: ×2 when every target is uploaded, ×0.5 when one is missing',
     score: (f) => ({ mult: f.all ? 2 : 0.5 }) },
-  overtime: { name: 'Overtime', family: 'Cron', rarity: 'rare', scope: 'room', text: 'Half the data over a room\'s quota carries into the next room' },
+  overtime: { name: 'Overtime', family: 'Cron', rarity: 'rare', scope: 'run', text: 'Half the data over a room\'s quota carries into the next room' },
   warmup: { name: 'Warm-up', family: 'Cron', scope: 'room', text: '+0.5 boost per matrix already played in this room',
     score: (_f, s) => (played(s) ? { boost: 0.5 * played(s) } : null) },
 } satisfies Record<string, Daemon>;

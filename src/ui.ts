@@ -167,9 +167,10 @@ function render() {
       continue;
     }
     s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l - bought ? ' extra' : '')
-      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '');
+      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '');
     if (has('overflow')) s.dataset.bonus = '+.5';
     if (s.classList.contains('extra')) s.dataset.tip = 'Extra slot from your rack';
+    if (i === M.kept) s.dataset.tip = 'Kept by Rewind: the buffer gained a slot for it';
     s.textContent = buffer[i] ?? '';
     buf.appendChild(s);
     if (s.classList.contains('new')) scramble(s, buffer[i], 1, 1, 40);
@@ -443,8 +444,8 @@ function renderDaemons() {
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   $('items').querySelectorAll<HTMLElement>('.unit.hw').forEach((el, i) => {
     // A ready Bridge lights the cells it can reach while pointed at.
-    const reach = (on: boolean) => units[i].t === 'jump' && units[i].ready && document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) =>
-      c.classList.toggle('reach', on && canPick({ ...B(), armed: 'jump' }, +c.id[1], +c.id[2])));
+    const reach = (on: boolean) => units[i].ready && (units[i].t === 'jump' ? document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) =>
+      c.classList.toggle('reach', on && canPick({ ...B(), armed: 'jump' }, +c.id[1], +c.id[2]))) : units[i].t === 'rewind' && rewindPeek(on));
     const show = () => { $('lcd').innerHTML = units[i].spec; reach(true); }, hide = () => { $('lcd').innerHTML = lcd; reach(false); };
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
@@ -588,7 +589,7 @@ function roomSummary(bill: Score, credits: string) {
   return "<div class='roomsum'><p class='meta'>" + COMPANIES[R.company].name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + sec.name + ' breached</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small(bill)
     + "<table class='calc'>" + rows + "<tr class='sum'><td>room</td><td><b>" + R.data + '</b> / ' + goal + (R.data > goal ? ' <small>+' + (R.data - goal) + ' over</small>' : '')
-    + '</td></tr></table>' + credits + '</div>';
+    + '</td></tr></table>' + (overtimeNote(R.data) && "<p class='tallyline'>" + overtimeNote(R.data) + '</p>') + credits + '</div>';
 }
 
 // End of the run, won or lost: rooms by iteration, totals, the build, and the company record.
@@ -611,6 +612,14 @@ function runSummary(won: boolean, bill: Score, credits: string) {
     + credits + '</div>';
 }
 
+// Overtime: the data it carried in, and what the room passes on so far (nothing past the boss room).
+function overtimeNote(got: number) {
+  if (!R.daemons.includes('overtime')) return '';
+  const next = isBoss(R) ? 0 : Math.max(0, Math.floor((got - quota(R)) / 2));
+  const bits = [R.carry ? 'incl. +' + R.carry + ' carried in' : '', next ? '+' + next + ' to next room' : ''].filter(Boolean);
+  return bits.length ? "<span class='ot c-cron'>overtime · " + bits.join(' · ') + '</span>' : '';
+}
+
 // Contract stepper: rooms in order, one box per matrix with the score it banked; the live box is the matrix in play.
 function renderSteps() {
   const live = S.over ? null : scoreMatrix(runCtx(), R).total;
@@ -631,7 +640,7 @@ function renderSteps() {
   // The room's data tally, big: white until the quota is met, then green.
   const got = R.data + (live ?? 0), goal = quota(R);
   $('stepCr').textContent = 'credits $' + R.credits;
-  $('tally').innerHTML = "<span class='meta'>" + sections(R)[R.section].name + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + '</span>';
+  $('tally').innerHTML = overtimeNote(got) + "<span class='meta'>" + sections(R)[R.section].name + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + '</span>';
 }
 
 // Matrix bill: the uploads, each daemon that fired and what it added, then the formula.
@@ -998,6 +1007,20 @@ function bonusIntro(id: BountyId) {
     + '</b><p>' + BOUNTIES[id].text(runCtx()) + "</p><small>reward: pick 1 of 2 once the matrix is over</small><button class='btn'>Got it</button></div>");
   const el = pane.querySelector<HTMLElement>('.bintro')!;
   el.onclick = () => el.remove();
+}
+
+// A ready Rewind, pointed at, shows what it does: the cell it frees, the lane it returns to, the slot it adds.
+function rewindPeek(on: boolean) {
+  const [lr, lc] = S.run.path[S.run.path.length - 1], back = { ...S.run, ...M.back };
+  document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) => {
+    const r = +c.id[1], k = +c.id[2];
+    c.classList.toggle('undo', on && r === lr && k === lc);
+    c.classList.toggle('rwlane', on && inLane(back, r, k));
+  });
+  $('buffer').querySelector('.ghost')?.remove();
+  // Before Throttle's locked slot, where the new slot will sit.
+  const lock = $('buffer').querySelector('.lock');
+  if (on) (lock ?? $('buffer')).insertAdjacentHTML(lock ? 'beforebegin' : 'beforeend', "<div class='slot ghost' aria-hidden='true'></div>");
 }
 
 function doRewind() {

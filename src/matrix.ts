@@ -14,9 +14,10 @@ export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1:
 // Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
 // tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
 // rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick; charge: a ×2 data charge is spent here.
+// undone: the path index Rewind took back (it stays on the path for daemons); kept: the buffer index of the code it kept.
 export interface ItemState {
   node?: Cell; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
-  bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'>; charge?: boolean;
+  bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'>; charge?: boolean; undone?: number; kept?: number;
 }
 export const emptyItems = (): ItemState => ({ worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] });
 
@@ -32,7 +33,8 @@ export const jumpAny = (b: Board) => b.ctx.items.includes('bridge2');
 
 const isUsed = (b: Board, r: number, c: number) => b.run.used.has(r + ',' + c);
 const same = (p: Cell | undefined, r: number, c: number) => !!p && p[0] === r && p[1] === c;
-const lastPick = (b: Board): Cell | undefined => b.run.path[b.run.path.length - 1];
+// A pick taken back by Rewind no longer counts as the last one.
+export const lastPick = (b: Board): Cell | undefined => { const i = b.run.path.length - 1; return b.run.path[i === b.m.undone ? i - 1 : i]; };
 const onEdge = (b: Board, r: number, c: number) => { const n = b.puzzle.grid.length; return r === 0 || c === 0 || r === n - 1 || c === n - 1; };
 // Mux: the next pick may take the row or the column of the last picked cell.
 const muxLane = (b: Board, r: number, c: number) => { const p = lastPick(b); return !!p && (r === p[0] || c === p[1]); };
@@ -86,8 +88,9 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (!b.over && (inLane(b.run, r, c) || doorEdge(b, r, c))) cls.push('lane');
   if (isUsed(b, r, c)) cls.push('used');
   else if (burning(b.run, r, c)) { cls.push('burn'); burnLeft = b.run.burnt!.get(r + ',' + c)! - b.run.path.length; }
-  // With a Loopback in the deck, used cells keep their code, greyed out, so a re-pick can be planned.
-  if (b.ctx.items.some((id) => TOOLS[id] === 'loop')) cls.push('memo');
+  if (!b.over && same(lastPick(b), r, c)) cls.push('last');
+  // With a Loopback or Rewind in the deck, used cells keep their code, greyed out, so a re-pick or a take-back can be planned.
+  if (b.ctx.items.some((id) => TOOLS[id] === 'loop' || TOOLS[id] === 'rewind')) cls.push('memo');
   if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length)) cls.push('corner');
   // Belt row: used cells show, greyed, the code sliding under them, so the belt stays readable.
   if (b.puzzle.belt?.row === r && code !== BLOCK) cls.push('belt', 'memo');
@@ -167,6 +170,8 @@ export function rewind(b: Board): boolean {
   const [r, c] = run.path[run.path.length - 1];
   run.used.delete(r + ',' + c);
   Object.assign(run, m.back);
+  m.undone = run.path.length - 1;
+  m.kept = run.buffer.length - 1;
   b.puzzle.l++;
   m.rewind = false;
   m.tools = true;

@@ -460,6 +460,15 @@ button.unit{cursor:pointer}
 .cell.used.memo{color:#343c41;text-decoration:line-through 1px rgba(144,160,168,.45)}
 .cell.used.memo::after{content:none}
 .cell.used.ok{border-color:var(--mint-dim);color:var(--mint);cursor:pointer}
+/* The last pick (Mux, Bridge and Loopback count from it); Rewind's preview: the cell it frees and the lane it returns to. */
+.cell.last{outline:1px dashed var(--mint-dim);outline-offset:-4px}
+.cell.rwlane{background:color-mix(in srgb,var(--cyan) 9%,transparent)}
+.cell.undo,.cell.used.undo{color:var(--cyan);box-shadow:inset 0 0 0 1px var(--cyan)}
+.cell.used.undo::after{content:none}
+.slot.ghost{border:1px dashed var(--cyan)}
+.slot.ghost::before{content:"+1";color:var(--cyan);font-size:11px}
+.slot.kept{border-style:dashed;border-color:var(--cyan)}
+.tally .ot{font-size:11px;color:var(--fc)}
 /* Split: a cuttable target, or the gaps between its codes. */
 .target.cut{outline:1px dashed var(--pink);outline-offset:2px}
 .target[draggable=true]{cursor:grab}

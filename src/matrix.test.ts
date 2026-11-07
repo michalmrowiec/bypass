@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { COMPANIES, dealRunMatrix, newRunState, type RunState } from './roguelike';
 import { BLOCK } from './generator';
 import { newRun, pick, WILD } from './game';
-import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, jumpReady, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
+import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, jumpReady, lastPick, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
 
 // 5x5 board with codes 'A'..'Y' in reading order.
 const grid = () => Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => String.fromCharCode(65 + r * 5 + c)));
@@ -160,5 +160,16 @@ describe('pick rules', () => {
     expect(rewind(b)).toBe(true);
     expect([b.run.used.has('0,0'), b.run.axis, b.run.idx, b.puzzle.l]).toEqual([false, 'row', 0, 5]);
     expect(rewind(b)).toBe(false);
+  });
+
+  it('after a rewind the last pick is the one before, until the next pick', () => {
+    const b = board();
+    b.m.rewind = true;
+    applyPick(b, 0, 2);
+    applyPick(b, 3, 2);
+    rewind(b);
+    expect([lastPick(b), b.m.kept]).toEqual([[0, 2], 1]);
+    applyPick(b, 4, 2);
+    expect(lastPick(b)).toEqual([4, 2]);
   });
 });
