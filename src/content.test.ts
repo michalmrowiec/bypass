@@ -35,9 +35,12 @@ describe('content solvability', () => {
 
   COMPANIES.forEach((co, i) => {
     it(co.name + ': its whole ICE pool at once is solvable', () => {
-      const [ice, ...rest] = [...new Set([...co.ice, ...co.patches])];
       const room = boss(i);
-      expect(unsolvable({ ...newRunState(3, i), section: room, ice, patches: rest.map((p) => ({ ice: p, room, loop: 0 })) })).toEqual([]);
+      const pool = (ids: IceId[]) => { const [ice, ...rest] = ids; return { ...newRunState(3, i), section: room, ice, patches: rest.map((p) => ({ ice: p, room, loop: 0 })) }; };
+      const all = [...new Set([...co.ice, ...co.patches])];
+      expect(unsolvable(pool(all))).toEqual([]);
+      // Throttle only promises one target, so the rest of the pool is also checked without it, for every target.
+      expect(unsolvable(pool(all.filter((id) => id !== 'throttle')))).toEqual([]);
     });
   });
 

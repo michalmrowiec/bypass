@@ -124,6 +124,17 @@ describe('pick rules', () => {
     expect(isStuck(b, true)).toBe(true);
   });
 
+  it('rewinding a mux pick does not give the mux back', () => {
+    const b = board();
+    b.m.rewind = true;
+    applyPick(b, 0, 2);
+    b.armed = 'mux';
+    b.m.mux = true;
+    applyPick(b, 0, 4);
+    rewind(b);
+    expect([b.run.free, b.run.axis, b.run.idx, b.m.mux]).toEqual([undefined, 'col', 2, false]);
+  });
+
   it('rewind frees the last cell and adds a slot, once', () => {
     const b = board();
     b.m.rewind = true;

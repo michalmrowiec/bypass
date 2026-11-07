@@ -6,7 +6,7 @@ import {
 import { gear } from './gear';
 import { hacker, logo } from './logos';
 import {
-  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, rewind, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, loopAny, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
@@ -63,7 +63,6 @@ let M: ItemState = emptyItems();
 // Run: the order the player dragged the targets into; display only. A split changes the count and resets it.
 let tOrder: number[] = [];
 let dragged = -1;
-const loopAny = () => R.items.includes('loopback2');
 // One rack unit per item family: a v2.0 replaces its v1.0.
 let armed: Tool | null = null; // deck tool picked for use before the first move
 // Targets already shown as uploaded, so the upload effect plays only once.
@@ -89,7 +88,6 @@ const legal = (r: number, c: number) => !S.dealing && !offer.length && canPick(B
 const doorOpen = () => isDoorOpen(B());
 const blackout = () => isBlackout(B());
 const encrypted = (r: number, c: number) => isEncrypted(B(), r, c);
-const isNode = (r: number, c: number) => S.mode === 'run' && M.node?.[0] === r && M.node[1] === c;
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
 // Row and column names; a run company may label them its own way.
@@ -142,7 +140,7 @@ function render() {
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
   $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
-    : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny() ? '' : ' in your lane') : S.over ? 'session closed'
+    : armed === 'jump' ? 'bridge: pick any free cell' : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
     : axis === 'row' ? 'pick in row ' + rowName(idx) : 'pick in col ' + colName(idx);
   const buf = $('buffer');
@@ -992,9 +990,8 @@ function bonusIntro(id: BountyId) {
 }
 
 function doRewind() {
-  if (!M.rewind || !M.back) return;
+  if (!rewind(B())) return;
   logAct({ w: 1 });
-  rewind(B());
   render();
 }
 
@@ -1016,7 +1013,7 @@ function applyCross() {
     : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
     : armed === 'loop' ? ['loopback: ' + S.puzzle.grid[cursor[0]][cursor[1]] + ' again']
     : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps),
-      ...(isNode(cursor[0], cursor[1]) ? [{ name: 'data node', add: '+' + NODE_DATA, kind: 'data' as const }] : []),
+      ...(cellView(B(), cursor[0], cursor[1]).tags.includes('node') ? [{ name: 'data node', add: '+' + NODE_DATA, kind: 'data' as const }] : []),
       ...(R.daemons.includes('rotate') && !S.run.path.length
         ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(CRON_DATA * rot) : undefined, kind: 'data' as const,
           ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+' + CRON_DATA }) }] : [])];
@@ -1044,9 +1041,10 @@ function applyCross() {
 
 // Pointing at a target code outlines the free cells holding it; those in the current lane stand out.
 function markCode(code?: string) {
+  const bd = B(), dark = isBlackout(bd);
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
     const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
-    const on = !!code && S.mode === 'run' && !S.over && !blackout() && !encrypted(r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
+    const on = !!code && S.mode === 'run' && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
     el.classList.toggle('tpeek', on);
     el.classList.toggle('near', on && inLane(S.run, r, c));
   });
@@ -1376,8 +1374,7 @@ function hideResult() {
 
 function resetRun() {
   clearInterval(S.timer);
-  Object.assign(S, { run: newRun(), start: 0, elapsed: 0, over: false, stage: 0, dealing: false });
-  if (S.mode === 'run') S.run.burn = burnOf(R) || undefined;
+  Object.assign(S, { run: S.mode === 'run' ? startRun(R) : newRun(), start: 0, elapsed: 0, over: false, stage: 0, dealing: false });
   endWhy = '';
   offer = [];
   doneSeen.clear();

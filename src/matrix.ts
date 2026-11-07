@@ -84,7 +84,7 @@ export function cellView(b: Board, r: number, c: number): CellView {
   // With a Loopback in the deck, used cells keep their code, greyed out, so a re-pick can be planned.
   if (b.ctx.items.some((id) => TOOLS[id] === 'loop')) cls.push('memo');
   if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length)) cls.push('corner');
-  return burnLeft === undefined ? { code, hidden, cls, tags } : { code, hidden, cls, tags, burnLeft };
+  return { code, hidden, cls, tags, burnLeft };
 }
 
 export function dealBoard(seed: number, s: RunState): Board {
@@ -101,10 +101,11 @@ export function dealBoard(seed: number, s: RunState): Board {
     rewind: has('rewind'), cuts: cutMarks(seed, puzzle.targets), wild: has('wildcard2'), split: has('split1') || has('split2'), jump: has('bridge'),
     loop: has('loopback1') || has('loopback2'), mux: has('mux'), bounty: bountyHere(s) ? bountyFor(seed, s.items) : undefined, rewards: rewardsFor(seed, s.daemons),
   };
-  const run = newRun();
-  run.burn = burnOf(s) || undefined;
-  return { puzzle, run, m, armed: null, ctx: ctxOf(s), over: false };
+  return { puzzle, run: startRun(s), m, armed: null, ctx: ctxOf(s), over: false };
 }
+
+// A run matrix's empty run: Corruption sets how long picks burn their neighbours.
+export const startRun = (s: RunState): Run => ({ ...newRun(), burn: burnOf(s) || undefined });
 
 export type PickResult = 'placed' | 'picked';
 
@@ -120,8 +121,8 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
     return 'placed';
   }
   const door = isDoorOpen(b), offLane = !inLane(run, r, c);
+  m.back = { axis: run.axis, idx: run.idx, free: run.free }; // before Mux widens the lane, so Rewind does not hand it back
   if (tool === 'mux') { run.free = lastPick(b); m.mux = false; }
-  m.back = { axis: run.axis, idx: run.idx, free: run.free };
   pick(run, puzzle, r, c);
   if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);
   if (door) sideDoor(run, r, c, puzzle.grid.length);
