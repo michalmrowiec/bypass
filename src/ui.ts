@@ -1,14 +1,16 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
-  MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
+  MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, pick, score,
   stageSeed, targetProgress, WILD, fits, inLane, burning,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
 import { canComplete } from './solver';
-import { dealBoard, emptyItems, TOOLS, type ItemState, type Tool } from './matrix';
 import {
-  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
+  canPick, cellView, ctxOf, dealBoard, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+} from './matrix';
+import {
+  buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, NODE_DATA, offerDaemons, sideDoor, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -80,38 +82,27 @@ const money = (n: number, sign = '') => "<b class='cr'>" + sign + '$' + n + '</b
 const now = () => (S.start ? (S.over ? S.elapsed : Date.now() - S.start) : 0);
 const clockText = () => fmt(now());
 const isUsed = (r: number, c: number) => S.run.used.has(r + ',' + c);
-// Mux: the next pick may take the row or the column of the last picked cell.
-const muxLane = (r: number, c: number) => { const p = S.run.path[S.run.path.length - 1]; return !!p && (r === p[0] || c === p[1]); };
-// Side door: before the first pick, any edge cell is open.
-const doorOpen = () => S.mode === 'run' && !S.run.path.length && R.items.includes('sidedoor');
-const onEdge = (r: number, c: number) => { const n = S.puzzle.grid.length; return r === 0 || c === 0 || r === n - 1 || c === n - 1; };
-const legal = (r: number, c: number) => !S.over && !S.dealing && !offer.length && S.puzzle.grid[r][c] !== BLOCK && !burning(S.run, r, c) && (
-  armed === 'wild' ? !isUsed(r, c) && S.puzzle.grid[r][c] !== WILD && !(M.rep?.[0] === r && M.rep[1] === c)
-  : armed === 'jump' ? !isUsed(r, c)
-  : armed === 'loop' ? isUsed(r, c) && (loopAny() || inLane(S.run, r, c))
-  : armed === 'mux' ? !isUsed(r, c) && muxLane(r, c)
-  : isLegal(S.run, r, c) || (doorOpen() && onEdge(r, c)));
-// Blackout ICE: the SOC's targets stay hidden until the first pick.
-const blackout = () => S.mode === 'run' && roomIce(R).includes('blackout') && !S.run.path.length && !S.over;
+// The matrix as the rules see it; outside a run no item, daemon or ICE applies.
+const B = (): Board => S.mode === 'run'
+  ? { puzzle: S.puzzle, run: S.run, m: M, armed, ctx: ctxOf(R), over: S.over }
+  : { puzzle: S.puzzle, run: S.run, m: emptyItems(), armed, ctx: EMPTY_CTX, over: S.over };
+const legal = (r: number, c: number) => !S.dealing && !offer.length && canPick(B(), r, c);
+const doorOpen = () => isDoorOpen(B());
+const blackout = () => isBlackout(B());
+const encrypted = (r: number, c: number) => isEncrypted(B(), r, c);
 const isNode = (r: number, c: number) => S.mode === 'run' && M.node?.[0] === r && M.node[1] === c;
-const isTrap = (r: number, c: number) => S.mode === 'run' && M.trap?.[0] === r && M.trap[1] === c;
-// Encryption: a free cell's code shows only in the line you pick in; an armed Bridge also sees the 8 cells around the last pick.
-const bridgeSees = (r: number, c: number) => {
-  const p = S.run.path[S.run.path.length - 1];
-  return armed === 'jump' && !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1;
-};
-const encrypted = (r: number, c: number) => S.mode === 'run' && !S.over && roomIce(R).includes('encryption') && !bridgeSees(r, c)
-  && !S.run.used.has(r + ',' + c) && !inLane(S.run, r, c) && !(doorOpen() && onEdge(r, c));
 const randomSeed = () => Math.floor(Math.random() * 1e9);
 const addr = (r: number) => '0x' + (r * 16).toString(16).toUpperCase().padStart(2, '0');
 // Row and column names; a run company may label them its own way.
 const rowName = (r: number) => (S.mode === 'run' && COMPANIES[R.company].rowLabel?.(r)) || addr(r);
 const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabel?.(c)) || '+' + c;
 
+const TAG = { node: "<i class='ntag'>+" + NODE_DATA + '</i>', trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
+
 function render() {
   const { grid, targets, l } = S.puzzle;
   const n = grid.length;
-  const { buffer, used, axis, idx } = S.run;
+  const { buffer, axis, idx } = S.run;
   const g = $('grid');
   g.innerHTML = '';
   g.style.gridTemplateColumns = 'auto repeat(' + n + ',minmax(0,1fr))';
@@ -128,34 +119,20 @@ function render() {
   // cron/rotate: before the first pick, the column the last matrix started in glows in the cron colour.
   const lastCol = S.mode === 'run' && R.daemons.includes('rotate') && !S.run.path.length && !S.over ? R.lastStart : undefined;
   for (let c = 0; c < n; c++) hx(colName(c), free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
+  const bd = B();
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
     if (c === 0) hx(rowName(r), free ? r === free[0] : axis === 'row' && r === idx);
     const b = document.createElement('button');
     b.className = 'cell';
     b.id = 'c' + r + c;
-    const hid = grid[r][c] !== BLOCK && encrypted(r, c);
-    b.textContent = hid ? '??' : grid[r][c];
-    if (hid) b.classList.add('enc');
-    if (grid[r][c] === WILD) b.classList.add('wild');
-    if (grid[r][c] === BLOCK) b.classList.add('ice');
-    if (isNode(r, c)) b.insertAdjacentHTML('beforeend', "<i class='ntag'>+" + NODE_DATA + '</i>');
-    if (isTrap(r, c)) { b.classList.add('trap'); b.insertAdjacentHTML('beforeend', "<i class='ntag ttag'>×.5</i>"); }
-    if (S.mode === 'run' && M.rep?.[0] === r && M.rep[1] === c) b.insertAdjacentHTML('beforeend', "<i class='ntag rtag'>×2</i>");
-    // Ping: a solution's first cell, until the first pick.
-    if (S.mode === 'run' && R.items.includes('ping') && !S.run.path.length && !S.over && S.puzzle.path?.[0][0] === r && S.puzzle.path[0][1] === c) b.classList.add('ping');
-    if (!S.over && (inLane(S.run, r, c) || (doorOpen() && onEdge(r, c)))) b.classList.add('lane');
-    if (used.has(r + ',' + c)) b.classList.add('used');
-    else if (burning(S.run, r, c)) {
-      const left = S.run.burnt!.get(r + ',' + c)! - S.run.path.length;
-      b.classList.add('burn');
-      b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (left === Infinity ? '∞' : left) + '</i>');
-    }
-    // With a Loopback in the deck, used cells keep their code, greyed out, so a re-pick can be planned.
-    if (S.mode === 'run' && R.items.some((id) => TOOLS[id] === 'loop')) b.classList.add('memo');
-    if (S.mode === 'run' && R.daemons.includes('corner') && isCorner([r, c], n)) b.classList.add('corner');
-    if (legal(r, c)) {
+    const v = cellView(bd, r, c);
+    b.textContent = v.hidden ? '??' : v.code;
+    b.classList.add(...v.cls);
+    for (const t of v.tags) b.insertAdjacentHTML('beforeend', TAG[t]);
+    if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
+    if (!S.dealing && !offer.length && canPick(bd, r, c)) {
       b.classList.add('ok');
-      b.setAttribute('aria-label', 'Pick ' + (hid ? 'an encrypted code' : grid[r][c]) + (isTrap(r, c) ? ' (honeypot)' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
+      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code) + (v.tags.includes('trap') ? ' (honeypot)' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
       b.onclick = () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
