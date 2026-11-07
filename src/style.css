@@ -696,6 +696,7 @@ button.chip:hover{border-color:var(--gold)}
 .target .codes .far{text-decoration:underline dotted var(--mint-dim);text-decoration-thickness:2px;text-underline-offset:5px}
 .cell.tpeek{outline:1px dashed var(--mint-dim);outline-offset:-3px}
 .cell.tpeek.near{outline:1px solid var(--mint)}
+.codes span.tpeek{text-decoration:underline dotted var(--mint);text-underline-offset:3px}
 /* Daemon description: muted at rest; on hover it brightens and grows a touch (scale keeps the card's height), above the glare. */
 .dmain{position:relative;z-index:1}
 .dmain>span{color:var(--muted);transform-origin:left center;transition:color .2s,transform .2s}

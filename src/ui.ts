@@ -444,9 +444,12 @@ function renderDaemons() {
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   $('items').querySelectorAll<HTMLElement>('.unit.hw').forEach((el, i) => {
-    // A ready Bridge lights the cells it can reach while pointed at.
-    const reach = (on: boolean) => units[i].ready && (units[i].t === 'jump' ? document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) =>
-      c.classList.toggle('reach', on && canPick({ ...B(), armed: 'jump' }, +c.id[1], +c.id[2]))) : units[i].t === 'rewind' && rewindPeek(on));
+    // A ready Bridge lights the cells it can reach while pointed at; a Mux only the line it adds.
+    const t = units[i].t;
+    const reach = (on: boolean) => units[i].ready && (t === 'jump' || t === 'mux' ? document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) => {
+      const r = +c.id[1], k = +c.id[2];
+      c.classList.toggle('reach', on && canPick({ ...B(), armed: t }, r, k) && (t === 'jump' || !canPick({ ...B(), armed: null }, r, k)));
+    }) : t === 'rewind' && rewindPeek(on));
     const show = () => { $('lcd').innerHTML = units[i].spec; reach(true); }, hide = () => { $('lcd').innerHTML = lcd; reach(false); };
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
@@ -1129,6 +1132,8 @@ function markCode(code?: string) {
     el.classList.toggle('tpeek', on);
     el.classList.toggle('near', on && inLane(S.run, r, c));
   });
+  // The same code in every target, the hovered one included.
+  document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((sp) => sp.classList.toggle('tpeek', !!code && !dark && sp.textContent === code));
 }
 
 // Fraction of the current sprint matrix's time limit still left.
