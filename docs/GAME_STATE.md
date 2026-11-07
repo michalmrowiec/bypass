@@ -82,7 +82,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Side door | 3 | pierwszy wybór z dowolnej krawędzi |
 | Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
-| Thumb drive v1/v2 | 2/2 | +4 / +8 data za każdy wgrany target |
+| Thumb drive v1/v2 | 2/3 | +3 / +7 data za każdy wgrany target |
 | Credit chip | 2 | +$1 za zaliczony pokój |
 | Ping | 2 | zaznacza start rozwiązania |
 | Heatsink | 2 | Corruption krótsza o 1 ruch |

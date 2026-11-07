@@ -638,8 +638,8 @@ export const ITEMS = {
   loopback1: { name: 'Loopback', ver: '1.0', kind: 'loopback plug', price: 3, text: 'Once per matrix, arm it to pick a used cell in your lane again; its code goes into the buffer once more' },
   loopback2: { name: 'Loopback', ver: '2.0', kind: 'twin loopback', price: 3, text: 'Upgrades v1.0: the used cell can be anywhere on the matrix; daemons skip that jump as a move', needs: 'loopback1' },
   // Cheap, modest modules: filler for the shelf and a use for spare credits.
-  thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+4 data for every uploaded target' },
-  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 2, text: 'Upgrades v1.0: +8 data for every uploaded target', needs: 'thumb' },
+  thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+3 data for every uploaded target' },
+  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +7 data for every uploaded target', needs: 'thumb' },
   chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: '+$1 for every room you clear' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
@@ -652,8 +652,9 @@ export const ITEMS = {
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 4;
-export const THUMB_DATA = 4; // per uploaded target
-export const thumbData = (items: ItemId[]) => (items.includes('thumb2') ? 2 : items.includes('thumb') ? 1 : 0) * THUMB_DATA;
+// Thumb drive data per uploaded target: v1.0, v2.0.
+export const THUMB_DATA = [3, 7] as const;
+export const thumbData = (items: ItemId[]) => (items.includes('thumb2') ? THUMB_DATA[1] : items.includes('thumb') ? THUMB_DATA[0] : 0);
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
