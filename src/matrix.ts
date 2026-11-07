@@ -1,8 +1,9 @@
 // Matrix rules for a run: the deal, what each cell shows and allows, and what a pick does. No DOM here.
-import { burning, inLane, isLegal, newRun, WILD, type Run } from './game';
+import { burning, contains, inLane, isLegal, newRun, pick, WILD, type Run } from './game';
+import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
-  bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, placeCells, plantRepeat, rewardsFor, roomIce, trapCell,
+  bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
   type BountyId, type DaemonId, type IceId, type ItemId, type RewardId, type RunState,
 } from './roguelike';
 
@@ -103,4 +104,57 @@ export function dealBoard(seed: number, s: RunState): Board {
   const run = newRun();
   run.burn = burnOf(s) || undefined;
   return { puzzle, run, m, armed: null, ctx: ctxOf(s), over: false };
+}
+
+export type PickResult = 'placed' | 'picked';
+
+// Applies a legal pick, or an armed Wildcard's placement (no move). Any armed tool is put down.
+export function applyPick(b: Board, r: number, c: number): PickResult {
+  const { run, puzzle, m } = b;
+  const tool = b.armed;
+  b.armed = null;
+  if (tool) m.tools = true;
+  if (tool === 'wild') {
+    puzzle.grid[r][c] = WILD;
+    m.wild = false;
+    return 'placed';
+  }
+  const door = isDoorOpen(b), offLane = !inLane(run, r, c);
+  if (tool === 'mux') { run.free = lastPick(b); m.mux = false; }
+  m.back = { axis: run.axis, idx: run.idx, free: run.free };
+  pick(run, puzzle, r, c);
+  if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);
+  if (door) sideDoor(run, r, c, puzzle.grid.length);
+  if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);
+  if (tool === 'jump') m.jump = false;
+  if (tool === 'loop') m.loop = false;
+  return 'picked';
+}
+
+const canUndo = (b: Board) => b.m.rewind && !!b.m.back;
+
+// A dead end (targets no longer reachable). A run only stops once no remaining target can still be uploaded;
+// the other modes need all of them. An unused Rewind can still undo a dead end, so it keeps the matrix open.
+export function isStuck(b: Board, runMode: boolean): boolean {
+  const { run, puzzle } = b;
+  if (runMode && canUndo(b)) return false;
+  if (!runMode) return !canComplete(run, puzzle);
+  return !puzzle.targets.some((t) => !contains(run.buffer, t) && canComplete(run, { ...puzzle, targets: [t] }, undefined, { ...b.m, loopAny: loopAny(b) }));
+}
+
+// An unused Bridge, Loopback, Mux or Rewind can still move when the lane is spent.
+export const hasMoves = (b: Board) => b.run.buffer.length < b.puzzle.l && (b.m.jump || b.m.loop || b.m.mux || canUndo(b));
+
+// Rewind: the last pick's code stays in the buffer, the cell is free again, the lane goes back and the buffer gains a slot.
+export function rewind(b: Board): boolean {
+  const { run, m } = b;
+  if (!m.rewind || !m.back) return false;
+  const [r, c] = run.path[run.path.length - 1];
+  run.used.delete(r + ',' + c);
+  Object.assign(run, m.back);
+  b.puzzle.l++;
+  m.rewind = false;
+  m.tools = true;
+  m.back = undefined;
+  return true;
 }

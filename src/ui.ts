@@ -1,17 +1,16 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
-  MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, pick, score,
+  MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, score,
   stageSeed, targetProgress, WILD, fits, inLane, burning,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
-import { canComplete } from './solver';
 import {
-  canPick, cellView, ctxOf, dealBoard, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, rewind, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, NODE_DATA, offerDaemons, sideDoor, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, NODE_DATA, offerDaemons, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -992,17 +991,10 @@ function bonusIntro(id: BountyId) {
   el.onclick = () => el.remove();
 }
 
-// Rewind: the last pick's code stays in the buffer, the cell is free again, the lane goes back and the buffer gains a slot.
 function doRewind() {
   if (!M.rewind || !M.back) return;
   logAct({ w: 1 });
-  const [r, c] = S.run.path[S.run.path.length - 1];
-  S.run.used.delete(r + ',' + c);
-  Object.assign(S.run, M.back);
-  S.puzzle.l++;
-  M.rewind = false;
-  M.tools = true;
-  M.back = undefined;
+  rewind(B());
   render();
 }
 
@@ -1115,36 +1107,15 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 function choose(r: number, c: number) {
   if (!legal(r, c)) return;
   logAct(armed ? { r, c, t: armed } : { r, c });
-  if (armed === 'wild') {
-    S.puzzle.grid[r][c] = WILD;
-    armed = null;
-    M.wild = false;
-    M.tools = true;
-    render();
-    return;
-  }
+  const bd = B();
+  const placed = applyPick(bd, r, c) === 'placed';
+  armed = bd.armed;
+  if (placed) return render();
   document.querySelector('.bintro')?.remove();
   if (!S.start) { S.start = S.stageStart = Date.now(); S.timer = window.setInterval(tick, 31); }
-  const door = doorOpen(), tool = armed, offLane = !inLane(S.run, r, c);
-  if (tool === 'mux') { S.run.free = S.run.path[S.run.path.length - 1]; M.mux = false; }
-  if (tool) M.tools = true;
-  M.back = { axis: S.run.axis, idx: S.run.idx, free: S.run.free };
-  pick(S.run, S.puzzle, r, c);
-  if (M.rep?.[0] === r && M.rep[1] === c && S.run.buffer.length < S.puzzle.l) S.run.buffer.push(S.puzzle.grid[r][c]);
-  if (door) sideDoor(S.run, r, c, S.puzzle.grid.length);
-  if ((tool === 'jump' || tool === 'loop') && offLane) M.jumps.push(S.run.path.length - 1);
-  if (tool === 'jump') M.jump = false;
-  if (tool === 'loop') M.loop = false;
-  armed = null; // a pick puts any armed tool down
-  // A dead end (targets no longer reachable) ends the round right away.
-  // Run mode only stops once no remaining target can still be uploaded; the others need all of them.
-  // An unused Rewind can still undo a dead end, so it keeps the matrix open.
-  const undo = S.mode === 'run' && M.rewind && !!M.back;
-  const stuck = undo ? false : S.mode === 'run'
-    ? !S.puzzle.targets.some((t) => !contains(S.run.buffer, t) && canComplete(S.run, { ...S.puzzle, targets: [t] }, undefined, { ...M, loopAny: loopAny() }))
-    : !canComplete(S.run, S.puzzle);
-  // An unused Bridge, Loopback, Mux or Rewind can still move when the lane is spent.
-  const more = S.mode === 'run' && S.run.buffer.length < S.puzzle.l && (M.jump || M.loop || M.mux || undo);
+  // A dead end ends the round right away.
+  const stuck = isStuck(bd, S.mode === 'run');
+  const more = hasMoves(bd);
   const done = more ? score(S.run.buffer, S.puzzle.targets) === S.puzzle.targets.length : isFinished(S.run, S.puzzle);
   if (done || stuck) {
     const sc = score(S.run.buffer, S.puzzle.targets);

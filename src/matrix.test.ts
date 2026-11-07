@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { COMPANIES, dealRunMatrix, newRunState, type RunState } from './roguelike';
 import { BLOCK } from './generator';
-import { newRun, pick } from './game';
-import { canPick, cellView, dealBoard, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
+import { newRun, pick, WILD } from './game';
+import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
 
 // 5x5 board with codes 'A'..'Y' in reading order.
 const grid = () => Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => String.fromCharCode(65 + r * 5 + c)));
@@ -80,5 +80,56 @@ describe('dealBoard', () => {
   it('places the honeypot only under Honeypot ICE', () => {
     expect(dealBoard(5, st({ ice: 'honeypot' })).m.trap).toBeDefined();
     expect(dealBoard(5, st()).m.trap).toBeUndefined();
+  });
+});
+
+describe('pick rules', () => {
+  it('the repeater cell puts its code in twice', () => {
+    const b = board();
+    b.m.rep = [0, 1];
+    applyPick(b, 0, 1);
+    expect(b.run.buffer).toEqual(['B', 'B']);
+  });
+
+  it('the repeater skips the second code on a full buffer', () => {
+    const b = board();
+    b.m.rep = [0, 1];
+    b.puzzle.l = 1;
+    applyPick(b, 0, 1);
+    expect(b.run.buffer).toEqual(['B']);
+  });
+
+  it('a wildcard places ** without a move', () => {
+    const b = board({}, { armed: 'wild' });
+    b.m.wild = true;
+    expect(applyPick(b, 2, 2)).toBe('placed');
+    expect([b.run.path.length, b.puzzle.grid[2][2], b.m.wild, b.armed]).toEqual([0, WILD, false, null]);
+  });
+
+  it('a bridge off the lane records a jump', () => {
+    const b = board({}, { armed: 'jump' });
+    b.m.jump = true;
+    expect(applyPick(b, 3, 3)).toBe('picked');
+    expect([b.m.jumps, b.m.jump, b.m.tools]).toEqual([[0], false, true]);
+  });
+
+  it('an unused rewind keeps a dead end open', () => {
+    const b = board();
+    b.puzzle.targets = [['Z', 'Z']];
+    b.m.rewind = true;
+    applyPick(b, 0, 0);
+    expect(isStuck(b, true)).toBe(false);
+    expect(hasMoves(b)).toBe(true);
+    b.m.rewind = false;
+    expect(isStuck(b, true)).toBe(true);
+  });
+
+  it('rewind frees the last cell and adds a slot, once', () => {
+    const b = board();
+    b.m.rewind = true;
+    applyPick(b, 0, 0);
+    expect(rewind(b)).toBe(true);
+    expect([b.run.used.has('0,0'), b.run.axis, b.run.idx, b.puzzle.l]).toEqual([false, 'row', 0, 5]);
+    expect(rewind(b)).toBe(false);
   });
 });
