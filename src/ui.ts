@@ -1,14 +1,15 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, challengeQuery, isFinished, isLegal, newRun, parseChallenge, pick, score,
-  stageSeed, targetProgress, WILD, fits, inLane, burning, type Run,
+  stageSeed, targetProgress, WILD, fits, inLane, burning,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
 import { canComplete } from './solver';
+import { dealBoard, emptyItems, TOOLS, type ItemState, type Tool } from './matrix';
 import {
   buy, coverage, CRON_DATA, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, isCorner, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, cutMarks, dealRunMatrix, ICE, NODE_DATA, offerDaemons, sideDoor, placeCells, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountyFor, bountyHere, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, globTarget, plantRepeat, trapCell, rewardsFor, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, NODE_DATA, offerDaemons, sideDoor, REROLL_COST, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_CREDITS, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -57,17 +58,10 @@ function logAct(a: Act) {
   saveRun(cur);
 }
 function endSave() { cur = null; dropRun(); }
-// Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
-// tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
-// rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick; charge: a ×2 data charge is spent here.
-let M: { node?: [number, number]; trap?: [number, number]; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
-  bounty?: BountyId; rewards: RewardId[]; rep?: [number, number]; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'>; charge?: boolean } =
-  { worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] };
-type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
+let M: ItemState = emptyItems();
 // Run: the order the player dragged the targets into; display only. A split changes the count and resets it.
 let tOrder: number[] = [];
 let dragged = -1;
-const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind' };
 const loopAny = () => R.items.includes('loopback2');
 // One rack unit per item family: a v2.0 replaces its v1.0.
 let armed: Tool | null = null; // deck tool picked for use before the first move
@@ -1004,18 +998,8 @@ function dealMatrix() {
   $('wmark').innerHTML = logo(COMPANIES[R.company].id);
   $('steps').dataset.co = COMPANIES[R.company].id;
   $('meta').textContent = 'Run ' + (R.loop + 1) + '/' + LOOPS + ' · ' + sections(R)[R.section].name + ' ' + (R.section + 1) + '/' + sections(R).length;
-  const seed = stageSeed(R.seed, R.matrix++);
-  S.puzzle = dealRunMatrix(seed, R);
-  const cells = placeCells(seed, S.puzzle, R.items);
-  if (cells.wild) S.puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
-  // Target data is set before Repeater and Glob reshape the targets.
-  const worth = S.puzzle.targets.map((t) => DATA_BY_LEN[t.length]);
-  const rep = R.items.includes('repeater') ? plantRepeat(seed, S.puzzle) : undefined;
-  if (R.items.includes('glob')) globTarget(seed, S.puzzle.targets);
+  ({ puzzle: S.puzzle, m: M } = dealBoard(stageSeed(R.seed, R.matrix++), R));
   tOrder = [];
-  M = { node: cells.node, trap: roomIce(R).includes('honeypot') ? trapCell(seed, S.puzzle, [cells.wild, cells.node]) : undefined, worth, rep, rewind: R.items.includes('rewind'), cuts: cutMarks(seed, S.puzzle.targets), wild: R.items.includes('wildcard2'),
-    split: R.items.includes('split1') || R.items.includes('split2'), jump: R.items.includes('bridge'), loop: R.items.includes('loopback1') || R.items.includes('loopback2'),
-    mux: R.items.includes('mux'), jumps: [], tools: false, bounty: bountyHere(R) ? bountyFor(seed, R.items) : undefined, rewards: rewardsFor(seed, R.daemons) };
   armed = null;
   resetRun();
   if (M.bounty && R.matrix > 0) bonusIntro(M.bounty); // not on the throwaway board behind the resume dialog
