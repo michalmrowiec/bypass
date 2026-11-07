@@ -183,10 +183,10 @@ function render() {
     const st = targetProgress(buffer, t, l, S.over);
     const el = document.createElement('div');
     // Split, before the first move: v1.0 cuts a clicked target at its random mark, v2.0 at a clicked gap between codes.
-    // Under Blackout both cut blind: the mark stays hidden.
+    // Under Blackout v1.0 cuts blind (the mark stays hidden); v2.0 still picks its gap between the ?? codes.
     const cut = S.mode === 'run' && armed === 'split' && t.length > 1;
-    const blind = cut && blackout();
-    const gaps = cut && !blind && R.items.includes('split2');
+    const gaps = cut && R.items.includes('split2');
+    const blind = cut && !gaps && blackout();
     el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut ? ' cut' : '');
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
     // Thumb drive pays per uploaded target, so each one shows its share.
