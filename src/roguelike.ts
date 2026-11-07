@@ -643,7 +643,7 @@ export const ITEMS = {
   wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into ** (not the ×2 cell)', needs: 'wildcard1' },
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
   datanode2: { name: 'Data node', ver: '2.0', kind: 'NVMe SSD', price: 3, text: 'Upgrades v1.0: the node cell holds +30 data', needs: 'datanode' },
-  split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; the parts share its data' },
+  split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; its data splits by the length of each part' },
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target is cut', needs: 'split1' },
   sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
   bridge: { name: 'Bridge', ver: '1.0', kind: 'antenna', price: 3, text: 'Once per matrix, arm it to jump off your lane to a free cell next to your last pick, diagonals too; daemons skip the jump as a move' },
@@ -787,12 +787,12 @@ export const cutMarks = (seed: number, targets: string[][]) => {
   return targets.map((t) => 1 + Math.floor(r() * (t.length - 1)));
 };
 
-// Cuts target i before code `at` (default: the middle, rounded up) into two targets that share its data.
+// Cuts target i before code `at` (default: the middle, rounded up) into two targets; each gets data in proportion to its length.
 export function splitTarget(targets: string[][], worth: number[], i: number, at = Math.ceil(targets[i].length / 2)) {
-  const w = worth[i];
+  const w = worth[i], head = Math.round((w * at) / targets[i].length);
   return {
     targets: [...targets.slice(0, i), targets[i].slice(0, at), targets[i].slice(at), ...targets.slice(i + 1)],
-    worth: [...worth.slice(0, i), Math.ceil(w / 2), Math.floor(w / 2), ...worth.slice(i + 1)],
+    worth: [...worth.slice(0, i), head, w - head, ...worth.slice(i + 1)],
   };
 }
 

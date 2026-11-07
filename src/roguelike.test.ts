@@ -252,8 +252,9 @@ describe('matrix items', () => {
   });
 
   it('split cuts a target and its data in two', () => {
-    expect(splitTarget([['A', 'B', 'C'], ['D', 'E']], [25, 10], 0)).toEqual({ targets: [['A', 'B'], ['C'], ['D', 'E']], worth: [13, 12, 10] });
-    expect(splitTarget([['A', 'B', 'C', 'D']], [45], 0, 1).targets).toEqual([['A'], ['B', 'C', 'D']]);
+    expect(splitTarget([['A', 'B', 'C'], ['D', 'E']], [25, 10], 0)).toEqual({ targets: [['A', 'B'], ['C'], ['D', 'E']], worth: [17, 8, 10] });
+    expect(splitTarget([['A', 'B', 'C', 'D']], [45], 0, 1)).toEqual({ targets: [['A'], ['B', 'C', 'D']], worth: [11, 34] });
+    expect(splitTarget([['A', 'B', 'C', 'D', 'E']], [70], 0, 1).worth).toEqual([14, 56]);
     expect(matrixData(['A', 'B'], [['A', 'B'], ['C']], [13, 12])).toBe(13);
   });
 });
