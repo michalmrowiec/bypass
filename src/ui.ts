@@ -191,12 +191,13 @@ function render() {
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
     // Thumb drive pays per uploaded target, so each one shows its share.
     const thumb = S.mode === 'run' && st.done ? thumbData(R.items) : 0;
-    const state = st.done ? 'Uploaded' + worth + (thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + '</span>' : '') : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
+    const tag = thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + '</span>' : '';
+    const state = st.done ? 'Uploaded' + worth : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
       : worth ? worth.trim() + ' data' : 'Target ' + (i + 1);
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"
       : j && j === mark && !blind ? "<i class='gap mark'></i>" : '')
-      + '<span class="' + (j < st.k ? 'hit' : '') + (c === WILD ? ' wild' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state">' + state + '</div>';
+      + '<span class="' + (j < st.k ? 'hit' : '') + (c === WILD ? ' wild' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state"><span class="stxt">' + state + '</span>' + tag + '</div>';
     el.querySelectorAll<HTMLElement>('.codes span').forEach((sp, j) => { sp.onmouseenter = () => markCode(t[j]); sp.onmouseleave = () => markCode(); });
     if (gaps) el.querySelectorAll<HTMLElement>('.gap').forEach((g) => { g.onclick = () => doSplit(i, +g.dataset.at!); });
     else if (cut) {
@@ -223,7 +224,7 @@ function render() {
     if (st.done && !doneSeen.has(i)) {
       doneSeen.add(i);
       el.classList.add('just');
-      scramble(el.querySelector<HTMLElement>('.state')!, state, 2, 1, 40);
+      scramble(el.querySelector<HTMLElement>('.state .stxt')!, state, 2, 1, 40);
     }
   });
   // The matrix's bonus objective, ticked while it holds.
