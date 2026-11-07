@@ -264,6 +264,12 @@ describe('movement items', () => {
   it('Bridge and Loopback open paths the lanes alone do not', () => {
     expect(canComplete(newRun(), { grid, targets: [['A', 'I']], l: 2 })).toBe(false);
     expect(canComplete(newRun(), { grid, targets: [['A', 'I']], l: 2 }, undefined, { jump: true })).toBe(true);
+    // Bridge v1.0 only reaches the 8 cells around the last pick.
+    expect(canComplete(newRun(), { grid, targets: [['A', 'I']], l: 2 }, undefined, { jump: true, near: true })).toBe(false);
+    expect(canComplete(newRun(), { grid, targets: [['A', 'E']], l: 2 }, undefined, { jump: true, near: true })).toBe(true);
+    // B, then Mux back along row 0 to C.
+    expect(canComplete(newRun(), { grid, targets: [['B', 'C']], l: 2 })).toBe(false);
+    expect(canComplete(newRun(), { grid, targets: [['B', 'C']], l: 2 }, undefined, { mux: true })).toBe(true);
     expect(canComplete(newRun(), { grid, targets: [['A', 'A']], l: 2 })).toBe(false);
     expect(canComplete(newRun(), { grid, targets: [['A', 'A']], l: 2 }, undefined, { loop: true })).toBe(true);
     // A, then down column 0 to G, then back to A: only Loopback v2.0 reaches a used cell off the lane.

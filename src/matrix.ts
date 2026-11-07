@@ -50,7 +50,6 @@ const nextToLast = (b: Board, r: number, c: number) => {
 };
 const bridgeSees = (b: Board, r: number, c: number) => b.armed === 'jump' && nextToLast(b, r, c);
 // Bridge v1.0 reaches the 8 cells around the last pick, so it needs one; v2.0 reaches the whole matrix.
-// shortcut: the reach solver still lets a v1.0 jump land anywhere, so a stuck matrix may run on; fine while it is rare.
 export const jumpReady = (b: Board) => b.m.jump && (jumpAny(b) || !!lastPick(b));
 export const isEncrypted = (b: Board, r: number, c: number) => !b.over && b.ctx.ice.includes('encryption') && !bridgeSees(b, r, c)
   && !isUsed(b, r, c) && !inLane(b.run, r, c) && !doorEdge(b, r, c);
@@ -155,7 +154,8 @@ export function isStuck(b: Board, runMode: boolean): boolean {
   // shortcut: the solver cannot see a moving belt, so a run matrix with one ends only when the buffer or lane runs out.
   if (runMode && puzzle.belt) return false;
   if (!runMode) return !canComplete(run, puzzle);
-  return !puzzle.targets.some((t) => !contains(run.buffer, t) && canComplete(run, { ...puzzle, targets: [t] }, undefined, { ...b.m, loopAny: loopAny(b) }));
+  const tools = { ...b.m, loopAny: loopAny(b), near: !jumpAny(b), last: lastPick(b) };
+  return !puzzle.targets.some((t) => !contains(run.buffer, t) && canComplete(run, { ...puzzle, targets: [t] }, undefined, tools));
 }
 
 // An unused Bridge, Loopback, Mux or Rewind can still move when the lane is spent.
