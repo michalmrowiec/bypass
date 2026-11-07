@@ -49,8 +49,8 @@ type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
 const RUN_V = 1; // bump when RunState changes shape; older saves are dropped
 let cur: SavedRun | null = null, replaying = false;
-function checkpoint(screen: RunScreen, patch?: Patch) {
-  cur = { v: RUN_V, R: structuredClone(R), screen, patch, log: [] };
+function checkpoint(screen: RunScreen) {
+  cur = { v: RUN_V, R: structuredClone(R), screen, log: [] };
   saveRun(cur);
 }
 function logAct(a: Act) {
@@ -545,7 +545,7 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
   document.getElementById('devRoom')?.addEventListener('click', () => {
     hideResult();
     const p = nextSection(R);
-    if (p) showPatch(p); else showOffer();
+    if (p) showPatch(); else showOffer();
   });
 }
 
@@ -712,14 +712,15 @@ const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><sp
 
 
 // Between iterations: what the company patched; the room it went to shows once you get there.
-function showPatch(p: Patch) {
-  checkpoint('patch', p);
-  const hardened = p.ice === 'corruption' && R.patches.filter((x) => x.ice === 'corruption').length > 1;
+function showPatch() {
+  checkpoint('patch');
+  const fresh = R.patches.filter((p) => p.loop === R.loop), ids = [...new Set(fresh.map((p) => p.ice))];
+  const hardened = (id: IceId) => id === 'corruption' && R.patches.filter((x) => x.ice === id).length > 1;
   showResult(false, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + "</p><h2>Patch notes</h2><ul class='patch'>"
     + '<li>Quotas ×' + QUOTA_GROWTH + ': ' + sections(R).map((_, i) => quota(R, i)).join(' / ') + '</li>'
-    + "<li>" + (hardened ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[p.ice].name + '</b>: ' + ICE[p.ice].text
-    + (p.ice === 'corruption' ? '; it now ' + burnText(burnOf(R, p.room)) : '') + '</li>'
-    + '<li>Deployed in one room. You will see which when you get there.</li>'
+    + ids.map((id) => "<li>" + (hardened(id) ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[id].name + '</b>: ' + ICE[id].text
+      + (id === 'corruption' ? '; it now ' + burnText(burnOf(R, fresh.find((p) => p.ice === id)!.room)) : '') + '</li>').join('')
+    + '<li>Deployed in ' + (fresh.length === 1 ? 'one room' : fresh.length + ' rooms') + '. You will see which when you get there.</li>'
     + '</ul>' + "<div class='row'><button class='btn' id='patchOk'>Continue ›</button></div>");
   $('patchOk').onclick = showOffer;
 }
@@ -1027,7 +1028,7 @@ function resumeRun(sv: SavedRun) {
     R.matrix = -1;
     dealMatrix();
     R.matrix = keep;
-    return sv.screen === 'patch' ? showPatch(sv.patch!) : sv.screen === 'offer' ? showOffer() : showShop(false);
+    return sv.screen === 'patch' ? showPatch() : sv.screen === 'offer' ? showOffer() : showShop(false);
   }
   R.matrix--; // the checkpoint was taken after the deal
   dealMatrix();
@@ -1468,7 +1469,7 @@ function showResult(win: boolean, html: string) {
   on('next', () => setMode('train'));
   on('runNext', newMatrix);
   on('runSection', () => { nextSection(R); showOffer(); });
-  on('runLoop', () => showPatch(nextSection(R)!));
+  on('runLoop', () => { nextSection(R); showPatch(); });
   on('runNew', () => setMode('run'));
   on('viewMatrix', peek);
   on('toTrain', () => setMode('train'));

@@ -123,17 +123,30 @@ export function burnOf(s: RunState, i = s.section): number {
   return !s.items.includes('heatsink') ? burn : burn === Infinity ? 2 : burn - 1;
 }
 
-function deployPatch(s: RunState): Patch {
+// Patches per iteration: iteration 2 puts ICE in ~60% of rooms, iteration 3 in every room and a second rule in ~1/3 of them.
+// Rooms with their own or company-wide ICE count as covered. At most one Corruption per deployment, so its burn grows slowly.
+export const PATCH_COVER = [0, 0.6, 1];
+export const PATCH_DOUBLE = [0, 0, 1 / 3];
+function deployPatches(s: RunState): Patch[] {
   const r = rng(hashStr(s.seed + '/patch/' + s.loop));
-  const pool = COMPANIES[s.company].patches, rooms = sections(s).length;
-  for (let k = 0; ; k++) {
-    const p = { ice: pool[Math.floor(r() * pool.length)], room: Math.floor(r() * rooms), loop: s.loop };
-    // A rule already in that room adds nothing, except Corruption, which grows.
-    if (k < 30 && p.ice !== 'corruption' && roomIce(s, p.room).includes(p.ice)) continue;
+  const pool = COMPANIES[s.company].patches, rooms = sections(s).length, out: Patch[] = [];
+  const add = (room: number) => {
+    const opts = pool.filter((id) => !roomIce(s, room).includes(id) && !(id === 'corruption' && out.some((p) => p.ice === id)));
+    if (!opts.length) return;
+    const p = { ice: opts[Math.floor(r() * opts.length)], room, loop: s.loop };
     s.patches.push(p);
-    logEvent(s, 'patch · new ICE ' + ICE[p.ice].name + ' in a hidden room');
-    return p;
-  }
+    out.push(p);
+  };
+  const order = shuffled(Array.from({ length: rooms }, (_, i) => i), r);
+  const bare = () => order.filter((i) => !roomIce(s, i).length);
+  const cover = PATCH_COVER[Math.min(s.loop, PATCH_COVER.length - 1)];
+  for (const i of bare().slice(0, Math.max(0, Math.ceil(rooms * cover) - (rooms - bare().length)))) add(i);
+  const single = order.filter((i) => roomIce(s, i).length === 1);
+  for (const i of single.slice(0, Math.round(rooms * PATCH_DOUBLE[Math.min(s.loop, PATCH_DOUBLE.length - 1)]))) add(i);
+  // Always at least one new rule, so every iteration brings patch notes.
+  for (let k = 0; !out.length && k < 30; k++) add(Math.floor(r() * rooms));
+  for (const p of out) logEvent(s, 'patch · new ICE ' + ICE[p.ice].name + ' in a hidden room');
+  return out;
 }
 // Re-dealing a matrix (before the first move) needs a Burner SIM: once per room.
 const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0);
@@ -142,7 +155,7 @@ export const DAEMON_SLOTS = 4;
 // one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something (DC_SLOTS_PER_CREDIT after a Disconnect),
 // FULL_CREDIT for a matrix with every target uploaded.
 export const SURPLUS_PER_CREDIT = 20;
-export const SURPLUS_CAP = 3; // per room, so huge scores don't flood the economy
+export const SURPLUS_CAP = 2; // per room, so huge scores don't flood the economy
 export const SECTION_CREDIT = 1;
 export const SLOTS_PER_CREDIT = 2;
 export const DC_SLOTS_PER_CREDIT = 3;
@@ -243,15 +256,15 @@ export function endMatrix(s: RunState, data: number, emptySlots: number, per = S
 export const overtimeCarry = (s: RunState, data = s.data) =>
   s.daemons.includes('overtime') && !isBoss(s) ? Math.max(0, Math.floor((data - quota(s)) / 2)) : 0;
 
-// Moves on to the next room; after the boss, starts the next iteration and returns the patch it brought.
-export function nextSection(s: RunState): Patch | undefined {
+// Moves on to the next room; after the boss, starts the next iteration and returns the patches it brought.
+export function nextSection(s: RunState): Patch[] | undefined {
   const carry = overtimeCarry(s);
   Object.assign(s, { section: s.section + 1, data: carry, carry, restarts: restartsFor(s) });
   delete s.stacks.sandbag; // room-scoped
   if (s.section < sections(s).length) return;
   // A save from before bonus tracking starts recording with the new iteration.
   Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, bonusHits: s.bonusHits ?? [] });
-  return deployPatch(s);
+  return deployPatches(s);
 }
 
 // --- Daemons: passive upgrades. Matrix score = (data + flat) × (1 + boost) × mult; no upload means 0.
@@ -342,7 +355,7 @@ interface Daemon {
 }
 
 // Rotate and Uptime pay the same flat data per stack.
-export const CRON_DATA = 7;
+export const CRON_DATA = 5;
 
 export const DAEMONS = {
   chain: { name: 'Chain', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
@@ -367,12 +380,12 @@ export const DAEMONS = {
   zigzag: { name: 'Zigzag', family: 'Runner', rarity: 'rare', text: '+0.5 boost per move longer than the one before',
     score: (f) => { const k = f.moves.filter((d, i) => i > 0 && d > f.moves[i - 1]).length; return k ? { boost: 0.5 * k } : null; } },
   // Cron: scheduled jobs. Keep doing the thing every matrix and the stack grows; slip once and it is gone.
-  heartbeat: { name: 'Heartbeat', family: 'Cron', rarity: 'rare', text: '+0.25 boost for every matrix in a row where you upload every target, this one included; missing one resets the stack',
-    streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : 0), effect: (n) => ({ boost: 0.25 * n }) } },
+  heartbeat: { name: 'Heartbeat', family: 'Cron', rarity: 'rare', text: '+0.2 boost for every matrix in a row where you upload every target, this one included; missing one resets the stack',
+    streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : 0), effect: (n) => ({ boost: n / 5 }) } },
   rotate: { name: 'Rotate', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row whose first pick is in a different column than the last one; the same column resets the stack',
     streak: { goal: 'start in a new column', next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: CRON_DATA * n }) } },
-  backup: { name: 'Backup', family: 'Cron', rarity: 'rare', text: '+0.5 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending resets the stack',
-    streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : 0), effect: (n) => ({ boost: 0.5 * n }) } },
+  backup: { name: 'Backup', family: 'Cron', rarity: 'rare', text: '+0.4 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending resets the stack',
+    streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : 0), effect: (n) => ({ boost: n * 2 / 5 }) } },
   uptime: { name: 'Uptime', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row with no Disconnect and no restart; either resets the stack',
     streak: { goal: 'no Disconnect', next: (n, _f, _s, disconnected) => (disconnected ? 0 : n + 1), effect: (n) => ({ flat: CRON_DATA * n }) } },
   deflate: { name: 'Deflate', family: 'Splicer', rarity: 'legendary', text: '×(codes in uploaded targets ÷ picks), when that beats ×1',

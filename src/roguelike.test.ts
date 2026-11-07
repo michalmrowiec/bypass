@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  beltRow, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
+  beltRow, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -372,9 +372,9 @@ describe('iterations', () => {
     s.section = BOSS;
     s.scores[BOSS] = [0];
     expect(endMatrix(s, 1000, 0)).toBe('loop');
-    const p = nextSection(s)!;
+    const ps = nextSection(s)!;
     expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 63]);
-    expect(COMPANIES[0].patches).toContain(p.ice);
+    for (const p of ps) expect(COMPANIES[0].patches).toContain(p.ice);
     Object.assign(s, { loop: 2, section: BOSS, data: 0 });
     s.scores[BOSS] = [0];
     expect(endMatrix(s, quota(s) - 1, 0)).toBe('lose');
@@ -383,8 +383,23 @@ describe('iterations', () => {
     expect(endMatrix(s, quota(s), 0)).toBe('win');
   });
 
+  it('ICE covers ~60% of rooms in iteration 2, every room in iteration 3 with ~1/3 doubled', () => {
+    for (let co = 0; co < COMPANIES.length; co++) for (let seed = 1; seed <= 20; seed++) {
+      const s = newRunState(seed, co), n = sections(s).length;
+      s.section = n - 1;
+      nextSection(s);
+      const covered = () => sections(s).filter((_, i) => roomIce(s, i).length).length;
+      expect(covered()).toBeGreaterThanOrEqual(Math.ceil(n * 0.6));
+      expect(s.patches.filter((p) => p.ice === 'corruption').length).toBeLessThanOrEqual(1);
+      s.section = n - 1;
+      nextSection(s);
+      expect(covered()).toBe(n);
+      expect(sections(s).filter((_, i) => roomIce(s, i).length >= 2).length).toBeGreaterThanOrEqual(Math.round(n / 3));
+    }
+  });
+
   it('draws the same patch from the same seed and shows it once its room is entered', () => {
-    const wrap = () => { const s = newRunState(9); s.section = BOSS; return [s, nextSection(s)!] as const; };
+    const wrap = () => { const s = newRunState(9); s.section = BOSS; return [s, nextSection(s)![0]] as const; };
     const [s, p] = wrap();
     expect(wrap()[1]).toEqual(p);
     expect(revealed(s, p)).toBe(p.room === 0);
@@ -438,7 +453,7 @@ describe('economy', () => {
   it('caps the surplus credits per room; a Credit chip adds 1', () => {
     const s = { ...newRunState(1), items: ['chip'] as ItemId[] };
     endMatrix(s, 1000, 0);
-    expect(s.earned.map(([, n]) => n)).toEqual([1, 3, 1]);
+    expect(s.earned.map(([, n]) => n)).toEqual([1, 2, 1]);
   });
 
   it('a full rack blocks new modules but not upgrades; slots cost more each; selling returns half', () => {
@@ -496,7 +511,7 @@ describe('cron daemons', () => {
     const s = run('heartbeat');
     daemonsAfterMatrix(ctx, s, false);
     daemonsAfterMatrix(ctx, s, false);
-    expect(scoreMatrix(ctx, s).fired).toEqual([['heartbeat', { boost: 0.75 }]]);
+    expect(scoreMatrix(ctx, s).fired).toEqual([['heartbeat', { boost: 0.6 }]]);
     daemonsAfterMatrix({ ...ctx, targets: [...ctx.targets, ['X', 'Y']] }, s, false);
     expect(s.stacks.heartbeat).toBe(0);
   });
@@ -519,7 +534,7 @@ describe('cron daemons', () => {
     const u = run('uptime');
     daemonsAfterMatrix(ctx, u, false);
     daemonsAfterMatrix(ctx, u, false);
-    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 21 }]]);
+    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 15 }]]);
     restartMatrix(u);
     expect(u.stacks.uptime).toBe(0);
     daemonsAfterMatrix(ctx, u, false);
