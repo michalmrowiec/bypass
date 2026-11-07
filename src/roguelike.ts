@@ -662,6 +662,8 @@ export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('so
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
 export const sellValue = (id: ItemId) => Math.floor((item(id).price + (item(id).needs ? item(item(id).needs as ItemId).price : 0)) / 2);
 export const REROLL_COST = 1;
+// Each reroll on a shop visit costs $1 more than the last; free ones count as steps too.
+export const rerollCost = (s: RunState) => REROLL_COST + s.rerolls;
 export const SWAP_COST = 6;
 
 const item = (id: ItemId): Item => ITEMS[id];
@@ -674,8 +676,8 @@ export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter(
 export function stockShop(s: RunState, reroll = false): boolean {
   if (reroll) {
     if (s.freeRerolls) s.freeRerolls--;
-    else if (s.credits < REROLL_COST) return false;
-    else s.credits -= REROLL_COST;
+    else if (s.credits < rerollCost(s)) return false;
+    else s.credits -= rerollCost(s);
     s.rerolls++;
     logEvent(s, 'shop · reroll');
   } else s.rerolls = 0;

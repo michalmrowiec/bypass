@@ -188,6 +188,17 @@ describe('shop', () => {
     expect(stockShop(s, true)).toBe(false);
   });
 
+  it('rerolls cost $1 more each time on one visit, free ones included', () => {
+    const s = { ...rich(10), freeRerolls: 1 };
+    stockShop(s);
+    expect(stockShop(s, true)).toBe(true); // free, $1 step
+    expect(stockShop(s, true)).toBe(true); // $2
+    expect(stockShop(s, true)).toBe(true); // $3
+    expect(s.credits).toBe(5);
+    stockShop(s); // next visit starts at $1 again
+    expect(stockShop(s, true) && s.credits).toBe(4);
+  });
+
   it('items reshape the room matrix', () => {
     expect(sectionMatrix(0, ['buffer2']).slack).toBe(2);
     expect(sectionMatrix(0, ['shortkey'])).toMatchObject({ lens: [2, 2, 2], slack: 1 });
