@@ -225,6 +225,9 @@ function render() {
       doneSeen.add(i);
       el.classList.add('just');
       scramble(el.querySelector<HTMLElement>('.state .stxt')!, state, 2, 1, 40);
+      // The Thumb drive tag decrypts right after the label.
+      const tagEl = el.querySelector<HTMLElement>('.thumbtag');
+      if (tagEl) scramble(tagEl, tagEl.textContent ?? '', state.length + 2, 1, 40);
     }
   });
   // The matrix's bonus objective, ticked while it holds.
