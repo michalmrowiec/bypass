@@ -18,6 +18,11 @@ describe('cell rules', () => {
     expect(cellView(b, 2, 2).cls).toContain('enc');
   });
 
+  it('encryption keeps lines you picked in readable', () => {
+    const b = at(at(board({ ice: ['encryption'] }), 0, 2), 3, 2);
+    expect([cellView(b, 0, 4).hidden, cellView(b, 1, 2).hidden, cellView(b, 3, 0).hidden, cellView(b, 4, 4).hidden]).toEqual([false, false, false, true]);
+  });
+
   it('an armed bridge sees the 8 cells around the last pick', () => {
     const b = at(board({ ice: ['encryption'] }), 0, 2);
     b.armed = 'jump';

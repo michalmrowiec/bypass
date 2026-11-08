@@ -43,7 +43,9 @@ export const isDoorOpen = (b: Board) => !b.run.path.length && b.ctx.items.includ
 const doorEdge = (b: Board, r: number, c: number) => isDoorOpen(b) && onEdge(b, r, c);
 // Blackout ICE: the SOC's targets stay hidden until the first pick.
 export const isBlackout = (b: Board) => b.ctx.ice.includes('blackout') && !b.run.path.length && !b.over;
-// Encryption: a free cell's code shows only in the line you pick in; an armed Bridge also sees the 8 cells around the last pick.
+// Encryption: a free cell's code shows only in lines you have picked in (the start row, each pick's row and column);
+// an armed Bridge also sees the 8 cells around the last pick.
+const seenLine = (b: Board, r: number, c: number) => r === 0 || b.run.path.some(([pr, pc]) => pr === r || pc === c);
 const nextToLast = (b: Board, r: number, c: number) => {
   const p = lastPick(b);
   return !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1;
@@ -52,7 +54,7 @@ const bridgeSees = (b: Board, r: number, c: number) => b.armed === 'jump' && nex
 // Bridge v1.0 reaches the 8 cells around the last pick, so it needs one; v2.0 reaches the whole matrix.
 export const jumpReady = (b: Board) => b.m.jump && (jumpAny(b) || !!lastPick(b));
 export const isEncrypted = (b: Board, r: number, c: number) => !b.over && b.ctx.ice.includes('encryption') && !bridgeSees(b, r, c)
-  && !isUsed(b, r, c) && !inLane(b.run, r, c) && !doorEdge(b, r, c);
+  && !isUsed(b, r, c) && !seenLine(b, r, c) && !doorEdge(b, r, c);
 
 // Rules only; the UI adds its own locks (dealing, daemon offer).
 export function canPick(b: Board, r: number, c: number): boolean {

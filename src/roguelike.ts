@@ -12,7 +12,7 @@ export const ICE = {
   throttle: { name: 'Throttle', text: 'Buffer −1; at least one target always fits' },
   blackout: { name: 'Blackout', text: 'Targets stay hidden until your first pick; every start in the top row reaches one' },
   corruption: { name: 'Corruption', text: 'Each pick locks the cells above, below and beside it for a few moves; every Corruption patch makes it last longer' },
-  encryption: { name: 'Encryption', text: 'Codes stay encrypted (??) outside the line you pick in' },
+  encryption: { name: 'Encryption', text: 'Codes stay encrypted (??) until you pick in their row or column' },
   honeypot: { name: 'Honeypot', text: 'One marked cell off the solution path is a trap; a path through it halves the matrix score' },
   deadcells: { name: 'Dead cells', text: 'A few scattered cells are dead (##); the solution routes around them' },
   conveyor: { name: 'Conveyor', text: 'One row is a belt: after every pick its codes slide one cell right, wrapping around and under used cells' },
@@ -50,9 +50,9 @@ export const COMPANIES: Company[] = [{
   colLabel: (c) => 'B' + String(c + 1).padStart(2, '0'), // bed
   sections: [
     { name: 'Lobby', quota: 50, matrices: 1, size: { n: 6, lens: [2, 3, 4], links: [1], slack: 0 }, brief: 'Visitor kiosks and a nurse station login nobody ever locks.' },
-    { name: 'Wards', quota: 150, matrices: 2, size: { n: 7, lens: [3, 3, 4], links: [1, 2], slack: 0 }, brief: 'Bedside terminals on a flat network, one VLAN for everything.' },
-    { name: 'Records', quota: 300, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
-    { name: 'SOC', quota: 400, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
+    { name: 'Wards', quota: 140, matrices: 2, size: { n: 7, lens: [3, 3, 4], links: [1, 2], slack: 0 }, brief: 'Bedside terminals on a flat network, one VLAN for everything.' },
+    { name: 'Records', quota: 240, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
+    { name: 'SOC', quota: 330, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
