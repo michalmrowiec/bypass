@@ -374,7 +374,7 @@ describe('iterations', () => {
     s.scores[BOSS] = [0];
     expect(endMatrix(s, 1000, 0)).toBe('loop');
     const ps = nextSection(s)!;
-    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 63]);
+    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 65]);
     for (const p of ps) expect(COMPANIES[0].patches).toContain(p.ice);
     Object.assign(s, { loop: 2, section: BOSS, data: 0 });
     s.scores[BOSS] = [0];

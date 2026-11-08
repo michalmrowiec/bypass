@@ -102,7 +102,8 @@ export const isBoss = (s: RunState) => s.section === sections(s).length - 1;
 // Iterations: after the boss the company patches itself and the rooms come round again, quotas doubled; the last one wins.
 export const LOOPS = 3;
 export const QUOTA_GROWTH = 2.5;
-export const quota = (s: RunState, i = s.section) => Math.round(sections(s)[i].quota * QUOTA_GROWTH ** s.loop);
+// Rounded to 5 so later iterations read as clean numbers.
+export const quota = (s: RunState, i = s.section) => Math.round((sections(s)[i].quota * QUOTA_GROWTH ** s.loop) / 5) * 5;
 
 // A patch adds one ICE rule to one room, live from iteration `loop` on.
 export interface Patch { ice: IceId; room: number; loop: number }

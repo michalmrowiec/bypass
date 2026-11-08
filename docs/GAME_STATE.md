@@ -19,7 +19,7 @@
 - Po każdym pokoju jest **darmowy wybór 1 z 3 daemonów** (można pominąć), potem **sklep**.
 - Ostatni pokój to **SOC** (boss) z ICE z puli firmy.
 - **3 iteracje** (`LOOPS`). Po SOC firma się łata („Patch notes”: 1 ICE do losowego pokoju) i rundy lecą od nowa.
-  - Progi ×2,5 na iterację (`QUOTA_GROWTH`).
+  - Progi ×2,5 na iterację (`QUOTA_GROWTH`), zaokrąglone do 5.
   - Od 2. iteracji najdłuższy target ma +1 kod.
   - 3. SOC oznacza firmę zhakowaną i odblokowuje następną.
 - Zapis runu: checkpoint plus log akcji (replay). Jest też eksport i import save'a.
