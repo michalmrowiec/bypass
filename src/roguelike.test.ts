@@ -755,6 +755,16 @@ describe('port moves', () => {
 });
 
 describe('port rooms', () => {
+  it('Dead cells never land on a port', () => {
+    const co = COMPANIES.findIndex((c) => c.id === 'ashgrove'), room = COMPANIES[co].sections.findIndex((x) => x.size.ports);
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = newRunState(seed, co);
+      Object.assign(s, { section: room, patches: [{ ice: 'deadcells', room, loop: 0 }] });
+      const p = dealRunMatrix(seed, s);
+      for (const pair of p.ports!) for (const [r, c] of pair) expect(p.grid[r][c]).not.toBe(BLOCK);
+    }
+  });
+
   it('never get ICE the port board cannot handle', () => {
     COMPANIES.forEach((co, i) => {
       for (let seed = 1; seed <= 30; seed++) {

@@ -33,9 +33,11 @@ export function laneCells({ axis, idx, free, half }: Lane, p: Puzzle): [number, 
   if (free) { row(free[0], halfOf(p, free[1])); col(free[1]); } else if (axis === 'row') row(idx, half ?? 0); else col(idx);
   return out;
 }
-// The port paired with (r, c), if it is one.
+// The index of the port pair (r, c) belongs to, or -1; and the port paired with it, if it is one.
+export const pairOf = (p: Pick<Puzzle, 'ports'>, r: number, c: number) =>
+  p.ports?.findIndex(([a, b]) => (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c)) ?? -1;
 export const partner = (p: Pick<Puzzle, 'ports'>, r: number, c: number): [number, number] | undefined => {
-  const pair = p.ports?.find(([a, b]) => (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c));
+  const pair = p.ports?.[pairOf(p, r, c)];
   return pair && (pair[0][0] === r && pair[0][1] === c ? pair[1] : pair[0]);
 };
 // Loopback v1.0 back through a port: a used port counts as in the lane while its partner is; it then leads
@@ -95,7 +97,8 @@ export function isLegal(run: Run, r: number, c: number, p?: Pick<Puzzle, 'half'>
 
 export const anyLegal = (run: Run, p: Puzzle) => laneCells(run, p).some(([r, c]) => isLegal(run, r, c, p));
 
-export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
+// through: Loopback v1.0 back through a port; the run stays on the port instead of jumping to its partner.
+export function pick(run: Run, puzzle: Puzzle, r: number, c: number, through = false): void {
   run.buffer.push(puzzle.grid[r][c]);
   run.used.add(r + ',' + c);
   run.path.push([r, c]);
@@ -106,7 +109,7 @@ export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
       burnt.set(k, Math.max(burnt.get(k) ?? 0, run.path.length + run.burn));
     }
   }
-  Object.assign(run, nextLane(run, r, c, puzzle));
+  Object.assign(run, nextLane(run, r, c, through ? { half: puzzle.half } : puzzle));
 }
 
 export const score = (buf: string[], targets: string[][]) => targets.filter((t) => contains(buf, t)).length;

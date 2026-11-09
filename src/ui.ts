@@ -1,7 +1,7 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, score,
-  stageSeed, targetProgress, WILD, fits, inLane, burning, partner,
+  stageSeed, targetProgress, WILD, fits, inLane, burning, pairOf, partner,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
@@ -106,7 +106,7 @@ function render() {
   // Port board: the two matrices sit apart, with a narrow gap column between them.
   g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
   const gap = () => { const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); g.appendChild(d); };
-  const portNo = (r: number, c: number) => (S.puzzle.ports?.findIndex(([a, b]) => (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c)) ?? -1) + 1;
+  const portNo = (r: number, c: number) => pairOf(S.puzzle, r, c) + 1;
   // Hex-dump headers: column offsets on top, row addresses on the left; the active lane's header lights up.
   const hx = (text: string, on: boolean, cls = '') => {
     const h = document.createElement('div');
@@ -448,7 +448,7 @@ function renderDaemons() {
     const on = ready && armed === t;
     // Not ready: spent (used: until the next matrix, SIM until the next room), unused (its window passed without use)
     // or waiting (charged, not now).
-    const used = !!t && (t === 'sim' ? R.restarts < 1 : t === 'wild' ? !M.wild : t === 'split' ? !M.split : t === 'jump' ? !M.jump : t === 'mux' ? !M.mux : t === 'rewind' ? !M.rewind : !M.loop);
+    const used = !!t && (t === 'sim' ? R.restarts < 1 : !M[t]); // each tool's name is its ItemState flag
     const missed = !!t && !used && (S.over || ((t === 'sim' || t === 'wild' || t === 'split') && !start));
     const spent = !ready && (used || missed);
     const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')

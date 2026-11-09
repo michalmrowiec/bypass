@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generate, SIZES, type Puzzle } from './generator';
+import { generate, hashStr, SIZES, type Puzzle } from './generator';
 import { SPRINTS, newRun, pick } from './game';
 import { canComplete } from './solver';
 
@@ -46,4 +46,11 @@ describe('canComplete', () => {
   it('answers true when the search budget runs out', () => {
     expect(canComplete(newRun(), { ...tiny, targets: [['AA', 'DD']] }, 0)).toBe(true);
   });
+});
+
+// Daily puzzles and shared challenge links rely on a seed always dealing the same square board.
+// If this fails, a change altered the deal (e.g. one more rng() call); keep it unless that is intended.
+it('square boards deal the same for a seed as before', () => {
+  const deals = Object.values(SIZES).flatMap((z) => Array.from({ length: 30 }, (_, i) => JSON.stringify(generate(i + 1, z))));
+  expect(hashStr(deals.join('|'))).toBe(2504023170);
 });

@@ -1,5 +1,5 @@
 // Matrix rules for a run: the deal, what each cell shows and allows, and what a pick does. No DOM here.
-import { burning, contains, halfOf, inLane, isLegal, newRun, nextLane, partner, pick, portBack, WILD, type Run } from './game';
+import { burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, portBack, WILD, type Run } from './game';
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
@@ -144,11 +144,10 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
     return 'placed';
   }
   const door = isDoorOpen(b), offLane = !inLane(run, r, c, puzzle), back = tool === 'loop' && !loopAny(b) && portBack(run, puzzle, r, c);
-  const from = { ...run };
   m.back = { axis: run.axis, idx: run.idx, free: run.free, half: run.half }; // before Mux widens the lane, so Rewind does not hand it back
   if (tool === 'mux') { run.free = standAt(b); m.mux = false; }
-  pick(run, puzzle, r, c);
-  if (back) { Object.assign(run, nextLane(from, r, c, { half: puzzle.half })); m.stay = [...(m.stay ?? []), run.path.length - 1]; } // through the port, no second jump
+  pick(run, puzzle, r, c, back);
+  if (back) m.stay = [...(m.stay ?? []), run.path.length - 1];
   if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);
   if (door) sideDoor(run, r, c, puzzle.grid.length);
   if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);

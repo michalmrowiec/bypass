@@ -806,7 +806,7 @@ export function trapCell(seed: number, p: Puzzle, avoid: (Cell | undefined)[]): 
 function killCells(seed: number, p: Puzzle): Puzzle {
   const r = rng(hashStr(seed + '/dead')), n = p.grid.length;
   const pool = shuffled(allCells(p)
-    .filter((c) => p.grid[c[0]][c[1]] !== BLOCK && !p.path?.some((q) => q[0] === c[0] && q[1] === c[1])), r);
+    .filter((c) => p.grid[c[0]][c[1]] !== BLOCK && !p.path?.some((q) => q[0] === c[0] && q[1] === c[1]) && !partner(p, ...c)), r);
   for (const [y, x] of pool.slice(0, n <= 5 ? 2 : 3)) p.grid[y][x] = BLOCK;
   return p;
 }
