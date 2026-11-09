@@ -1,4 +1,4 @@
-import { contains, halfOf, laneCells, nextLane, partner, portBack, partial, type Lane, type Run } from './game';
+import { contains, WILD, halfOf, laneCells, nextLane, partner, portBack, partial, type Lane, type Run } from './game';
 import { BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to a free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
@@ -48,14 +48,14 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     for (const [r, c] of laneCells(lane, p)) {
       if (!open(r, c)) continue;
       if (!used.has(r + ',' + c)) { if (step(r, c, lane, jump, loop, mux)) return true; }
-      else if (loop && !tools.loopAny && step(r, c, lane, jump, false, mux)) return true;
+      else if (loop && !tools.loopAny && p.grid[r][c] !== WILD && step(r, c, lane, jump, false, mux)) return true;
     }
     if (loop && !tools.loopAny) for (const [a, b] of p.ports ?? []) for (const [r, c] of [a, b]) {
-      if (used.has(r + ',' + c) && !hot(r, c) && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
+      if (used.has(r + ',' + c) && !hot(r, c) && p.grid[r][c] !== WILD && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
     }
     if (loop && tools.loopAny) for (const key of [...used]) {
       const [r, c] = key.split(',').map(Number);
-      if (!hot(r, c) && step(r, c, lane, jump, false, mux)) return true;
+      if (!hot(r, c) && p.grid[r][c] !== WILD && step(r, c, lane, jump, false, mux)) return true;
     }
     // Mux: a free cell in the row or column of the last pick, as if the lane were both lines through it.
     if (mux && !lane.free && last) {

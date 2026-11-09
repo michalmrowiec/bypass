@@ -6,7 +6,7 @@ import {
 import { gear } from './gear';
 import { hacker, logo } from './logos';
 import {
-  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
@@ -444,7 +444,7 @@ function renderDaemons() {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
     const ready = !!t && !S.over && !offer.length
-      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? M.mux && !start && !S.run.free : t === 'rewind' ? M.rewind && !!M.back : M.loop && !start);
+      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
     const on = ready && armed === t;
     const hint = !ready ? '' : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';

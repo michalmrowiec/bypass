@@ -174,8 +174,11 @@ export function isStuck(b: Board, runMode: boolean): boolean {
 
 // An unused Bridge, Loopback, Mux or Rewind can still move when the lane is spent.
 // A Bridge counts only while some cell is in its reach (v1.0 needs a free neighbour of the last pick).
-const canJump = (b: Board) => b.m.jump && b.puzzle.grid.some((row, r) => row.some((_, c) => canPick({ ...b, armed: 'jump' }, r, c)));
-export const hasMoves = (b: Board) => b.run.buffer.length < b.puzzle.l && (canJump(b) || b.m.loop || b.m.mux || canUndo(b));
+// A tool counts only while some cell is in its reach (Loopback has nothing to take when the only used cell is a spent **).
+const reaches = (b: Board, armed: Tool) => b.puzzle.grid.some((row, r) => row.some((_, c) => canPick({ ...b, armed }, r, c)));
+export const loopReady = (b: Board) => b.m.loop && reaches(b, 'loop');
+export const muxReady = (b: Board) => b.m.mux && !b.run.free && reaches(b, 'mux');
+export const hasMoves = (b: Board) => b.run.buffer.length < b.puzzle.l && ((b.m.jump && reaches(b, 'jump')) || loopReady(b) || muxReady(b) || canUndo(b));
 
 // Rewind: the last pick's code stays in the buffer, the cell (unless **) is free again, the lane goes back and the buffer gains a slot.
 export function rewind(b: Board): boolean {

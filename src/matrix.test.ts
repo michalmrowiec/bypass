@@ -3,7 +3,7 @@ import { COMPANIES, dealRunMatrix, newRunState, type RunState } from './roguelik
 import { BLOCK } from './generator';
 import { canComplete } from './solver';
 import { newRun, pick, WILD } from './game';
-import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, jumpReady, lastPick, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
+import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, jumpReady, lastPick, loopReady, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
 
 // 5x5 board with codes 'A'..'Y' in reading order.
 const grid = () => Array.from({ length: 5 }, (_, r) => Array.from({ length: 5 }, (_, c) => String.fromCharCode(65 + r * 5 + c)));
@@ -242,5 +242,16 @@ describe('port boards', () => {
     applyPick(b, 0, 1);
     expect(rewind(b)).toBe(true);
     expect([canPick(b, 0, 2), canPick(b, 0, 4), canPick(b, 1, 4)]).toEqual([true, false, false]);
+  });
+});
+
+describe('tool readiness', () => {
+  it('Loopback is not ready while the only used cell is a spent **', () => {
+    const b = board({ items: ['loopback1'] }, { m: { ...emptyItems(), loop: true } });
+    b.puzzle.grid[0][0] = WILD;
+    applyPick(b, 0, 0);
+    expect([loopReady(b), hasMoves(b)]).toEqual([false, false]);
+    applyPick(b, 1, 0);
+    expect(loopReady(b)).toBe(true);
   });
 });
