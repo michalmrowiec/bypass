@@ -146,8 +146,8 @@ function render() {
       const [pr, pc] = partner(S.puzzle, r, c)!;
       // ...and plays the pair's ring: in at the one you point at, out at its partner.
       const lit = (on: boolean) => { b.classList.toggle('plink', on); b.classList.toggle('pgo', on); $('c' + pr + pc)?.classList.toggle('plink', on); $('c' + pr + pc)?.classList.toggle('pcome', on); };
-      b.onmouseenter = () => lit(true);
-      b.onmouseleave = () => lit(false);
+      b.onmouseenter = b.onfocus = () => lit(true);
+      b.onmouseleave = b.onblur = () => lit(false);
     }
     if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
