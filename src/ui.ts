@@ -1,7 +1,7 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, score,
-  stageSeed, targetProgress, WILD, fits, inLane, burning,
+  stageSeed, targetProgress, WILD, fits, inLane, burning, partner,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
@@ -99,11 +99,14 @@ const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + '</i
 
 function render() {
   const { grid, targets, l } = S.puzzle;
-  const n = grid.length;
+  const n = grid.length, cols = grid[0].length, w = S.puzzle.half;
   const { buffer, axis, idx } = S.run;
   const g = $('grid');
   g.innerHTML = '';
-  g.style.gridTemplateColumns = 'auto repeat(' + n + ',minmax(0,1fr))';
+  // Port board: the two matrices sit apart, with a narrow gap column between them.
+  g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
+  const gap = () => { const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); g.appendChild(d); };
+  const portNo = (r: number, c: number) => (S.puzzle.ports?.findIndex(([a, b]) => (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c)) ?? -1) + 1;
   // Hex-dump headers: column offsets on top, row addresses on the left; the active lane's header lights up.
   const hx = (text: string, on: boolean, cls = '') => {
     const h = document.createElement('div');
@@ -116,13 +119,17 @@ function render() {
   const free = S.run.free;
   // cron/rotate: before the first pick, the column the last matrix started in glows in the cron colour.
   const lastCol = S.mode === 'run' && R.daemons.includes('rotate') && !S.run.path.length && !S.over ? R.lastStart : undefined;
-  for (let c = 0; c < n; c++) hx(colName(c), free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
+  for (let c = 0; c < cols; c++) {
+    if (w && c === w) gap();
+    hx(colName(w ? c % w : c), free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
+  }
   const bd = B();
   // Conveyor: the belt slides only on the render right after a pick.
   const moved = !!S.puzzle.belt && S.run.path.length > 0 && S.run.path.length !== beltSeen;
   beltSeen = S.run.path.length;
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+  for (let r = 0; r < n; r++) for (let c = 0; c < cols; c++) {
     if (c === 0) hx(rowName(r), free ? r === free[0] : axis === 'row' && r === idx, S.puzzle.belt?.row === r ? ' belt' : '');
+    if (w && c === w) gap();
     const b = document.createElement('button');
     b.className = 'cell';
     b.id = 'c' + r + c;
@@ -131,10 +138,18 @@ function render() {
     b.classList.add(...v.cls);
     if (moved && v.cls.includes('belt')) b.classList.add('shift');
     for (const t of v.tags) b.insertAdjacentHTML('beforeend', TAG[t]);
+    const port = portNo(r, c);
+    if (port) {
+      b.insertAdjacentHTML('beforeend', "<i class='ptag'>⇄" + port + '</i>');
+      // Pointing at a port lights its partner in the other matrix.
+      const [pr, pc] = partner(S.puzzle, r, c)!;
+      b.onmouseenter = () => $('c' + pr + pc)?.classList.add('plink');
+      b.onmouseleave = () => $('c' + pr + pc)?.classList.remove('plink');
+    }
     if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
       b.classList.add('ok');
-      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code) + (v.tags.includes('trap') ? ' (honeypot)' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
+      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + port + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
       b.onclick = () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
@@ -147,7 +162,7 @@ function render() {
   $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
     : armed === 'jump' ? 'bridge: pick ' + (jumpAny(B()) ? 'any free cell' : 'a free cell next to your last pick') : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
-    : axis === 'row' ? 'pick in row ' + rowName(idx) : 'pick in col ' + colName(idx);
+    : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(w ? idx % w : idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
   const buf = $('buffer');
   buf.innerHTML = '';
   $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l; // l already lacks the slots Throttle takes
@@ -1101,7 +1116,7 @@ function rewindPeek(on: boolean) {
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((c) => {
     const r = +c.id[1], k = +c.id[2];
     c.classList.toggle('undo', on && r === lr && k === lc);
-    c.classList.toggle('rwlane', on && inLane(back, r, k));
+    c.classList.toggle('rwlane', on && inLane(back, r, k, S.puzzle));
   });
   $('buffer').querySelector('.ghost')?.remove();
   // Before Throttle's locked slot, where the new slot will sit.
@@ -1168,7 +1183,7 @@ function markCode(code?: string) {
     const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
     const on = !!code && S.mode === 'run' && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
     el.classList.toggle('tpeek', on);
-    el.classList.toggle('near', on && inLane(S.run, r, c));
+    el.classList.toggle('near', on && inLane(S.run, r, c, S.puzzle));
   });
   // The same code in every target, the hovered one included.
   document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((sp) => sp.classList.toggle('tpeek', !!code && !dark && sp.textContent === code));
@@ -1592,15 +1607,15 @@ export function init() {
     if (!d || !cur.classList.contains('cell')) return;
     e.preventDefault();
     // Jump to the next pickable cell, wrapping at the edges; arrows across the active lane find none and do nothing.
-    const n = S.puzzle.grid.length;
+    const n = S.puzzle.grid.length, cols = S.puzzle.grid[0].length, span = d[0] ? n : cols;
     const r0 = +cur.id[1], c0 = +cur.id[2];
     let i = 1, r = r0, c = c0;
-    for (; i < n; i++) {
+    for (; i < span; i++) {
       r = (((r0 + d[0] * i) % n) + n) % n;
-      c = (((c0 + d[1] * i) % n) + n) % n;
+      c = (((c0 + d[1] * i) % cols) + cols) % cols;
       if (legal(r, c)) break;
     }
-    if (i === n) return;
+    if (i === span) return;
     const next = $('c' + r + c);
     cur.tabIndex = -1;
     next.tabIndex = 0;

@@ -17,29 +17,41 @@ export interface Run {
   axis: 'row' | 'col';
   idx: number;
   free?: [number, number]; // after a Side door corner: the next pick may take this cell's row or its column
+  half?: number; // port boards: which matrix a row lane lies in (0 = A, the left one)
   burn?: number; // Corruption ICE: each pick locks its 4 neighbours for this many moves (Infinity: for good)
   burnt?: Map<string, number>; // cell -> path length from which it is free again
 }
 
 // Board shape: the cells of a lane and the lane after a pick. Everything that walks the board (rules, solver) goes through these two.
-export type Lane = Pick<Run, 'axis' | 'idx' | 'free'>;
-export function laneCells({ axis, idx, free }: Lane, p: Puzzle): [number, number][] {
-  const rows = p.grid.length, cols = p.grid[0].length, out: [number, number][] = [];
-  const row = (r: number) => { for (let c = 0; c < cols; c++) out.push([r, c]); };
+// Port boards: two matrices side by side, `half` columns each; a row lane stays in its own matrix.
+export type Lane = Pick<Run, 'axis' | 'idx' | 'free' | 'half'>;
+export const halfOf = (p: Pick<Puzzle, 'half'> | undefined, c: number) => (p?.half ? Math.floor(c / p.half) : 0);
+export function laneCells({ axis, idx, free, half }: Lane, p: Puzzle): [number, number][] {
+  const rows = p.grid.length, w = p.half ?? p.grid[0].length, out: [number, number][] = [];
+  const row = (r: number, h = 0) => { for (let c = h * w; c < h * w + w; c++) out.push([r, c]); };
   const col = (c: number) => { for (let r = 0; r < rows; r++) out.push([r, c]); };
-  if (free) { row(free[0]); col(free[1]); } else if (axis === 'row') row(idx); else col(idx);
+  if (free) { row(free[0], halfOf(p, free[1])); col(free[1]); } else if (axis === 'row') row(idx, half ?? 0); else col(idx);
   return out;
 }
-export function nextLane({ axis, free }: Lane, r: number, c: number): Lane {
+// The port paired with (r, c), if it is one.
+export const partner = (p: Pick<Puzzle, 'ports'>, r: number, c: number): [number, number] | undefined => {
+  const pair = p.ports?.find(([a, b]) => (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c));
+  return pair && (pair[0][0] === r && pair[0][1] === c ? pair[1] : pair[0]);
+};
+// A port sends the next lane through its partner in the other matrix.
+export function nextLane({ axis, free }: Lane, r: number, c: number, p: Pick<Puzzle, 'ports' | 'half'>): Lane {
   const alongRow = free ? r === free[0] : axis === 'row';
-  return alongRow ? { axis: 'col', idx: c, free: undefined } : { axis: 'row', idx: r, free: undefined };
+  const [tr, tc] = partner(p, r, c) ?? [r, c];
+  return alongRow ? { axis: 'col', idx: tc, free: undefined, half: undefined } : { axis: 'row', idx: tr, free: undefined, half: p.half ? halfOf(p, tc) : undefined };
 }
 
 export const burning = (run: Run, r: number, c: number) => (run.burnt?.get(r + ',' + c) ?? 0) > run.path.length;
 
 // The lane the next pick comes from: one row or column, or both lines through `free`.
-export const inLane = (run: Run, r: number, c: number) =>
-  run.free ? r === run.free[0] || c === run.free[1] : run.axis === 'row' ? r === run.idx : c === run.idx;
+// p is needed only on port boards, where a row lane ends at its matrix's edge.
+export const inLane = (run: Lane, r: number, c: number, p?: Pick<Puzzle, 'half'>) =>
+  run.free ? (r === run.free[0] && halfOf(p, c) === halfOf(p, run.free[1])) || c === run.free[1]
+    : run.axis === 'row' ? r === run.idx && halfOf(p, c) === (run.half ?? 0) : c === run.idx;
 
 export const newRun = (): Run => ({ buffer: [], used: new Set(), path: [], axis: 'row', idx: 0 });
 
@@ -70,11 +82,11 @@ export function targetProgress(buf: string[], t: string[], l: number, over: bool
   return { done: false, k, fail: t.length - k > l - buf.length || over };
 }
 
-export function isLegal(run: Run, r: number, c: number): boolean {
-  return !run.used.has(r + ',' + c) && inLane(run, r, c) && !burning(run, r, c);
+export function isLegal(run: Run, r: number, c: number, p?: Pick<Puzzle, 'half'>): boolean {
+  return !run.used.has(r + ',' + c) && inLane(run, r, c, p) && !burning(run, r, c);
 }
 
-export const anyLegal = (run: Run, p: Puzzle) => laneCells(run, p).some(([r, c]) => isLegal(run, r, c));
+export const anyLegal = (run: Run, p: Puzzle) => laneCells(run, p).some(([r, c]) => isLegal(run, r, c, p));
 
 export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
   run.buffer.push(puzzle.grid[r][c]);
@@ -87,7 +99,7 @@ export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
       burnt.set(k, Math.max(burnt.get(k) ?? 0, run.path.length + run.burn));
     }
   }
-  Object.assign(run, nextLane(run, r, c));
+  Object.assign(run, nextLane(run, r, c, puzzle));
 }
 
 export const score = (buf: string[], targets: string[][]) => targets.filter((t) => contains(buf, t)).length;

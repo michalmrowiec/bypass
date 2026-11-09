@@ -27,7 +27,24 @@ export interface Section { name: string; quota: number; matrices: number; size: 
 export interface Company {
   id: string; name: string; text: string; codes: string[]; sections: Section[]; ice: IceId[]; patches: IceId[]; always?: IceId[];
   rowLabel?: (r: number) => string; colLabel?: (c: number) => string;
+  dev?: boolean; // test company: dev server only, open from the start
 }
+// Test bench for new board shapes, with no ICE; becomes a real company once the shape works.
+const LAB: Company = {
+  id: 'lab',
+  name: 'Lab',
+  text: 'Dev test bench: port boards, two matrices joined by ⇄ pairs. No ICE.',
+  codes: CODES,
+  dev: true,
+  sections: [
+    { name: 'Ports I', quota: 30, matrices: 2, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0, ports: 2 }, brief: 'Two matrices, two port pairs.' },
+    { name: 'Ports II', quota: 60, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1], slack: 0, ports: 2 }, brief: 'Longer targets across both matrices.' },
+    { name: 'Ports III', quota: 90, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Long chains, both matrices.' },
+  ],
+  ice: [],
+  patches: [],
+};
+
 export const COMPANIES: Company[] = [{
   id: 'kestrel',
   name: 'Kestrel Logistics',
@@ -93,9 +110,9 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
-}];
+}, ...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
-export const companyOpen = (breached: string[], i: number) => i === 0 || breached.includes(COMPANIES[i - 1]?.id);
+export const companyOpen = (breached: string[], i: number) => i === 0 || !!COMPANIES[i]?.dev || breached.includes(COMPANIES[i - 1]?.id);
 export const sections = (s: RunState) => COMPANIES[s.company].sections;
 export const isBoss = (s: RunState) => s.section === sections(s).length - 1;
 
@@ -114,7 +131,7 @@ export const revealed = (s: RunState, p: Patch) => s.loop > p.loop || s.section 
 // The ICE rules in a room: the boss rule plus the patches deployed there.
 export const roomIce = (s: RunState, i = s.section): IceId[] =>
   [...new Set([...(COMPANIES[s.company].always ?? []), ...(sections(s)[i].ice ?? []),
-    ...(i === sections(s).length - 1 ? [s.ice] : []), ...live(s).filter((p) => p.room === i).map((p) => p.ice)])];
+    ...(i === sections(s).length - 1 && s.ice ? [s.ice] : []), ...live(s).filter((p) => p.room === i).map((p) => p.ice)])];
 
 // Corruption lasts one move per Corruption patch (at least 1), for good from the third.
 export function burnOf(s: RunState, i = s.section): number {
@@ -299,7 +316,8 @@ interface Facts {
 }
 
 type Cell = [number, number];
-export const isCorner = (p: Cell | undefined, n: number) => !!p && (p[0] === 0 || p[0] === n - 1) && (p[1] === 0 || p[1] === n - 1);
+// w: matrix width on a port board, where each matrix has its own corners.
+export const isCorner = (p: Cell | undefined, n: number, w = n) => !!p && (p[0] === 0 || p[0] === n - 1) && (p[1] % w === 0 || p[1] % w === w - 1);
 // Picks alternate row/column, so consecutive cells share a lane; the move length is the distance along it.
 const moveLen = (a: Cell, b: Cell) => (a[0] === b[0] ? Math.abs(a[1] - b[1]) : Math.abs(a[0] - b[0]));
 
@@ -744,6 +762,8 @@ export function swapDaemon(s: RunState, out: DaemonId, id: DaemonId): boolean {
   return true;
 }
 
+const allCells = (p: Puzzle) => p.grid.flatMap((row, r) => row.map((_, c): Cell => [r, c]));
+
 export const NODE_DATA = 15;
 export const nodeData = (items: ItemId[]) => (items.includes('datanode2') ? 2 * NODE_DATA : NODE_DATA);
 const NODE_ON_PATH = 0.2;
@@ -752,8 +772,7 @@ const NODE_ON_PATH = 0.2;
 // the Data node only in about one matrix in five.
 export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: Cell; node?: Cell } {
   const r = rng(hashStr(seed + '/cells'));
-  const n = p.grid.length;
-  const cells = Array.from({ length: n * n }, (_, i): Cell => [Math.floor(i / n), i % n]);
+  const cells = allCells(p);
   const onPath = (c: Cell) => !!p.path?.some((q) => q[0] === c[0] && q[1] === c[1]);
   const pickCell = (pool: Cell[]) => pool[Math.floor(r() * pool.length)];
   const open = cells.filter((c) => p.grid[c[0]][c[1]] !== BLOCK);
@@ -766,9 +785,9 @@ export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: C
 export const HONEYPOT_MULT = 0.5;
 // Honeypot: a free cell off the planted path, clear of the item cells.
 export function trapCell(seed: number, p: Puzzle, avoid: (Cell | undefined)[]): Cell | undefined {
-  const r = rng(hashStr(seed + '/trap')), n = p.grid.length;
+  const r = rng(hashStr(seed + '/trap'));
   const same = (a: Cell, b?: Cell) => !!b && a[0] === b[0] && a[1] === b[1];
-  const pool = Array.from({ length: n * n }, (_, i): Cell => [Math.floor(i / n), i % n])
+  const pool = allCells(p)
     .filter((c) => p.grid[c[0]][c[1]] !== BLOCK && !p.path?.some((q) => same(c, q)) && !avoid.some((a) => same(c, a)));
   return pool[Math.floor(r() * pool.length)];
 }
@@ -776,7 +795,7 @@ export function trapCell(seed: number, p: Puzzle, avoid: (Cell | undefined)[]): 
 // Dead cells: 2 on a 5×5, 3 on bigger matrices, scattered off the planted path.
 function killCells(seed: number, p: Puzzle): Puzzle {
   const r = rng(hashStr(seed + '/dead')), n = p.grid.length;
-  const pool = shuffled(Array.from({ length: n * n }, (_, i): Cell => [Math.floor(i / n), i % n])
+  const pool = shuffled(allCells(p)
     .filter((c) => p.grid[c[0]][c[1]] !== BLOCK && !p.path?.some((q) => q[0] === c[0] && q[1] === c[1])), r);
   for (const [y, x] of pool.slice(0, n <= 5 ? 2 : 3)) p.grid[y][x] = BLOCK;
   return p;

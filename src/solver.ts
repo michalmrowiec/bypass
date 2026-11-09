@@ -1,4 +1,4 @@
-import { contains, laneCells, nextLane, partial, type Lane, type Run } from './game';
+import { contains, halfOf, laneCells, nextLane, partial, type Lane, type Run } from './game';
 import { BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to a free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
@@ -31,7 +31,7 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
       burnt.set(k, Math.max(old ?? 0, buf.length + run.burn!));
       return [k, old] as const;
     }) : [];
-    const ok = dfs(nextLane(from, r, c), jump, loop, mux, [r, c]);
+    const ok = dfs(nextLane(from, r, c, p), jump, loop, mux, [r, c]);
     for (const [k, old] of was.reverse()) { if (old === undefined) burnt.delete(k); else burnt.set(k, old); }
     buf.pop();
     if (twice) buf.pop();
@@ -60,7 +60,7 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     }
     if (jump && (!tools.near || last)) {
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        if (tools.near && Math.max(Math.abs(last![0] - r), Math.abs(last![1] - c)) !== 1) continue;
+        if (tools.near && (Math.max(Math.abs(last![0] - r), Math.abs(last![1] - c)) !== 1 || halfOf(p, c) !== halfOf(p, last![1]))) continue;
         if (open(r, c) && !used.has(r + ',' + c) && step(r, c, lane, false, loop, mux)) return true;
       }
     }

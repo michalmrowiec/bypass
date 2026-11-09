@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contains, isLegal, newRun, pick, WILD } from './game';
+import { contains, isLegal, newRun, partner, pick, WILD } from './game';
 import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
@@ -334,6 +334,7 @@ describe('SOC ICE', () => {
 
   it("draws the ICE rule from the company's pool", () => {
     COMPANIES.forEach((co, i) => {
+      if (co.dev) return;
       for (let seed = 1; seed <= 20; seed++) expect(co.ice).toContain(newRunState(seed, i).ice);
     });
   });
@@ -388,6 +389,7 @@ describe('iterations', () => {
 
   it('ICE covers ~60% of rooms in iteration 2, every room in iteration 3 with ~1/3 doubled', () => {
     for (let co = 0; co < COMPANIES.length; co++) for (let seed = 1; seed <= 20; seed++) {
+      if (COMPANIES[co].dev) continue;
       const s = newRunState(seed, co), n = sections(s).length;
       s.section = n - 1;
       nextSection(s);
@@ -704,6 +706,7 @@ describe('new ICE: Dead cells, Honeypot; company pools', () => {
 
   it('every company keeps the ICE of the one before (in its pools or in every room)', () => {
     for (let i = 1; i < COMPANIES.length; i++) {
+      if (COMPANIES[i].dev) continue;
       const always = COMPANIES[i].always ?? [];
       for (const id of COMPANIES[i - 1].patches) expect([...COMPANIES[i].patches, ...always]).toContain(id);
       for (const id of COMPANIES[i - 1].ice) expect([...COMPANIES[i].ice, ...always]).toContain(id);
@@ -718,5 +721,27 @@ describe('new ICE: Dead cells, Honeypot; company pools', () => {
     const p = dealRunMatrix(7, { ...s, section: 2 });
     expect(p.belt && p.belt.row > 0).toBe(true);
     expect(beltRow(['A', 'B', BLOCK, 'C'], 1)).toEqual(['C', 'A', BLOCK, 'B']);
+  });
+});
+
+describe('port boards', () => {
+  const size = COMPANIES.find((c) => c.dev)!.sections[2].size;
+  it('every port board is solvable and its planted route passes a port', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const p = generate(seed, size);
+      expect(p.grid[0].length).toBe(2 * size.n);
+      expect(p.path!.some(([r, c]) => partner(p, r, c))).toBe(true);
+      expect(canComplete(newRun(), p, Infinity)).toBe(true);
+    }
+  });
+
+  it('a port sends the next lane through its partner; row lanes stay in their matrix', () => {
+    const p = { grid: [['A', 'B', 'C', 'D'], ['E', 'F', 'G', 'H']], targets: [], l: 4, half: 2, ports: [[[0, 1], [1, 2]]] as [[number, number], [number, number]][] };
+    const run = newRun();
+    expect([isLegal(run, 0, 1, p), isLegal(run, 0, 2, p)]).toEqual([true, false]);
+    pick(run, p, 0, 1); // port along row 0 of A: next lane is the partner's column
+    expect([run.axis, run.idx]).toEqual(['col', 2]);
+    pick(run, p, 0, 2); // down column 2: next lane is row 0 of B
+    expect([isLegal(run, 0, 3, p), isLegal(run, 0, 0, p)]).toEqual([true, false]);
   });
 });

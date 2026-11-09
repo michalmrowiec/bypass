@@ -1,5 +1,5 @@
 // Matrix rules for a run: the deal, what each cell shows and allows, and what a pick does. No DOM here.
-import { burning, contains, inLane, isLegal, newRun, pick, WILD, type Run } from './game';
+import { burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, WILD, type Run } from './game';
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
@@ -17,7 +17,7 @@ export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1:
 // undone: the path index Rewind took back (it stays on the path for daemons); kept: the buffer index of the code it kept.
 export interface ItemState {
   node?: Cell; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
-  bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free'>; charge?: boolean; undone?: number; kept?: number;
+  bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free' | 'half'>; charge?: boolean; undone?: number; kept?: number;
 }
 export const emptyItems = (): ItemState => ({ worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] });
 
@@ -35,7 +35,8 @@ const isUsed = (b: Board, r: number, c: number) => b.run.used.has(r + ',' + c);
 const same = (p: Cell | undefined, r: number, c: number) => !!p && p[0] === r && p[1] === c;
 // A pick taken back by Rewind no longer counts as the last one.
 export const lastPick = (b: Board): Cell | undefined => { const i = b.run.path.length - 1; return b.run.path[i === b.m.undone ? i - 1 : i]; };
-const onEdge = (b: Board, r: number, c: number) => { const n = b.puzzle.grid.length; return r === 0 || c === 0 || r === n - 1 || c === n - 1; };
+// On a port board only the left matrix has a Side door edge.
+const onEdge = (b: Board, r: number, c: number) => { const n = b.puzzle.grid.length, w = b.puzzle.half ?? n; return c < w && (r === 0 || c === 0 || r === n - 1 || c === w - 1); };
 // Mux: the next pick may take the row or the column of the last picked cell.
 const muxLane = (b: Board, r: number, c: number) => { const p = lastPick(b); return !!p && (r === p[0] || c === p[1]); };
 // Side door: before the first pick, any edge cell is open.
@@ -45,10 +46,10 @@ const doorEdge = (b: Board, r: number, c: number) => isDoorOpen(b) && onEdge(b, 
 export const isBlackout = (b: Board) => b.ctx.ice.includes('blackout') && !b.run.path.length && !b.over;
 // Encryption: a free cell's code shows only in lines you have picked in (the start row, each pick's row and column);
 // an armed Bridge also sees the 8 cells around the last pick.
-const seenLine = (b: Board, r: number, c: number) => r === 0 || b.run.path.some(([pr, pc]) => pr === r || pc === c);
+const seenLine = (b: Board, r: number, c: number) => (r === 0 && halfOf(b.puzzle, c) === 0) || b.run.path.some(([pr, pc]) => (pr === r && halfOf(b.puzzle, pc) === halfOf(b.puzzle, c)) || pc === c);
 const nextToLast = (b: Board, r: number, c: number) => {
   const p = lastPick(b);
-  return !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1;
+  return !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1 && halfOf(b.puzzle, c) === halfOf(b.puzzle, p[1]);
 };
 const bridgeSees = (b: Board, r: number, c: number) => b.armed === 'jump' && nextToLast(b, r, c);
 // Bridge v1.0 reaches the 8 cells around the last pick, so it needs one; v2.0 reaches the whole matrix.
@@ -63,9 +64,9 @@ export function canPick(b: Board, r: number, c: number): boolean {
   switch (b.armed) {
     case 'wild': return !isUsed(b, r, c) && grid[r][c] !== WILD && !same(b.m.rep, r, c);
     case 'jump': return !isUsed(b, r, c) && (jumpAny(b) || nextToLast(b, r, c));
-    case 'loop': return isUsed(b, r, c) && grid[r][c] !== WILD && (loopAny(b) || inLane(b.run, r, c));
+    case 'loop': return isUsed(b, r, c) && grid[r][c] !== WILD && (loopAny(b) || inLane(b.run, r, c, b.puzzle));
     case 'mux': return !isUsed(b, r, c) && muxLane(b, r, c);
-    default: return isLegal(b.run, r, c) || doorEdge(b, r, c);
+    default: return isLegal(b.run, r, c, b.puzzle) || doorEdge(b, r, c);
   }
 }
 
@@ -86,13 +87,14 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (same(b.m.rep, r, c)) tags.push('rep');
   // Ping: a solution's first cell, until the first pick.
   if (b.ctx.items.includes('ping') && !b.run.path.length && !b.over && same(path?.[0], r, c)) cls.push('ping');
-  if (!b.over && (inLane(b.run, r, c) || doorEdge(b, r, c))) cls.push('lane');
+  if (!b.over && (inLane(b.run, r, c, b.puzzle) || doorEdge(b, r, c))) cls.push('lane');
+  if (partner(b.puzzle, r, c)) cls.push('port');
   if (isUsed(b, r, c)) cls.push('used');
   else if (burning(b.run, r, c)) { cls.push('burn'); burnLeft = b.run.burnt!.get(r + ',' + c)! - b.run.path.length; }
   if (!b.over && same(lastPick(b), r, c)) cls.push('last');
   // With a Loopback or Rewind in the deck, used cells keep their code, greyed out, so a re-pick or a take-back can be planned.
   if (b.ctx.items.some((id) => TOOLS[id] === 'loop' || TOOLS[id] === 'rewind')) cls.push('memo');
-  if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length)) cls.push('corner');
+  if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length, b.puzzle.half)) cls.push('corner');
   // Belt row: used cells show, greyed, the code sliding under them, so the belt stays readable.
   if (b.puzzle.belt?.row === r && code !== BLOCK) cls.push('belt', 'memo');
   return { code, hidden, cls, tags, burnLeft };
@@ -133,8 +135,8 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
     m.wild = false;
     return 'placed';
   }
-  const door = isDoorOpen(b), offLane = !inLane(run, r, c);
-  m.back = { axis: run.axis, idx: run.idx, free: run.free }; // before Mux widens the lane, so Rewind does not hand it back
+  const door = isDoorOpen(b), offLane = !inLane(run, r, c, puzzle);
+  m.back = { axis: run.axis, idx: run.idx, free: run.free, half: run.half }; // before Mux widens the lane, so Rewind does not hand it back
   if (tool === 'mux') { run.free = lastPick(b); m.mux = false; }
   pick(run, puzzle, r, c);
   if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);

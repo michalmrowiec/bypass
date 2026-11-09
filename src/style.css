@@ -14,6 +14,7 @@
   --data:#2ee6d6;
   --gold:#ffd23f;
   --violet:#b48cff; /* Repeater ×2, nothing else */
+  --port:#c3ccd6; /* port pairs ⇄ (and the Portal item) */
   --boost:#ff3d8b;
   --done:#5af2a8;
   --bad:#ff3d8b;
@@ -804,3 +805,12 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 ::-webkit-scrollbar-corner{background:transparent}
 .bpicks{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:4px}
 .bpicks .btn{font-size:12px}
+
+/* Ports: a slow silver breathing ring and a drifting ⇄ tag; the partner lights while you point at one. */
+.cell.port{border-color:color-mix(in srgb,var(--port) 55%,transparent);animation:portGlow 3.2s ease-in-out infinite}
+.cell .ptag{position:absolute;top:1px;left:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--port);pointer-events:none;animation:portDrift 3.2s ease-in-out infinite}
+.cell.port.used{animation:none}
+.cell.port.used .ptag{opacity:.45;animation:none}
+.cell.plink{box-shadow:0 0 0 2px var(--port),0 0 12px color-mix(in srgb,var(--port) 60%,transparent)}
+@keyframes portGlow{0%,100%{box-shadow:inset 0 0 0 0 transparent}50%{box-shadow:inset 0 0 10px color-mix(in srgb,var(--port) 28%,transparent)}}
+@keyframes portDrift{0%,100%{transform:translateX(0);opacity:.75}50%{transform:translateX(2px);opacity:1}}
