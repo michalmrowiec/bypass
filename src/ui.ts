@@ -924,6 +924,16 @@ const toolName = (t: Tool) => ITEMS[(Object.keys(TOOLS) as ItemId[]).find((id) =
 const logHtml = () => "<pre class='termlog'>" + (R.events ?? []).map((e) => e.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n') + '</pre>';
 // Shop, offer and patch screens lock the board, so they carry the log as a fold-out.
 
+// Full run state as JSON, for balance study.
+function exportRun(out: string, bill: Score) {
+  const json = JSON.stringify({ at: new Date().toISOString(), company: COMPANIES[R.company].id, out, endWhy, lastBill: bill, run: R }, null, 1);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'bypass-run-' + COMPANIES[R.company].id + '-' + R.seed + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function showLog() {
   showResult(true, '<h2>Event log</h2>' + logHtml() + "<div class='row'><button class='btn' id='closeLog'>Close</button></div>");
   const pre = $('modalBox').querySelector('.termlog')!;
@@ -1328,7 +1338,8 @@ function finish(sc: number, disconnected = false) {
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
       ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›')
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
-        : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run'));
+        : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run').replace('</div>', "<button class='btn' id='exportLog'>Export log</button></div>"));
+    if (out === 'win' || out === 'lose') $('exportLog').onclick = () => exportRun(out, bill);
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
     return;
   } else {
