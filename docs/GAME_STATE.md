@@ -59,7 +59,7 @@ Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Ho
 | rodzina | daemony |
 |---|---|
 | **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×(1 + 0,2 za slot bufora) (legendary), All-in ×2/×0,5 (rare) |
-| **Ghost** (minimalizm) | Overflow, Light footprint (legendary), Silent, Cache (rare, stack), Echo (rare), Sandbag (rare, room) |
+| **Ghost** (minimalizm) | Overflow, Light footprint (legendary), Silent, Cache (rare, stack; zeruje się przy wgraniu wszystkich targetów), Echo (rare), Sandbag (rare, room) |
 | **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler |
 | **Cron** (serie) | Heartbeat (rare), Rotate (+7), Backup (rare), Uptime (+7), Overtime (rare, room), Warm-up (room) |
 
@@ -76,7 +76,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Buffer v1/v2 | 4/4 | +1 / +2 slot bufora |
 | Short key | 3 | najdłuższy target −1 kod, bufor bez zmian |
 | Linker v1/v2 | 4/4 | +1 połączenie targetów; v2 jedno połączenie na 2 kody |
-| Wildcard v1/v2 | 4/4 | komórka `**` pasuje do wszystkiego; v1 losowa poza trasą, v2 wybierasz (nie na ×2) |
+| Wildcard v1/v2 | 4/4 | komórka `**` pasuje do wszystkiego; v1 losowa poza trasą, v2 wybierasz (nie na ×2); jednorazowa, Loopback ani Rewind jej nie powtórzą |
 | Data node v1/v2 | 3/3 | komórka +15 / +30 data |
 | Split v1/v2 | 4/3 | przed 1. ruchem tniesz target; v1 w losowym miejscu, v2 tam, gdzie chcesz |
 | Side door | 3 | pierwszy wybór z dowolnej krawędzi |

@@ -13,6 +13,8 @@
 7. **Efekty widoczne na matrycy są najlepsze**, np. `**` i `×2`. Chcemy ich jak najwięcej.
 8. **Archetyp buildu nie może wisieć na jednym rzadkim daemonie.** Każdy archetyp powinny wspierać 2–3 daemony różnej rzadkości.
 9. **Meta-progresja daje mądrzejszego gracza, nie silniejszą postać.** Odblokowania tak, stałe bonusy mocy nie.
+10. **Macierz to decyzja, nie tylko zagadka.** Jeśli każdy build idzie tą samą ścieżką, build tylko dolicza liczby. Plansza powinna mieć 2–3 sensowne trasy o różnych profilach, a gracz wybiera tę, która pasuje do jego buildu i stanu runu. Trasa na wszystkie targety zostaje gwarantowana.
+11. **Wysiłek ≈ nagroda.** Archetypy (splicer, ghost, runner, cron) mają mieć podobne szanse przy różnym stylu gry. Leniwa ścieżka (krótkie targety, pusty bufor, szybki disconnect) nie może bić pełnego planowania.
 
 ## 2. Kolory (mają znaczenie w grze)
 
@@ -42,6 +44,14 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - **Software i hardware:** daemony (darmowe) zmieniają, jak liczą się punkty. Itemy (płatne, w racku) zmieniają matrycę, ruch albo ekonomię. Itemy nie mają rodzin.
 
 ## 4. Bank pomysłów (niezdecydowane, na później)
+
+**Nowe kształty plansz** (⭐ chcemy szybko, plan w `.notes/00_START_HERE.md`):
+- **Porty** ⭐: dwie macierze obok siebie, komórka-port `⇄` przenosi następny wybór do drugiej. Każda połowa może mieć inne kody i inne ICE.
+- **Macierze sprzężone** ⭐: wybory na zmianę w A i B; linia wybrana w A wyznacza linię w B i odwrotnie. Wygląda groźnie, a jest prosta dla kogoś, kto zna zasady. Kandydat na bossa.
+- **Kształty**: L, krzyż, pierścień, plansza z dziurami; linia to odcinek wiersza lub kolumny.
+- **Hex**: 3 osie zamiast 2, ruch rotuje po osiach. Ta sama mechanika, inne myślenie.
+- **Łańcuch macierzy w pokoju**: bufor przechodzi dalej, target można zacząć w jednej i skończyć w drugiej. Na później.
+- 3D: patrz „Firmy” niżej; ryzyko czytelności na telefonie.
 
 **Warianty macierzy:**
 - Wrap (torus);
@@ -92,7 +102,27 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - seedowany „daily run” albo wyzwanie dla znajomego;
 - długość runu ok. 15–25 min.
 
-## 5. Odrzucone
+## 5. Trudność i balans
+
+**Co robi macierz trudną.** Liczba rozwiązań to nie trudność. Liczy się, ile mylących opcji trzeba odrzucić i jak daleko patrzeć w przód.
+- fałszywe tropy: ścieżki, które przez 3–4 ruchy wyglądają dobrze i się nie domykają (najmocniejsza dźwignia);
+- głębokość decyzji: wybór w wierszu 0 mści się dopiero przy 5.–6. ruchu;
+- luz bufora: 1–2 wolne sloty plus fałszywe tropy bywa trudniejsze niż 0;
+- ruchy-łączniki: trzeba celowo wziąć kod spoza targetów, żeby wejść na dobrą linię;
+- kolejność sklejania targetów: kilka sklejek wygląda dobrze, geometrycznie działa jedna;
+- rozkład kodów: rzadki kod w potrzebnej linii to wąskie gardło, częsty w złej to szum.
+
+**Metryki z solvera** (do wyboru plansz wg profilu): liczba rozwiązań, ślepe zaułki głębokości ≥ 3, ruch, po którym pada pierwsza decyzja zamykająca rozwiązania, czy trzeba ruchu-łącznika, ile kolejności sklejania jest wykonalnych, i najważniejsze: **czy najlepsza trasa różni się między buildami** (różna = decyzja, ta sama = zagadka).
+
+**Generator sadzi, solver sprawdza.** Generator najpierw sadzi 2–3 trasy o różnych profilach (np. komplet targetów i pełny bufor; jeden duży target i wolne sloty; trasa przez Data node albo róg), potem wypełnia resztę. Solver tylko weryfikuje i liczy metryki. 5×5 mieści zwykle 2 trasy, 6×6 i 7×7 trzy. Mała plansza sama wymusza konflikty tras, co jest zaletą.
+
+**Solver pod nowe plansze i itemy.** Stan = pozycja, aktywna oś lub linia, maska użytych komórek, postęp targetów (automat po wszystkich sekwencjach naraz), ładunki itemów, ewentualnie aktywna macierz. Plansza (prostokąt, hex, kształt, porty, sprzężone) daje tylko `nextCells(state)`, a item to dodatkowy generator ruchów z licznikiem. Głębokość ogranicza bufor, więc to się liczy nawet dla 2×25 komórek.
+
+**Wygrywalność runu.** Generator gwarantuje rozwiązywalność macierzy, nie quota. Wariancję runu gracz ma ogarniać wyborem ofert, rerollem, gwarancjami w sklepie (np. zawsze coś, co daje data) i zapasem w quota. Pierwsza firma ma być do przejścia bez itemów. Jeden błąd kosztuje zasoby, nie cały run.
+
+**Dźwignie na dominującą strategię** (krótkie targety + pusty bufor + szybki disconnect): wartość targetu rosnąca szybciej niż długość, koszt disconnectu, boosty ghosta jako płaskie +data zamiast mnożników, ICE i pokoje kontrujące jeden styl. Zrobione 2026-11-09: komórka `**` jest jednorazowa (koniec stosu `** **` z Rewind i Loopback), Cache zeruje się przy wgraniu wszystkich targetów.
+
+## 6. Odrzucone
 - **Magnes** (sąsiednie kody przesuwają się do jednej komórki): niezrozumiały.
 - **Timeout jako ICE:** czas zostaje dla Hot breach.
 - **Akcent kolorystyczny firmy:** kolory mają znaczenie w grze. Firmy różnią się logo, motywem w tle i kodami.
@@ -101,7 +131,7 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - **Tasowanie kodów co 3 ruchy:** psuje planowanie.
 - **Inne znaki „deszyfrowania”:** niezauważalne.
 
-## 6. Jak dodać nową mechanikę
+## 7. Jak dodać nową mechanikę
 
 - **Wpis w tabeli:** `ICE`, `ITEMS` lub `DAEMONS` w `src/roguelike.ts` (nazwa i tekst zasady). Firma: `COMPANIES`.
 - **Punktacja** (daemon, item, ICE zmieniające wynik): `scoreMatrix` i `facts` w `src/roguelike.ts`.
