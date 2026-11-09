@@ -21,6 +21,20 @@ export interface Run {
   burnt?: Map<string, number>; // cell -> path length from which it is free again
 }
 
+// Board shape: the cells of a lane and the lane after a pick. Everything that walks the board (rules, solver) goes through these two.
+export type Lane = Pick<Run, 'axis' | 'idx' | 'free'>;
+export function laneCells({ axis, idx, free }: Lane, p: Puzzle): [number, number][] {
+  const rows = p.grid.length, cols = p.grid[0].length, out: [number, number][] = [];
+  const row = (r: number) => { for (let c = 0; c < cols; c++) out.push([r, c]); };
+  const col = (c: number) => { for (let r = 0; r < rows; r++) out.push([r, c]); };
+  if (free) { row(free[0]); col(free[1]); } else if (axis === 'row') row(idx); else col(idx);
+  return out;
+}
+export function nextLane({ axis, free }: Lane, r: number, c: number): Lane {
+  const alongRow = free ? r === free[0] : axis === 'row';
+  return alongRow ? { axis: 'col', idx: c, free: undefined } : { axis: 'row', idx: r, free: undefined };
+}
+
 export const burning = (run: Run, r: number, c: number) => (run.burnt?.get(r + ',' + c) ?? 0) > run.path.length;
 
 // The lane the next pick comes from: one row or column, or both lines through `free`.
@@ -60,10 +74,7 @@ export function isLegal(run: Run, r: number, c: number): boolean {
   return !run.used.has(r + ',' + c) && inLane(run, r, c) && !burning(run, r, c);
 }
 
-export function anyLegal(run: Run, n: number): boolean {
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (isLegal(run, r, c)) return true;
-  return false;
-}
+export const anyLegal = (run: Run, p: Puzzle) => laneCells(run, p).some(([r, c]) => isLegal(run, r, c));
 
 export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
   run.buffer.push(puzzle.grid[r][c]);
@@ -76,16 +87,13 @@ export function pick(run: Run, puzzle: Puzzle, r: number, c: number): void {
       burnt.set(k, Math.max(burnt.get(k) ?? 0, run.path.length + run.burn));
     }
   }
-  const alongRow = run.free ? r === run.free[0] : run.axis === 'row';
-  run.free = undefined;
-  if (alongRow) { run.axis = 'col'; run.idx = c; }
-  else { run.axis = 'row'; run.idx = r; }
+  Object.assign(run, nextLane(run, r, c));
 }
 
 export const score = (buf: string[], targets: string[][]) => targets.filter((t) => contains(buf, t)).length;
 
 export const isFinished = (run: Run, p: Puzzle) =>
-  score(run.buffer, p.targets) === p.targets.length || run.buffer.length === p.l || !anyLegal(run, p.grid.length);
+  score(run.buffer, p.targets) === p.targets.length || run.buffer.length === p.l || !anyLegal(run, p);
 
 
 // Each sprint matrix gets its own seed derived from the run's seed, so one link reproduces the whole run.

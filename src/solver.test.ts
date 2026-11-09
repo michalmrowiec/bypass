@@ -37,6 +37,12 @@ describe('canComplete', () => {
     expect(canComplete(newRun(), { ...tiny, targets: [['AA', 'DD']] }, Infinity)).toBe(false);
   });
 
+  it('walks a non-square board', () => {
+    const wide: Puzzle = { grid: [['AA', 'BB', 'CC', 'DD'], ['CC', 'AA', 'BB', 'EE']], targets: [['DD', 'EE']], l: 2 };
+    expect(canComplete(newRun(), wide, Infinity)).toBe(true); // DD(0,3) -> EE(1,3)
+    expect(canComplete(newRun(), { ...wide, targets: [['EE', 'DD']] }, Infinity)).toBe(false);
+  });
+
   it('answers true when the search budget runs out', () => {
     expect(canComplete(newRun(), { ...tiny, targets: [['AA', 'DD']] }, 0)).toBe(true);
   });
