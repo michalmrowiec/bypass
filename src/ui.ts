@@ -278,7 +278,7 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, stay: M.stay, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
     par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
@@ -1159,7 +1159,7 @@ function applyCross() {
   const peek: (Preview | string)[] = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? []
     : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
     : armed === 'loop' ? ['loopback: ' + S.puzzle.grid[cursor[0]][cursor[1]] + ' again']
-    : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps, S.puzzle.ports),
+    : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps, S.puzzle.ports, M.stay),
       ...(cellView(B(), cursor[0], cursor[1]).tags.includes('node') ? [{ name: 'data node', add: '+' + nodeData(R.items), kind: 'data' as const }] : []),
       ...(R.daemons.includes('rotate') && !S.run.path.length
         ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(CRON_DATA * rot) : undefined, kind: 'data' as const,

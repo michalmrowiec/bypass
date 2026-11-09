@@ -17,6 +17,7 @@ export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1:
 // undone: the path index Rewind took back (it stays on the path for daemons); kept: the buffer index of the code it kept.
 export interface ItemState {
   node?: Cell; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
+  stay?: number[]; // path indices of ports picked without a jump (Loopback v1.0 back through a port): you stand on the port itself
   bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free' | 'half'>; charge?: boolean; undone?: number; kept?: number;
 }
 export const emptyItems = (): ItemState => ({ worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] });
@@ -34,11 +35,17 @@ export const jumpAny = (b: Board) => b.ctx.items.includes('bridge2');
 const isUsed = (b: Board, r: number, c: number) => b.run.used.has(r + ',' + c);
 const same = (p: Cell | undefined, r: number, c: number) => !!p && p[0] === r && p[1] === c;
 // A pick taken back by Rewind no longer counts as the last one.
-export const lastPick = (b: Board): Cell | undefined => { const i = b.run.path.length - 1; return b.run.path[i === b.m.undone ? i - 1 : i]; };
+const lastIndex = (b: Board) => { const i = b.run.path.length - 1; return i === b.m.undone ? i - 1 : i; };
+export const lastPick = (b: Board): Cell | undefined => b.run.path[lastIndex(b)];
+// Where you stand: the last pick, or its partner when that pick was a port you went through.
+export const standAt = (b: Board): Cell | undefined => {
+  const i = lastIndex(b), p = b.run.path[i];
+  return p && (b.m.stay?.includes(i) ? p : partner(b.puzzle, ...p) ?? p);
+};
 // On a port board only the left matrix has a Side door edge.
 const onEdge = (b: Board, r: number, c: number) => { const n = b.puzzle.grid.length, w = b.puzzle.half ?? n; return c < w && (r === 0 || c === 0 || r === n - 1 || c === w - 1); };
 // Mux: the next pick may take the row or the column of the last picked cell.
-const muxLane = (b: Board, r: number, c: number) => { const p = lastPick(b); return !!p && (r === p[0] || c === p[1]); };
+const muxLane = (b: Board, r: number, c: number) => { const p = standAt(b); return !!p && inLane({ axis: 'row', idx: 0, free: p }, r, c, b.puzzle); };
 // Side door: before the first pick, any edge cell is open.
 export const isDoorOpen = (b: Board) => !b.run.path.length && b.ctx.items.includes('sidedoor');
 const doorEdge = (b: Board, r: number, c: number) => isDoorOpen(b) && onEdge(b, r, c);
@@ -49,7 +56,7 @@ export const isBlackout = (b: Board) => b.ctx.ice.includes('blackout') && !b.run
 const seenLine = (b: Board, r: number, c: number) => (r === 0 && halfOf(b.puzzle, c) === 0) || b.run.path.some(([pr, pc]) => (pr === r && halfOf(b.puzzle, pc) === halfOf(b.puzzle, c)) || pc === c);
 // After a port you stand at its partner, so Bridge v1.0 reaches around the partner.
 const nextToLast = (b: Board, r: number, c: number) => {
-  const l = lastPick(b), p = l && (partner(b.puzzle, ...l) ?? l);
+  const p = standAt(b);
   return !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1 && halfOf(b.puzzle, c) === halfOf(b.puzzle, p[1]);
 };
 const bridgeSees = (b: Board, r: number, c: number) => b.armed === 'jump' && nextToLast(b, r, c);
@@ -139,9 +146,9 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
   const door = isDoorOpen(b), offLane = !inLane(run, r, c, puzzle), back = tool === 'loop' && !loopAny(b) && portBack(run, puzzle, r, c);
   const from = { ...run };
   m.back = { axis: run.axis, idx: run.idx, free: run.free, half: run.half }; // before Mux widens the lane, so Rewind does not hand it back
-  if (tool === 'mux') { run.free = lastPick(b); m.mux = false; }
+  if (tool === 'mux') { run.free = standAt(b); m.mux = false; }
   pick(run, puzzle, r, c);
-  if (back) Object.assign(run, nextLane(from, r, c, { half: puzzle.half })); // through the port, no second jump
+  if (back) { Object.assign(run, nextLane(from, r, c, { half: puzzle.half })); m.stay = [...(m.stay ?? []), run.path.length - 1]; } // through the port, no second jump
   if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);
   if (door) sideDoor(run, r, c, puzzle.grid.length);
   if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);
@@ -161,7 +168,7 @@ export function isStuck(b: Board, runMode: boolean): boolean {
   // shortcut: the solver cannot see a moving belt, so a run matrix with one ends only when the buffer or lane runs out.
   if (runMode && puzzle.belt) return false;
   if (!runMode) return !canComplete(run, puzzle);
-  const tools = { ...b.m, loopAny: loopAny(b), near: !jumpAny(b), last: lastPick(b) };
+  const tools = { ...b.m, loopAny: loopAny(b), near: !jumpAny(b), last: standAt(b) };
   return !puzzle.targets.some((t) => !contains(run.buffer, t) && canComplete(run, { ...puzzle, targets: [t] }, undefined, tools));
 }
 

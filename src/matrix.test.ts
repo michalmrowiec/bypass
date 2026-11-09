@@ -215,6 +215,22 @@ describe('port boards', () => {
     expect([canPick(b, 0, 2), canPick(b, 0, 4), canPick(b, 1, 4)]).toEqual([true, false, false]);
   });
 
+  it('after going back through a port you stand on it: Bridge v1.0 reaches around it, not its partner', () => {
+    const b = ported(['loopback1', 'bridge'], { loop: true, jump: true });
+    applyPick(b, 0, 1);
+    b.armed = 'loop';
+    applyPick(b, 0, 1);
+    b.armed = 'jump';
+    expect([canPick(b, 1, 0), canPick(b, 1, 5)]).toEqual([true, false]);
+  });
+
+  it('Mux after a port takes the lines through the partner, in its matrix', () => {
+    const b = ported(['mux'], { mux: true });
+    applyPick(b, 0, 1);
+    b.armed = 'mux';
+    expect([canPick(b, 2, 3), canPick(b, 0, 2), canPick(b, 2, 0)]).toEqual([true, false, false]);
+  });
+
   it('the solver sees Loopback v1.0 back through a port', () => {
     const p = { ...ported([], {}).puzzle, targets: [['B', 'B', 'C']], l: 3 };
     expect(canComplete(newRun(), p, Infinity, { loop: true })).toBe(true);

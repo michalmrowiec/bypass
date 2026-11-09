@@ -42,7 +42,7 @@ Każda firma ma ICE poprzedniej i dokłada własne. ICE może też być stałe d
 
 ### Plansze z portami
 Dwie macierze n×n obok siebie (A po lewej, B po prawej). Linia ruchu zostaje w swojej macierzy; start w wierszu 0 macierzy A. 2 pary portów `⇄1`, `⇄2` (para 1 chłodny hologram, para 2 ciepły). Port ma zwykły kod; po jego picku następny ruch idzie w linii partnera w drugiej macierzy (wziąłeś w wierszu → kolumna partnera, w kolumnie → wiersz partnera). Posadzona trasa przechodzi przez ≥1 port. Pierścień wciąga się w port w Twojej linii i wychodzi z partnera; najechanie podświetla parę.
-- Bridge v1 sięga 8 pól wokół ostatniego picku w tej samej macierzy, a po porcie wokół partnera; v2 w obu macierzach. Loopback v1 może wziąć zużyty port, gdy jego partner jest w linii: kod drugi raz do bufora i powrót do macierzy portu (dalej linią przez sam port, bez drugiego skoku). Rewind cofa skok przez port; Mux w macierzy ostatniego picku; Side door: krawędzie A; Corner: rogi obu macierzy; Long jump i Zigzag mierzą ruch po porcie od partnera.
+- Bridge v1 sięga 8 pól wokół ostatniego picku w tej samej macierzy, a po porcie wokół partnera; v2 w obu macierzach. Loopback v1 może wziąć zużyty port, gdy jego partner jest w linii: kod drugi raz do bufora i powrót do macierzy portu (dalej linią przez sam port, bez drugiego skoku). Rewind cofa skok przez port. **Gdzie stoisz:** po porcie u partnera (po powrocie Loopbackiem na samym porcie); od tego miejsca liczą Bridge v1, Mux oraz długość ruchu dla Long jump i Zigzag; Side door: krawędzie A; Corner: rogi obu macierzy; Long jump i Zigzag mierzą ruch po porcie od partnera.
 - Łatki nie dają pokojom z portami Firewall, Corruption ani Conveyor (`NO_PORT_ICE`; generator ich tam nie obsługuje).
 
 ## 5. ICE
