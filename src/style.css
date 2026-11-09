@@ -14,7 +14,7 @@
   --data:#2ee6d6;
   --gold:#ffd23f;
   --violet:#b48cff; /* Repeater ×2, nothing else */
-  --led-amber:#f0b35a; --led-blue:#4da3ff; --led-red:#ff4d4d; /* rack LEDs only, like real hardware */
+  --led-amber:#f0b35a; --led-blue:#4da3ff; /* rack LEDs only, like real hardware */
   --boost:#ff3d8b;
   --done:#5af2a8;
   --bad:#ff3d8b;
@@ -337,12 +337,11 @@ button.unit{cursor:pointer}
 .led{flex:none;width:6px;height:6px;border-radius:50%;background:#2c363b}
 .unit.online .led{background:var(--mint);opacity:.6;box-shadow:0 0 4px rgba(90,242,168,.3)}
 /* LEDs as on real gear: blinking or pulsing = you can act, steady = information.
-   green ready · blue ready now or never (before the first pick) · amber armed (blinks) or waiting (steady) · red spent. */
+   green ready · blue ready now or never (before the first pick) · amber armed (blinks) or waiting (steady) · off spent. */
 .unit.waiting .led{background:var(--led-amber);opacity:.8;box-shadow:0 0 4px color-mix(in srgb,var(--led-amber) 50%,transparent)}
 .unit.waiting .nm em{color:var(--led-amber)}
 .unit.spent{opacity:.55}
-.unit.spent .led{background:var(--led-red);opacity:.7}
-.unit.spent .nm em{color:var(--led-red)}
+.unit.spent .nm em{color:var(--muted)} /* LED stays off: done for this matrix, nothing wrong */
 .unit.ready{border-color:var(--mint-dim)}
 .unit.armed{border-color:var(--mint);background:var(--mint-faint)}
 .unit:is(.ready,.armed) .nm em{color:var(--mint)}
