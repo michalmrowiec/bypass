@@ -76,7 +76,12 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Rack:** 4 sloty, dokup do 9 (coraz drożej). Sprzedaż za połowę ceny.
 - Upgrade v1.0 → v2.0 pojawia się tylko, gdy masz v1.0, i nie zajmuje nowego slotu.
 - Każdy item ma własną ilustrację SVG z animacją na hover (`src/gear.ts`).
-- Gotowy do użycia item w racku pulsuje. Klik go uzbraja.
+- Diody w racku (jak na sprzęcie; miga/pulsuje = możesz działać, świeci stale = informacja):
+  - **online** zielona stała: item pasywny;
+  - **ready** zielona pulsuje (klik uzbraja); niebieska: tylko teraz, przed 1. ruchem (Wildcard v2, Split, SIM);
+  - **armed** pomarańczowa miga: czeka na klik w matrycę;
+  - **waiting** pomarańczowa stała: naładowany, ale nie teraz (przed 1. pickiem albo nic w zasięgu, np. Loopback przy samej zużytej `**`);
+  - **spent** czerwona, moduł przygaszony: użyty albo minęło okno, do następnej macierzy (SIM do następnego pokoju).
 
 | item | cena | efekt |
 |---|---|---|

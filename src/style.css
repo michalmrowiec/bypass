@@ -14,6 +14,7 @@
   --data:#2ee6d6;
   --gold:#ffd23f;
   --violet:#b48cff; /* Repeater ×2, nothing else */
+  --led-amber:#f0b35a; --led-blue:#4da3ff; --led-red:#ff4d4d; /* rack LEDs only, like real hardware */
   --boost:#ff3d8b;
   --done:#5af2a8;
   --bad:#ff3d8b;
@@ -335,7 +336,13 @@ button.unit{cursor:pointer}
 .nm em{flex:none;font-style:normal;color:#4c575d}
 .led{flex:none;width:6px;height:6px;border-radius:50%;background:#2c363b}
 .unit.online .led{background:var(--mint);opacity:.6;box-shadow:0 0 4px rgba(90,242,168,.3)}
-.unit.standby{opacity:.55}
+/* LEDs as on real gear: blinking or pulsing = you can act, steady = information.
+   green ready · blue ready now or never (before the first pick) · amber armed (blinks) or waiting (steady) · red spent. */
+.unit.waiting .led{background:var(--led-amber);opacity:.8;box-shadow:0 0 4px color-mix(in srgb,var(--led-amber) 50%,transparent)}
+.unit.waiting .nm em{color:var(--led-amber)}
+.unit.spent{opacity:.55}
+.unit.spent .led{background:var(--led-red);opacity:.7}
+.unit.spent .nm em{color:var(--led-red)}
 .unit.ready{border-color:var(--mint-dim)}
 .unit.armed{border-color:var(--mint);background:var(--mint-faint)}
 .unit:is(.ready,.armed) .nm em{color:var(--mint)}
@@ -344,8 +351,8 @@ button.unit{cursor:pointer}
 .unit.ready .led{animation:ledpulse 1.6s ease-in-out infinite}
 @keyframes ledpulse{0%,100%{opacity:.35;box-shadow:none}50%{opacity:1;box-shadow:0 0 8px var(--mint)}}
 /* An armed tool blinks amber until it is used or put down. */
-.unit.armed .led{background:#f0b35a;box-shadow:0 0 7px #f0b35a;animation:ledblink .9s steps(1) infinite}
-.unit.armed .nm em{color:#f0b35a}
+.unit.armed .led{background:var(--led-amber);box-shadow:0 0 7px var(--led-amber);animation:ledblink .9s steps(1) infinite}
+.unit.armed .nm em{color:var(--led-amber)}
 @keyframes ledblink{50%{opacity:.2}}
 .unit.blank{background:#121517;border-color:#1d2226}
 .vent{flex:1;height:10px;background:repeating-linear-gradient(90deg,#20262a 0 2px,transparent 2px 7px)}
@@ -653,8 +660,8 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .roomsum h2{font-size:1.6em;letter-spacing:.06em;text-transform:uppercase}
 .fbest{font-size:11px;color:var(--gold)}
 /* Ready tools: a static frame, a fast-blinking LED; start-only tools (Wildcard, Split) blink blue. */
-.unit.ready.pre .led{background:var(--cyan);box-shadow:0 0 7px var(--cyan)}
-.unit.ready.pre .nm em{color:var(--cyan)}
+.unit.ready.pre .led{background:var(--led-blue);box-shadow:0 0 7px var(--led-blue)}
+.unit.ready.pre .nm em{color:var(--led-blue)}
 @media (prefers-reduced-motion:reduce){.unit.ready .led{animation:none}}
 .owned{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-block:1px dashed var(--line)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -667,7 +674,7 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .chip.none{color:var(--muted);border-style:dashed}
 .dcard.poor{opacity:.5;cursor:not-allowed}
 .unit.ready:hover,.unit.ready:focus-visible{border-color:var(--mint);box-shadow:0 0 12px -3px var(--mint)}
-.unit.ready.pre:hover,.unit.ready.pre:focus-visible{border-color:var(--cyan);box-shadow:0 0 12px -3px var(--cyan)}
+.unit.ready.pre:hover,.unit.ready.pre:focus-visible{border-color:var(--led-blue);box-shadow:0 0 12px -3px var(--led-blue)}
 .c-cron{--fc:#c6e46b}
 button.chip{font:inherit;font-size:12px;color:inherit;cursor:pointer}
 button.chip:hover{border-color:var(--gold)}
