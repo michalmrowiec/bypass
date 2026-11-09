@@ -819,7 +819,8 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
   color:var(--pc)}
 .cell.port.used .ptag{opacity:.45}
 .cell.port.ok .pring{animation:ringIn 2.4s ease-in infinite}
-.cell.pin .pring{animation:ringOut 2.4s ease-out 1.68s infinite} /* starts as the entry ring closes */
+.cell.pin .pring,.cell.pcome .pring{animation:ringOut 2.4s ease-out 1.68s infinite} /* starts as the entry ring closes */
+.cell.pgo .pring{animation:ringIn 2.4s ease-in infinite}
 .cell.plink{background:color-mix(in srgb,var(--pc) 14%,transparent);color:var(--ink)}
 .cell.plink .pframe{opacity:1;padding:2.5px;filter:drop-shadow(0 0 6px var(--pc))}
 @keyframes ringIn{0%{transform:scale(1.7);opacity:0}70%{transform:scale(1);opacity:.9}100%{transform:scale(1);opacity:0}}

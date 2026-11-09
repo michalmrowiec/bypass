@@ -144,7 +144,8 @@ function render() {
       b.classList.add('port' + port);
       // Pointing at a port lights it and its partner in the other matrix.
       const [pr, pc] = partner(S.puzzle, r, c)!;
-      const lit = (on: boolean) => { b.classList.toggle('plink', on); $('c' + pr + pc)?.classList.toggle('plink', on); };
+      // ...and plays the pair's ring: in at the one you point at, out at its partner.
+      const lit = (on: boolean) => { b.classList.toggle('plink', on); b.classList.toggle('pgo', on); $('c' + pr + pc)?.classList.toggle('plink', on); $('c' + pr + pc)?.classList.toggle('pcome', on); };
       b.onmouseenter = () => lit(true);
       b.onmouseleave = () => lit(false);
     }
