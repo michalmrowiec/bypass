@@ -807,18 +807,20 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 
 /* Ports: a holographic frame (a sheen of soft hues no single colour owns) and one moving effect, the ring:
    a port in your lane draws it in (the way in), its partner sends it out (the way out). */
-:root{--holo:conic-gradient(from 200deg,#8ff6ff,#c3a6ff,#ff9fdc,#c3a6ff,#8ff6ff)}
+/* Each pair has its own hologram: pair 1 cool, pair 2 warm. --pc is the pair's accent (tag, hover glow). */
+.cell.port1{--holo:conic-gradient(from 200deg,#8ff6ff,#9fb8ff,#c3a6ff,#9fb8ff,#8ff6ff);--pc:#a9c4ff}
+.cell.port2{--holo:conic-gradient(from 200deg,#ff9fdc,#ffb3b0,#ffd0a8,#ffb3b0,#ff9fdc);--pc:#ffb8c4}
 .cell .pframe,.cell .pring{position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;background:var(--holo);pointer-events:none;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 .cell .pframe{opacity:.85}
 .cell .pring{opacity:0}
 .cell.port.used .pframe{opacity:.3}
 .cell .ptag{position:absolute;top:1px;left:3px;font-size:9px;font-style:normal;line-height:1.2;pointer-events:none;
-  background:linear-gradient(90deg,#8ff6ff,#c3a6ff,#ff9fdc);-webkit-background-clip:text;background-clip:text;color:transparent}
+  color:var(--pc)}
 .cell.port.used .ptag{opacity:.45}
 .cell.port.ok .pring{animation:ringIn 2.4s ease-in infinite}
 .cell.pin .pring{animation:ringOut 2.4s ease-out 1.68s infinite} /* starts as the entry ring closes */
-.cell.plink{background:color-mix(in srgb,#c3a6ff 14%,transparent);color:var(--ink)}
-.cell.plink .pframe{opacity:1;padding:2.5px;filter:drop-shadow(0 0 6px #c3a6ff)}
+.cell.plink{background:color-mix(in srgb,var(--pc) 14%,transparent);color:var(--ink)}
+.cell.plink .pframe{opacity:1;padding:2.5px;filter:drop-shadow(0 0 6px var(--pc))}
 @keyframes ringIn{0%{transform:scale(1.7);opacity:0}70%{transform:scale(1);opacity:.9}100%{transform:scale(1);opacity:0}}
 @keyframes ringOut{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.7);opacity:0}}

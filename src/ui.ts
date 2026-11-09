@@ -141,6 +141,7 @@ function render() {
     const port = portNo(r, c);
     if (port) {
       b.insertAdjacentHTML('beforeend', "<i class='pframe'></i><i class='pring'></i><i class='ptag'>⇄" + port + '</i>');
+      b.classList.add('port' + port);
       // Pointing at a port lights it and its partner in the other matrix.
       const [pr, pc] = partner(S.puzzle, r, c)!;
       const lit = (on: boolean) => { b.classList.toggle('plink', on); $('c' + pr + pc)?.classList.toggle('plink', on); };
