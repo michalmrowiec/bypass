@@ -127,12 +127,13 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Pozostałe:** katalog z zakładkami daemons / items / bonuses (z listą nagród) / ice, wyszukiwarką i daemonami po rodzinach i rzadkości, tooltipy, briefing z animowanym hakerem, motywowy scrollbar.
 
 ## 11. Narzędzia
-- **Symulator balansu v2** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt` (ok. 5 min).
-  - Boty grają pełne runy, które mogą przegrać. Build: jedna rodzina daemonów z ofert (ghost / splicer / runner / cron) albo pierwszy z oferty; itemy pasywne kupowane w stałej kolejności.
-  - Trasa: `planted` (trasa generatora), `all` (najlepszy wynik z kompletem targetów), `short` (najwięcej pustych slotów przy utrzymaniu tempa quoty), `max` (najlepszy wynik). DFS z budżetem 3000 węzłów, ocena przez `scoreMatrix`.
-  - Raport: win rate, gdzie runy umierają, mediana ×quota najciaśniejszego pokoju w każdej iteracji.
-  - Szybkie testy: `SIM_RUNS`, `SIM_CO=0,2`, `SIM_BUILDS=ghost,cron`, `SIM_POLICIES=max`, `SIM_BUDGET`.
-  - Buildy `+t` (ghost / splicer / cron) kupują najpierw Split i Wildcard (v1, potem v2); bot wybiera cięcie i pole `**` krótkim DFS. Pełny przebieg z nimi trwa ok. 17 min.
-  - Nie zna Bridge, Loopbacka, Muxa ani Rewind, Repeatera, bonusów, rerolli ani slotów racka; widzi wszystko (Encryption i Blackout go nie mylą).
-- **Wnioski z sim v2 (2026-11-09):** bez narzędzi ghost jest najsłabszą rodziną (najlepszy win rate 0–30% wobec splicera 5–50% i crona 25–65%), więc jego przewaga z playtestów szła z narzędzi. Cron z najlepszą trasą jest najmocniejszy we wszystkich firmach. Ze Splitem i Wildcardem ghost poprawia się (najlepszy win rate 0–40%), ale zostaje za splicerem (20–70%) i cronem (35–75%); jego przewaga z playtestów musi iść z Loopbacka, Rewind, Bridge albo racka.
+- **Symulator balansu v2** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt` (ok. 1 min, najwyżej 4 procesy naraz).
+  - Boty grają pełne runy, które mogą przegrać. 5 profili „jak gracz”: ghost gra `short` (najwięcej pustych slotów przy utrzymaniu tempa quoty), splicer `all` (komplet targetów), runner, cron i „pierwszy z oferty” grają `max` (najlepszy wynik).
+  - Każdy bierze daemony swojej rodziny z ofert, kupuje najpierw narzędzia (Wildcard, Split, Loopback, Rewind; v1 potem v2), potem itemy pasywne, i dokupuje slot racka, gdy jest pełny.
+  - Ruchy idą przez reguły gry (`applyPick`, `rewind`, `canPick`), ocena przez `scoreMatrix`. Krótki DFS (400 węzłów na macierz) znajduje dobre trasy, ale nie zawsze najlepsze, jak człowiek.
+  - Raport: win rate, gdzie runy umierają, mediana ×quota najciaśniejszego pokoju w każdej iteracji, ile razy trasa użyła każdego narzędzia.
+  - Szybkie testy: `SIM_RUNS`, `SIM_CO=0,2`, `SIM_PROFILES=ghost,cron`, `SIM_BUDGET`.
+  - Nie zna Bridge, Muxa, Side door, Burner SIM, bonusów ani rerolli; widzi wszystko (Encryption i Blackout go nie mylą).
+- **Wnioski z sim v2 z narzędziami (2026-11-09, profile „jak gracz”):** win rate (Kestrel / Meridian / Ashgrove / Argus): ghost 0 / 15 / 40 / 35%, splicer 10 / 20 / 50 / 45%, cron 25 / 35 / 70 / 70%. Ghost nie jest już łatwiejszy niż komplet targetów; umiera głównie w it1. Najmocniejszy jest cron.
+- **Wcześniejsze wnioski z sim v2 (bez części narzędzi):** bez narzędzi ghost jest najsłabszą rodziną (najlepszy win rate 0–30% wobec splicera 5–50% i crona 25–65%), więc jego przewaga z playtestów szła z narzędzi. Cron z najlepszą trasą jest najmocniejszy we wszystkich firmach. Ze Splitem i Wildcardem ghost poprawia się (najlepszy win rate 0–40%), ale zostaje za splicerem (20–70%) i cronem (35–75%); jego przewaga z playtestów musi iść z Loopbacka, Rewind, Bridge albo racka.
 - **Wnioski ze starego symulatora:** same progi są OK. Łatwość bierze się ze stackowania mnożników na „wszystkie targety”, dlatego osłabiliśmy All-in (Saturate potem wzmocniony do legendary, warunek ma najtrudniejszy).
