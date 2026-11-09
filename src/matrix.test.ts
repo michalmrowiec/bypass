@@ -189,3 +189,25 @@ describe('pick rules', () => {
     expect(lastPick(b)).toEqual([4, 2]);
   });
 });
+
+describe('port boards', () => {
+  // Two 3×3 matrices; port pair (0,1) in A with (2,4) in B.
+  const ported = (items: Ctx['items'], m: Partial<Board['m']>): Board => ({
+    puzzle: { grid: Array.from({ length: 3 }, (_, r) => Array.from({ length: 6 }, (_, c) => String.fromCharCode(65 + r * 6 + c))), targets: [['A', 'Z']], l: 6, half: 3, ports: [[[0, 1], [2, 4]]] },
+    run: newRun(), m: { ...emptyItems(), ...m }, armed: null, ctx: { ...EMPTY_CTX, items }, over: false,
+  });
+
+  it('Bridge v1.0 after a port reaches around the partner', () => {
+    const b = ported(['bridge'], { jump: true });
+    applyPick(b, 0, 1);
+    b.armed = 'jump';
+    expect([canPick(b, 1, 5), canPick(b, 1, 0)]).toEqual([true, false]);
+  });
+
+  it('Rewind takes a port pick back to the lane in the first matrix', () => {
+    const b = ported(['rewind'], { rewind: true });
+    applyPick(b, 0, 1);
+    expect(rewind(b)).toBe(true);
+    expect([canPick(b, 0, 2), canPick(b, 0, 4), canPick(b, 1, 4)]).toEqual([true, false, false]);
+  });
+});

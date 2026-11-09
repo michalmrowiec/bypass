@@ -1,4 +1,4 @@
-import { contains, halfOf, laneCells, nextLane, partial, type Lane, type Run } from './game';
+import { contains, halfOf, laneCells, nextLane, partner, partial, type Lane, type Run } from './game';
 import { BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to a free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
@@ -59,8 +59,9 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
       for (const [r, c] of laneCells(wide, p)) if (open(r, c) && !used.has(r + ',' + c) && step(r, c, wide, jump, loop, false)) return true;
     }
     if (jump && (!tools.near || last)) {
+      const at = last && (partner(p, ...last) ?? last); // after a port, Bridge v1.0 reaches around its partner
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        if (tools.near && (Math.max(Math.abs(last![0] - r), Math.abs(last![1] - c)) !== 1 || halfOf(p, c) !== halfOf(p, last![1]))) continue;
+        if (tools.near && (Math.max(Math.abs(at![0] - r), Math.abs(at![1] - c)) !== 1 || halfOf(p, c) !== halfOf(p, at![1]))) continue;
         if (open(r, c) && !used.has(r + ',' + c) && step(r, c, lane, false, loop, mux)) return true;
       }
     }

@@ -47,8 +47,9 @@ export const isBlackout = (b: Board) => b.ctx.ice.includes('blackout') && !b.run
 // Encryption: a free cell's code shows only in lines you have picked in (the start row, each pick's row and column);
 // an armed Bridge also sees the 8 cells around the last pick.
 const seenLine = (b: Board, r: number, c: number) => (r === 0 && halfOf(b.puzzle, c) === 0) || b.run.path.some(([pr, pc]) => (pr === r && halfOf(b.puzzle, pc) === halfOf(b.puzzle, c)) || pc === c);
+// After a port you stand at its partner, so Bridge v1.0 reaches around the partner.
 const nextToLast = (b: Board, r: number, c: number) => {
-  const p = lastPick(b);
+  const l = lastPick(b), p = l && (partner(b.puzzle, ...l) ?? l);
   return !!p && Math.max(Math.abs(p[0] - r), Math.abs(p[1] - c)) === 1 && halfOf(b.puzzle, c) === halfOf(b.puzzle, p[1]);
 };
 const bridgeSees = (b: Board, r: number, c: number) => b.armed === 'jump' && nextToLast(b, r, c);
