@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COMPANIES, dealRunMatrix, newRunState, type RunState } from './roguelike';
 import { BLOCK } from './generator';
+import { canComplete } from './solver';
 import { newRun, pick, WILD } from './game';
 import { applyPick, canPick, cellView, dealBoard, hasMoves, isStuck, jumpReady, lastPick, rewind, EMPTY_CTX, emptyItems, type Board, type Ctx } from './matrix';
 
@@ -202,6 +203,22 @@ describe('port boards', () => {
     applyPick(b, 0, 1);
     b.armed = 'jump';
     expect([canPick(b, 1, 5), canPick(b, 1, 0)]).toEqual([true, false]);
+  });
+
+  it('Loopback v1.0 goes back through the port it came through, to the port itself', () => {
+    const b = ported(['loopback1'], { loop: true });
+    applyPick(b, 0, 1); // into B: column 4
+    b.armed = 'loop';
+    expect(canPick(b, 0, 1)).toBe(true);
+    applyPick(b, 0, 1);
+    expect(b.run.buffer).toEqual(['B', 'B']);
+    expect([canPick(b, 0, 2), canPick(b, 0, 4), canPick(b, 1, 4)]).toEqual([true, false, false]);
+  });
+
+  it('the solver sees Loopback v1.0 back through a port', () => {
+    const p = { ...ported([], {}).puzzle, targets: [['B', 'B', 'C']], l: 3 };
+    expect(canComplete(newRun(), p, Infinity, { loop: true })).toBe(true);
+    expect(canComplete(newRun(), p, Infinity)).toBe(false);
   });
 
   it('Rewind takes a port pick back to the lane in the first matrix', () => {

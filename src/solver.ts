@@ -1,4 +1,4 @@
-import { contains, halfOf, laneCells, nextLane, partner, partial, type Lane, type Run } from './game';
+import { contains, halfOf, laneCells, nextLane, partner, portBack, partial, type Lane, type Run } from './game';
 import { BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to a free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
@@ -19,7 +19,7 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
   const NEAR = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   let nodes = 0;
   // Picks (r, c) from `from` and goes on along the lane the board gives next; a reused cell stays used.
-  const step = (r: number, c: number, from: Lane, jump: boolean, loop: boolean, mux: boolean): boolean => {
+  const step = (r: number, c: number, from: Lane, jump: boolean, loop: boolean, mux: boolean, through = false): boolean => {
     const key = r + ',' + c;
     const fresh = !used.has(key);
     used.add(key);
@@ -31,7 +31,7 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
       burnt.set(k, Math.max(old ?? 0, buf.length + run.burn!));
       return [k, old] as const;
     }) : [];
-    const ok = dfs(nextLane(from, r, c, p), jump, loop, mux, [r, c]);
+    const ok = dfs(nextLane(from, r, c, through ? { half: p.half } : p), jump, loop, mux, [r, c]);
     for (const [k, old] of was.reverse()) { if (old === undefined) burnt.delete(k); else burnt.set(k, old); }
     buf.pop();
     if (twice) buf.pop();
@@ -48,6 +48,9 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
       if (!open(r, c)) continue;
       if (!used.has(r + ',' + c)) { if (step(r, c, lane, jump, loop, mux)) return true; }
       else if (loop && !tools.loopAny && step(r, c, lane, jump, false, mux)) return true;
+    }
+    if (loop && !tools.loopAny) for (const [a, b] of p.ports ?? []) for (const [r, c] of [a, b]) {
+      if (used.has(r + ',' + c) && !hot(r, c) && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
     }
     if (loop && tools.loopAny) for (const key of [...used]) {
       const [r, c] = key.split(',').map(Number);

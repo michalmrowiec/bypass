@@ -1,5 +1,5 @@
 // Matrix rules for a run: the deal, what each cell shows and allows, and what a pick does. No DOM here.
-import { burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, WILD, type Run } from './game';
+import { burning, contains, halfOf, inLane, isLegal, newRun, nextLane, partner, pick, portBack, WILD, type Run } from './game';
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
@@ -65,7 +65,7 @@ export function canPick(b: Board, r: number, c: number): boolean {
   switch (b.armed) {
     case 'wild': return !isUsed(b, r, c) && grid[r][c] !== WILD && !same(b.m.rep, r, c);
     case 'jump': return !isUsed(b, r, c) && (jumpAny(b) || nextToLast(b, r, c));
-    case 'loop': return isUsed(b, r, c) && grid[r][c] !== WILD && (loopAny(b) || inLane(b.run, r, c, b.puzzle));
+    case 'loop': return isUsed(b, r, c) && grid[r][c] !== WILD && (loopAny(b) || inLane(b.run, r, c, b.puzzle) || portBack(b.run, b.puzzle, r, c));
     case 'mux': return !isUsed(b, r, c) && muxLane(b, r, c);
     default: return isLegal(b.run, r, c, b.puzzle) || doorEdge(b, r, c);
   }
@@ -136,10 +136,12 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
     m.wild = false;
     return 'placed';
   }
-  const door = isDoorOpen(b), offLane = !inLane(run, r, c, puzzle);
+  const door = isDoorOpen(b), offLane = !inLane(run, r, c, puzzle), back = tool === 'loop' && !loopAny(b) && portBack(run, puzzle, r, c);
+  const from = { ...run };
   m.back = { axis: run.axis, idx: run.idx, free: run.free, half: run.half }; // before Mux widens the lane, so Rewind does not hand it back
   if (tool === 'mux') { run.free = lastPick(b); m.mux = false; }
   pick(run, puzzle, r, c);
+  if (back) Object.assign(run, nextLane(from, r, c, { half: puzzle.half })); // through the port, no second jump
   if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);
   if (door) sideDoor(run, r, c, puzzle.grid.length);
   if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);

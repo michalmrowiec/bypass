@@ -38,6 +38,13 @@ export const partner = (p: Pick<Puzzle, 'ports'>, r: number, c: number): [number
   const pair = p.ports?.find(([a, b]) => (a[0] === r && a[1] === c) || (b[0] === r && b[1] === c));
   return pair && (pair[0][0] === r && pair[0][1] === c ? pair[1] : pair[0]);
 };
+// Loopback v1.0 back through a port: a used port counts as in the lane while its partner is; it then leads
+// on through the port itself (no second jump), so the run returns to the port's matrix.
+export const portBack = (lane: Lane, p: Pick<Puzzle, 'ports' | 'half'>, r: number, c: number) => {
+  const q = partner(p, r, c);
+  return !!q && !inLane(lane, r, c, p) && inLane(lane, q[0], q[1], p);
+};
+
 // A port sends the next lane through its partner in the other matrix.
 export function nextLane({ axis, free }: Lane, r: number, c: number, p: Pick<Puzzle, 'ports' | 'half'>): Lane {
   const alongRow = free ? r === free[0] : axis === 'row';
