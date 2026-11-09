@@ -1,4 +1,4 @@
-import { contains, fits, newRun, pick, WILD, type Run } from './game';
+import { contains, fits, newRun, partner, pick, WILD, type Run } from './game';
 import { BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
 
@@ -291,6 +291,7 @@ export function nextSection(s: RunState): Patch[] | undefined {
 export interface MatrixCtx {
   buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell; jumps?: number[];
   par?: number; // length of the planted route (Surgical bonus)
+  ports?: Puzzle['ports']; // port board pairs, for move lengths
   trap?: Cell; // Honeypot cell
   tools?: boolean; // an item tool was used (Bare hands bonus)
   bounty?: BountyId;
@@ -320,6 +321,9 @@ type Cell = [number, number];
 export const isCorner = (p: Cell | undefined, n: number, w = n) => !!p && (p[0] === 0 || p[0] === n - 1) && (p[1] % w === 0 || p[1] % w === w - 1);
 // Picks alternate row/column, so consecutive cells share a lane; the move length is the distance along it.
 const moveLen = (a: Cell, b: Cell) => (a[0] === b[0] ? Math.abs(a[1] - b[1]) : Math.abs(a[0] - b[0]));
+// Move lengths along the path; a move after a port runs along its partner's line, so it is measured from the partner.
+const moveLens = (path: Cell[], jumps: number[] = [], ports?: Puzzle['ports']) =>
+  path.slice(1).flatMap((p, i) => (jumps.includes(i + 1) ? [] : [moveLen(partner({ ports }, ...path[i]) ?? path[i], p)]));
 
 // How many uploaded targets cover each buffer slot.
 // shortcut: counts each target's first occurrence only; repeats in one buffer are rare.
@@ -338,9 +342,9 @@ const windowOf = (buf: string[], t: string[]) => {
   return t.map((_, j) => i + j);
 };
 
-function facts({ buf, path, targets, l, n, jumps }: MatrixCtx): Facts {
+function facts({ buf, path, targets, l, n, jumps, ports }: MatrixCtx): Facts {
   const done = targets.filter((t) => contains(buf, t));
-  const moves = path.slice(1).flatMap((p, i) => (jumps?.includes(i + 1) ? [] : [moveLen(path[i], p)]));
+  const moves = moveLens(path, jumps, ports);
   const keys = path.map((p) => p[0] + ',' + p[1]);
   const again = keys.flatMap((k, i) => (keys.indexOf(k) < i ? [i] : []));
   const wins = done.map((t) => windowOf(buf, t));
@@ -632,18 +636,19 @@ export interface Preview { id?: DaemonId; name: string; now?: string; add: strin
 
 // What the owned path daemons would make of picking `cell` next. Shown for the cell under the cursor only,
 // so the player still plans the route. jumps: path indices reached off the lane, which are no moves.
-export function movePreview(path: Cell[], cell: Cell, n: number, daemons: DaemonId[], jumps: number[] = []): Preview[] {
+export function movePreview(path: Cell[], cell: Cell, n: number, daemons: DaemonId[], jumps: number[] = [], ports?: Puzzle['ports']): Preview[] {
   const out: Preview[] = [];
+  const from = (c: Cell) => partner({ ports }, ...c) ?? c;
   const prev = path[path.length - 1], before = path[path.length - 2];
-  const moves = path.slice(1).flatMap((p, i) => (jumps.includes(i + 1) ? [] : [moveLen(path[i], p)]));
+  const moves = moveLens(path, jumps, ports);
   const num = (x: number) => (x ? String(x) : undefined);
   if (daemons.includes('corner') && isCorner(cell, n) && !isCorner(path[0], n)) {
     out.push({ id: 'corner', name: path.length ? 'corner' : 'corner start', add: '×1.5', kind: 'boost', ...(path.length ? { note: 'if the path ends here' } : {}) });
   }
-  if (prev && daemons.includes('longjump') && moveLen(prev, cell) === n - 1) {
+  if (prev && daemons.includes('longjump') && moveLen(from(prev), cell) === n - 1) {
     out.push({ id: 'longjump', name: 'long jump', now: num(5 * moves.filter((d) => d === n - 1).length), add: '+5', kind: 'data' });
   }
-  if (before && daemons.includes('zigzag') && moveLen(prev, cell) > moveLen(before, prev)) {
+  if (before && daemons.includes('zigzag') && moveLen(from(prev), cell) > moveLen(from(before), prev)) {
     out.push({ id: 'zigzag', name: 'zigzag', now: num(0.5 * moves.filter((d, i) => i > 0 && d > moves[i - 1]).length), add: '+0.5 boost', kind: 'boost' });
   }
   return out;

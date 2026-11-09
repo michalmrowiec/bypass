@@ -141,6 +141,7 @@ function render() {
     const port = portNo(r, c);
     if (port) {
       b.insertAdjacentHTML('beforeend', "<i class='ptag'>⇄" + port + '</i>');
+      b.classList.add('port' + port);
       // Pointing at a port lights its partner in the other matrix.
       const [pr, pc] = partner(S.puzzle, r, c)!;
       b.onmouseenter = () => $('c' + pr + pc)?.classList.add('plink');
@@ -156,6 +157,10 @@ function render() {
     }
     b.tabIndex = -1;
     g.appendChild(b);
+  }
+  // A port you can take sends a ring out, and its partner draws one in.
+  for (const [a, b] of S.puzzle.ports ?? []) for (const [x, y] of [[a, b], [b, a]]) {
+    if ($('c' + x[0] + x[1])?.classList.contains('ok')) $('c' + y[0] + y[1])?.classList.add('pin');
   }
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
@@ -271,7 +276,7 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
     par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
@@ -1149,7 +1154,7 @@ function applyCross() {
   const peek: (Preview | string)[] = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? []
     : armed === 'wild' ? ['place ** here'] : armed === 'jump' ? ['bridge jump']
     : armed === 'loop' ? ['loopback: ' + S.puzzle.grid[cursor[0]][cursor[1]] + ' again']
-    : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps),
+    : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps, S.puzzle.ports),
       ...(cellView(B(), cursor[0], cursor[1]).tags.includes('node') ? [{ name: 'data node', add: '+' + nodeData(R.items), kind: 'data' as const }] : []),
       ...(R.daemons.includes('rotate') && !S.run.path.length
         ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(CRON_DATA * rot) : undefined, kind: 'data' as const,

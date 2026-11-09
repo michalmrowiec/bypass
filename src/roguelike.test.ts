@@ -745,3 +745,11 @@ describe('port boards', () => {
     expect([isLegal(run, 0, 3, p), isLegal(run, 0, 0, p)]).toEqual([true, false]);
   });
 });
+
+describe('port moves', () => {
+  it('measure a move after a port from its partner', () => {
+    const ports: [[number, number], [number, number]][] = [[[0, 0], [2, 3]]];
+    expect(movePreview([[0, 0]], [0, 3], 3, ['longjump'], [], ports).map((p) => p.id)).toEqual(['longjump']);
+    expect(movePreview([[0, 0]], [0, 3], 3, ['longjump'])).toEqual([]);
+  });
+});

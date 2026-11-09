@@ -806,11 +806,18 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 .bpicks{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:4px}
 .bpicks .btn{font-size:12px}
 
-/* Ports: a slow silver breathing ring and a drifting ⇄ tag; the partner lights while you point at one. */
-.cell.port{border-color:color-mix(in srgb,var(--port) 55%,transparent);animation:portGlow 3.2s ease-in-out infinite}
-.cell .ptag{position:absolute;top:1px;left:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--port);pointer-events:none;animation:portDrift 3.2s ease-in-out infinite}
-.cell.port.used{animation:none}
-.cell.port.used .ptag{opacity:.45;animation:none}
+/* Ports: a light orbits each port's frame (pair 2 the other way round); a port you can take sends a ring out, its partner draws one in. */
+@property --pa{syntax:'<angle>';inherits:false;initial-value:0deg}
+.cell.port{border-color:color-mix(in srgb,var(--port) 40%,transparent)}
+.cell.port:not(.used)::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:conic-gradient(from var(--pa),transparent 0 62%,color-mix(in srgb,var(--port) 25%,transparent) 80%,var(--port) 96%,transparent);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:portOrbit 2.8s linear infinite}
+.cell.port2:not(.used)::after{animation-direction:reverse}
+.cell .ptag{position:absolute;top:1px;left:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--port);pointer-events:none}
+.cell.port.used .ptag{opacity:.45}
+.cell.pin{animation:portIn 2.4s ease-in infinite}
+.cell.port.ok{animation:portOut 2.4s ease-out infinite}
 .cell.plink{box-shadow:0 0 0 2px var(--port),0 0 12px color-mix(in srgb,var(--port) 60%,transparent)}
-@keyframes portGlow{0%,100%{box-shadow:inset 0 0 0 0 transparent}50%{box-shadow:inset 0 0 10px color-mix(in srgb,var(--port) 28%,transparent)}}
-@keyframes portDrift{0%,100%{transform:translateX(0);opacity:.75}50%{transform:translateX(2px);opacity:1}}
+@keyframes portOrbit{to{--pa:360deg}}
+@keyframes portOut{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--port) 55%,transparent)}70%,100%{box-shadow:0 0 0 10px transparent}}
+@keyframes portIn{0%,15%{box-shadow:0 0 0 10px transparent}80%{box-shadow:0 0 0 0 color-mix(in srgb,var(--port) 50%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
