@@ -141,11 +141,11 @@ function render() {
     const port = portNo(r, c);
     if (port) {
       b.insertAdjacentHTML('beforeend', "<i class='ptag'>⇄" + port + '</i>');
-      b.classList.add('port' + port);
-      // Pointing at a port lights its partner in the other matrix.
+      // Pointing at a port lights it and its partner in the other matrix.
       const [pr, pc] = partner(S.puzzle, r, c)!;
-      b.onmouseenter = () => $('c' + pr + pc)?.classList.add('plink');
-      b.onmouseleave = () => $('c' + pr + pc)?.classList.remove('plink');
+      const lit = (on: boolean) => { b.classList.toggle('plink', on); $('c' + pr + pc)?.classList.toggle('plink', on); };
+      b.onmouseenter = () => lit(true);
+      b.onmouseleave = () => lit(false);
     }
     if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
@@ -158,7 +158,7 @@ function render() {
     b.tabIndex = -1;
     g.appendChild(b);
   }
-  // A port you can take sends a ring out, and its partner draws one in.
+  // A port you can take draws a ring in; its partner, where you come out, sends one out.
   for (const [a, b] of S.puzzle.ports ?? []) for (const [x, y] of [[a, b], [b, a]]) {
     if ($('c' + x[0] + x[1])?.classList.contains('ok')) $('c' + y[0] + y[1])?.classList.add('pin');
   }

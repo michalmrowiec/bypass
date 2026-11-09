@@ -806,18 +806,13 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 .bpicks{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:4px}
 .bpicks .btn{font-size:12px}
 
-/* Ports: a light orbits each port's frame (pair 2 the other way round); a port you can take sends a ring out, its partner draws one in. */
-@property --pa{syntax:'<angle>';inherits:false;initial-value:0deg}
-.cell.port{border-color:color-mix(in srgb,var(--port) 40%,transparent)}
-.cell.port:not(.used)::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
-  background:conic-gradient(from var(--pa),transparent 0 62%,color-mix(in srgb,var(--port) 25%,transparent) 80%,var(--port) 96%,transparent);
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:portOrbit 2.8s linear infinite}
-.cell.port2:not(.used)::after{animation-direction:reverse}
+/* Ports: one effect, the ring. A port in your lane is the way in (its ring closes in), its partner the way out (its ring opens out). */
+.cell.port{border-color:color-mix(in srgb,var(--port) 45%,transparent)}
 .cell .ptag{position:absolute;top:1px;left:3px;font-size:9px;font-style:normal;line-height:1.2;color:var(--port);pointer-events:none}
 .cell.port.used .ptag{opacity:.45}
-.cell.pin{animation:portIn 2.4s ease-in infinite}
-.cell.port.ok{animation:portOut 2.4s ease-out infinite}
-.cell.plink{box-shadow:0 0 0 2px var(--port),0 0 12px color-mix(in srgb,var(--port) 60%,transparent)}
-@keyframes portOrbit{to{--pa:360deg}}
-@keyframes portOut{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--port) 55%,transparent)}70%,100%{box-shadow:0 0 0 10px transparent}}
-@keyframes portIn{0%,15%{box-shadow:0 0 0 10px transparent}80%{box-shadow:0 0 0 0 color-mix(in srgb,var(--port) 50%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+.cell.pin{animation:portOut 2.4s ease-out 1.68s infinite} /* starts as the entry ring closes */
+.cell.port.ok{animation:portIn 2.4s ease-in infinite}
+/* outline, not box-shadow: the ring animation owns box-shadow */
+.cell.plink{outline:2px solid var(--port);outline-offset:1px;background:color-mix(in srgb,var(--port) 14%,transparent);color:var(--ink)}
+@keyframes portIn{0%{box-shadow:0 0 0 10px transparent}70%{box-shadow:0 0 0 0 color-mix(in srgb,var(--port) 55%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes portOut{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--port) 55%,transparent)}100%{box-shadow:0 0 0 10px transparent}}
