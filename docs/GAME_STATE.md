@@ -81,7 +81,8 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
   - **ready** zielona pulsuje (klik uzbraja); niebieska: tylko teraz, przed 1. ruchem (Wildcard v2, Split, SIM);
   - **armed** pomarańczowa miga: czeka na klik w matrycę;
   - **waiting** pomarańczowa stała: naładowany, ale nie teraz (przed 1. pickiem albo nic w zasięgu, np. Loopback przy samej zużytej `**`);
-  - **spent** zgaszona, moduł przygaszony: użyty albo minęło okno, do następnej macierzy (SIM do następnego pokoju).
+  - **spent** zgaszona, moduł przygaszony: użyty, do następnej macierzy (SIM do następnego pokoju);
+  - **unused** zgaszona, moduł lekko przygaszony: nieużyty, a jego okno minęło (Wildcard v2, Split, SIM po 1. ruchu; reszta po końcu macierzy), wraca w następnej macierzy.
 
 | item | cena | efekt |
 |---|---|---|

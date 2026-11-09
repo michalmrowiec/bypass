@@ -446,13 +446,16 @@ function renderDaemons() {
     const ready = !!t && !S.over && !offer.length
       && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
     const on = ready && armed === t;
-    // Not ready: spent (used, or its window passed, until the next matrix; SIM until the next room) or waiting (charged, not now).
-    const spent = !!t && !ready && (S.over || (t === 'sim' ? R.restarts < 1 || !!S.start : t === 'wild' ? !M.wild || !start : t === 'split' ? !M.split || !start
-      : t === 'jump' ? !M.jump : t === 'mux' ? !M.mux : t === 'rewind' ? !M.rewind : !M.loop));
-    const hint = !ready ? (!t ? '' : spent ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
+    // Not ready: spent (used: until the next matrix, SIM until the next room), unused (its window passed without use)
+    // or waiting (charged, not now).
+    const used = !!t && (t === 'sim' ? R.restarts < 1 : t === 'wild' ? !M.wild : t === 'split' ? !M.split : t === 'jump' ? !M.jump : t === 'mux' ? !M.mux : t === 'rewind' ? !M.rewind : !M.loop);
+    const missed = !!t && !used && (S.over || ((t === 'sim' || t === 'wild' || t === 'split') && !start));
+    const spent = !ready && (used || missed);
+    const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
+      : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
       : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
-    return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : !t ? 'online' : spent ? 'spent' : 'waiting',
+    return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '')
         + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });

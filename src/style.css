@@ -340,8 +340,10 @@ button.unit{cursor:pointer}
    green ready · blue ready now or never (before the first pick) · amber armed (blinks) or waiting (steady) · off spent. */
 .unit.waiting .led{background:var(--led-amber);opacity:.8;box-shadow:0 0 4px color-mix(in srgb,var(--led-amber) 50%,transparent)}
 .unit.waiting .nm em{color:var(--led-amber)}
+/* spent (used) and unused (its window passed): LED off, nothing wrong; unused stays a little brighter. */
 .unit.spent{opacity:.55}
-.unit.spent .nm em{color:var(--muted)} /* LED stays off: done for this matrix, nothing wrong */
+.unit.unused{opacity:.75}
+.unit:is(.spent,.unused) .nm em{color:var(--muted)}
 .unit.ready{border-color:var(--mint-dim)}
 .unit.armed{border-color:var(--mint);background:var(--mint-faint)}
 .unit:is(.ready,.armed) .nm em{color:var(--mint)}
