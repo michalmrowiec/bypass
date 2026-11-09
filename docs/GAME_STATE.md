@@ -127,8 +127,11 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Pozostałe:** katalog z zakładkami daemons / items / bonuses (z listą nagród) / ice, wyszukiwarką i daemonami po rodzinach i rzadkości, tooltipy, briefing z animowanym hakerem, motywowy scrollbar.
 
 ## 11. Narzędzia
-- **Symulator balansu** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt`.
-  - Robi pełne runy po zaplanowanej trasie na stałych buildach (none / commons / splicer / topfull / drafted).
-  - Nie zna itemów, Encryption ani Honeypota.
-  - ⚠ Ostatni wynik jest sprzed wydłużenia targetów od 2. iteracji.
-- **Wnioski z ostatniego symulowania:** same progi są OK. Łatwość bierze się ze stackowania mnożników na „wszystkie targety”, dlatego osłabiliśmy All-in (Saturate potem wzmocniony do legendary, warunek ma najtrudniejszy).
+- **Symulator balansu v2** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt` (ok. 5 min).
+  - Boty grają pełne runy, które mogą przegrać. Build: jedna rodzina daemonów z ofert (ghost / splicer / runner / cron) albo pierwszy z oferty; itemy pasywne kupowane w stałej kolejności.
+  - Trasa: `planted` (trasa generatora), `all` (najlepszy wynik z kompletem targetów), `short` (najwięcej pustych slotów przy utrzymaniu tempa quoty), `max` (najlepszy wynik). DFS z budżetem 3000 węzłów, ocena przez `scoreMatrix`.
+  - Raport: win rate, gdzie runy umierają, mediana ×quota najciaśniejszego pokoju w każdej iteracji.
+  - Szybkie testy: `SIM_RUNS`, `SIM_CO=0,2`, `SIM_BUILDS=ghost,cron`, `SIM_POLICIES=max`, `SIM_BUDGET`.
+  - Nie zna narzędzi (Bridge, Loopback, Mux, Rewind, Split, Wildcard v2), Repeatera, bonusów, rerolli ani slotów racka; widzi wszystko (Encryption i Blackout go nie mylą).
+- **Wnioski z sim v2 (2026-11-09):** bez narzędzi ghost jest najsłabszą rodziną (najlepszy win rate 0–30% wobec splicera 5–50% i crona 25–65%), więc jego przewaga z playtestów szła z narzędzi. Cron z najlepszą trasą jest najmocniejszy we wszystkich firmach.
+- **Wnioski ze starego symulatora:** same progi są OK. Łatwość bierze się ze stackowania mnożników na „wszystkie targety”, dlatego osłabiliśmy All-in (Saturate potem wzmocniony do legendary, warunek ma najtrudniejszy).
