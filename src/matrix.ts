@@ -63,7 +63,7 @@ export function canPick(b: Board, r: number, c: number): boolean {
   switch (b.armed) {
     case 'wild': return !isUsed(b, r, c) && grid[r][c] !== WILD && !same(b.m.rep, r, c);
     case 'jump': return !isUsed(b, r, c) && (jumpAny(b) || nextToLast(b, r, c));
-    case 'loop': return isUsed(b, r, c) && (loopAny(b) || inLane(b.run, r, c));
+    case 'loop': return isUsed(b, r, c) && grid[r][c] !== WILD && (loopAny(b) || inLane(b.run, r, c));
     case 'mux': return !isUsed(b, r, c) && muxLane(b, r, c);
     default: return isLegal(b.run, r, c) || doorEdge(b, r, c);
   }
@@ -165,12 +165,13 @@ export function isStuck(b: Board, runMode: boolean): boolean {
 const canJump = (b: Board) => b.m.jump && b.puzzle.grid.some((row, r) => row.some((_, c) => canPick({ ...b, armed: 'jump' }, r, c)));
 export const hasMoves = (b: Board) => b.run.buffer.length < b.puzzle.l && (canJump(b) || b.m.loop || b.m.mux || canUndo(b));
 
-// Rewind: the last pick's code stays in the buffer, the cell is free again, the lane goes back and the buffer gains a slot.
+// Rewind: the last pick's code stays in the buffer, the cell (unless **) is free again, the lane goes back and the buffer gains a slot.
 export function rewind(b: Board): boolean {
   const { run, m } = b;
   if (!m.rewind || !m.back) return false;
   const [r, c] = run.path[run.path.length - 1];
-  run.used.delete(r + ',' + c);
+  // A ** cell is single-use: taking it back keeps it spent.
+  if (run.buffer[run.buffer.length - 1] !== WILD) run.used.delete(r + ',' + c);
   Object.assign(run, m.back);
   m.undone = run.path.length - 1;
   m.kept = run.buffer.length - 1;

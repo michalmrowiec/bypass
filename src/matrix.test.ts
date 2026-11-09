@@ -167,6 +167,17 @@ describe('pick rules', () => {
     expect(rewind(b)).toBe(false);
   });
 
+  it('a ** cell is single-use: rewind keeps it spent, loopback cannot reach it', () => {
+    const b = board();
+    b.puzzle.grid[0][0] = WILD;
+    b.m.rewind = true;
+    applyPick(b, 0, 0);
+    expect(rewind(b)).toBe(true);
+    expect([b.run.used.has('0,0'), canPick(b, 0, 0)]).toEqual([true, false]);
+    b.armed = 'loop';
+    expect(canPick(b, 0, 0)).toBe(false);
+  });
+
   it('after a rewind the last pick is the one before, until the next pick', () => {
     const b = board();
     b.m.rewind = true;
