@@ -86,7 +86,7 @@ export const COMPANIES: Company[] = [{
     { name: 'Mailroom', quota: 45, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Scanners that email every document to a shared inbox.' },
     { name: 'Paralegals', quota: 100, matrices: 2, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Case files on network drives, passwords taped under keyboards.' },
     { name: 'Partners', quota: 140, matrices: 2, size: { n: 5, lens: [3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Corner offices, laptops that never leave, phones that never lock.' },
-    { name: 'Archive', quota: 180, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0 }, brief: 'Thirty years of settlements, digitised and forgotten.' },
+    { name: 'Archive', quota: 180, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Thirty years of settlements on paper and their digital twin, synced through two gateways.' },
     { name: 'Vault', quota: 220, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'Merger papers and sealed testimony behind a single hardened server.' },
     { name: 'SOC', quota: 260, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'An outsourced SOC on a retainer. Small screens, sharp eyes.' },
   ],
@@ -103,9 +103,9 @@ export const COMPANIES: Company[] = [{
   always: ['throttle'],
   sections: [
     { name: 'Call Center', quota: 70, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
-    { name: 'Switching', quota: 160, matrices: 3, size: { n: 6, lens: [2, 2, 3, 3], links: [1, 2], slack: 0 }, brief: 'Racks that route every call in the region, patched by hand since the nineties.' },
+    { name: 'Switching', quota: 160, matrices: 3, size: { n: 5, lens: [2, 2, 3, 3], links: [1, 2], slack: 0, ports: 2 }, brief: 'Two switch racks that route every call in the region, patched into each other by hand.' },
     { name: 'Backbone', quota: 250, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
-    { name: 'Exchange', quota: 330, matrices: 4, size: { n: 6, lens: [2, 2, 3, 3, 3], links: [2], slack: 0 }, brief: 'Peering with every other carrier. Short sessions, lots of them.' },
+    { name: 'Exchange', quota: 330, matrices: 4, size: { n: 5, lens: [2, 2, 3, 3, 3], links: [2], slack: 0, ports: 2 }, brief: 'Peering with another carrier: their network on the right, ours on the left, joined at the ports.' },
     { name: 'SOC', quota: 360, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
   ],
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
@@ -144,12 +144,15 @@ export function burnOf(s: RunState, i = s.section): number {
 // Patches per iteration: iteration 2 puts ICE in ~60% of rooms, iteration 3 in every room and a second rule in ~1/3 of them.
 // Rooms with their own or company-wide ICE count as covered. At most one Corruption per deployment, so its burn grows slowly.
 export const PATCH_COVER = [0, 0.6, 1];
+// ICE the port board generator does not handle yet; patches skip port rooms for these.
+export const NO_PORT_ICE: IceId[] = ['firewall', 'corruption', 'conveyor'];
 export const PATCH_DOUBLE = [0, 0, 1 / 3];
 function deployPatches(s: RunState): Patch[] {
   const r = rng(hashStr(s.seed + '/patch/' + s.loop));
   const pool = COMPANIES[s.company].patches, rooms = sections(s).length, out: Patch[] = [];
   const add = (room: number) => {
-    const opts = pool.filter((id) => !roomIce(s, room).includes(id) && !(id === 'corruption' && out.some((p) => p.ice === id)));
+    const opts = pool.filter((id) => !roomIce(s, room).includes(id) && !(id === 'corruption' && out.some((p) => p.ice === id))
+      && !(sections(s)[room].size.ports && NO_PORT_ICE.includes(id)));
     if (!opts.length) return;
     const p = { ice: opts[Math.floor(r() * opts.length)], room, loop: s.loop };
     s.patches.push(p);
@@ -854,7 +857,7 @@ export function dealRunMatrix(seed: number, s: RunState): Puzzle {
   let p = deal(seed);
   // Blackout: redeal until every top-row start can still upload some target.
   if (rules.includes('blackout')) {
-    for (let k = 1; k < 50 && !p.grid[0].every((_, c) => startsWell(p, c, size.burn)); k++) p = deal(hashStr(seed + '/' + k));
+    for (let k = 1; k < 50 && !p.grid[0].every((_, c) => (!!p.half && c >= p.half) || startsWell(p, c, size.burn)); k++) p = deal(hashStr(seed + '/' + k));
   }
   return rules.includes('conveyor') ? addBelt(seed, p) : p;
 }

@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  beltRow, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
+  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -751,5 +751,19 @@ describe('port moves', () => {
     const ports: [[number, number], [number, number]][] = [[[0, 0], [2, 3]]];
     expect(movePreview([[0, 0]], [0, 3], 3, ['longjump'], [], ports).map((p) => p.id)).toEqual(['longjump']);
     expect(movePreview([[0, 0]], [0, 3], 3, ['longjump'])).toEqual([]);
+  });
+});
+
+describe('port rooms', () => {
+  it('never get ICE the port board cannot handle', () => {
+    COMPANIES.forEach((co, i) => {
+      for (let seed = 1; seed <= 30; seed++) {
+        const s = newRunState(seed, i);
+        for (let k = 0; k < LOOPS * co.sections.length; k++) {
+          if (sections(s)[s.section]?.size.ports) for (const id of NO_PORT_ICE) expect(roomIce(s)).not.toContain(id);
+          nextSection(s);
+        }
+      }
+    });
   });
 });

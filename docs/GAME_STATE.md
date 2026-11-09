@@ -33,10 +33,17 @@ Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
 |---|---|---|---|
 | **Kestrel Logistics** (spedycja) | Reception 5×5·1·25 → Offices 6×6·2·90 → Server Room 7×7·3·320 → SOC 7×7·2·250 | Firewall, Throttle, Blackout | + Corruption |
 | **Meridian Health** (szpital) | Lobby 6×6·1·50 → Wards 7×7·2·140 → Records 8×8·2·240 → SOC 8×8·2·330 | + Encryption | + Encryption |
-| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 30 · Mailroom 45 · Paralegals 100 · Partners 140 · Archive 180 · Vault 220 · SOC 260 | + Honeypot, Dead cells | + Honeypot, Dead cells |
-| **Argus Telecom** (telekom) | wszystko 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·70 · Switching 3·160 · Backbone 3·250 · Exchange 4·330 · SOC 3·360. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
+| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 30 · Mailroom 45 · Paralegals 100 · Partners 140 · **Archive 180 (porty)** · Vault 220 · SOC 260 | + Honeypot, Dead cells | + Honeypot, Dead cells |
+| **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·70 · **Switching 5×5⇄5×5·3·160 (porty)** · Backbone 3·250 · **Exchange 5×5⇄5×5·4·330 (porty)** · SOC 3·360. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
+
+**Nowe rodzaje plansz wchodzą stopniowo:** najpierw jeden pokój w firmie, w następnej kilka, a dany rodzaj może dominować w jakiejś firmie. Porty: 1 pokój w Ashgrove, 2 w Argusie. Firma testowa **Lab** (tylko dev server) ma same plansze z portami.
 
 Każda firma ma ICE poprzedniej i dokłada własne. ICE może też być stałe dla firmy (`always`, w każdym pokoju) albo przypisane do pokoju (`Section.ice`).
+
+### Plansze z portami
+Dwie macierze n×n obok siebie (A po lewej, B po prawej). Linia ruchu zostaje w swojej macierzy; start w wierszu 0 macierzy A. 2 pary portów `⇄1`, `⇄2` (para 1 chłodny hologram, para 2 ciepły). Port ma zwykły kod; po jego picku następny ruch idzie w linii partnera w drugiej macierzy (wziąłeś w wierszu → kolumna partnera, w kolumnie → wiersz partnera). Posadzona trasa przechodzi przez ≥1 port. Pierścień wciąga się w port w Twojej linii i wychodzi z partnera; najechanie podświetla parę.
+- Bridge v1 tylko w tej samej macierzy, v2 w obu; Mux w macierzy ostatniego picku; Side door: krawędzie A; Corner: rogi obu macierzy; Long jump i Zigzag mierzą ruch po porcie od partnera.
+- Łatki nie dają pokojom z portami Firewall, Corruption ani Conveyor (`NO_PORT_ICE`; generator ich tam nie obsługuje).
 
 ## 5. ICE
 - **Firewall:** zablokowany wiersz albo kolumna `##`, nigdy wiersz 0.

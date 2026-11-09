@@ -849,7 +849,7 @@ const firmCard = (co: Company | undefined, i: number) => {
   // ICE the previous company did not have.
   const prev = COMPANIES[i - 1], fresh = co && prev ? [...co.ice, ...co.patches].filter((id) => !prev.ice.includes(id) && !prev.patches.includes(id)) : [];
   const back = co ? face('back', '<b>' + co.name + "</b><table class='frooms'><tr><th>room</th><th>size</th><th>matrices</th><th>quota</th></tr>"
-    + co.sections.map((s) => '<tr><td>' + s.name + (s.ice ? ' ' + iceTags(s.ice) : '') + '</td><td>' + s.size.n + '×' + s.size.n + '</td><td>' + s.matrices + '</td><td>' + s.quota + '</td></tr>').join('')
+    + co.sections.map((s) => '<tr><td>' + s.name + (s.ice ? ' ' + iceTags(s.ice) : '') + '</td><td>' + roomSize(s.size) + '</td><td>' + s.matrices + '</td><td>' + s.quota + '</td></tr>').join('')
     + "</table><p class='meta'>" + LOOPS + ' iterations, quotas ×' + QUOTA_GROWTH + ' each</p>'
     + (co.always ? "<p class='meta'>in every room:<br>" + iceTags(co.always) + '</p>' : '')
     + "<p class='meta'>boss ICE, one per run:<br>" + iceTags(co.ice, fresh) + '</p>' + "<p class='meta'>patches between iterations:<br>" + iceTags(co.patches, fresh) + '</p>'
@@ -857,6 +857,9 @@ const firmCard = (co: Company | undefined, i: number) => {
   return "<div class='fcard" + (!co ? ' locked' : isOpen(i) ? '' : ' sealed') + "' role='button' tabindex='0' aria-label='" + (co ? co.name : 'Locked contract') + "'><div class='ftilt'><div class='finner'>"
     + front + back + '</div></div></div>';
 };
+
+// Port rooms show both matrices: 5×5 ⇄ 5×5.
+const roomSize = (z: { n: number; ports?: number }) => z.n + '×' + z.n + (z.ports ? ' ⇄ ' + z.n + '×' + z.n : '');
 
 function showCompanies(seed: number, back: Mode) {
   R = newRunState(seed);
@@ -1084,7 +1087,7 @@ function enterSection() {
   const at = (i: number) => (i < R.section ? ' done' : i === R.section ? ' now' : '');
   const route = rooms.map((s, i) => (i ? "<i class='link" + at(i) + "'></i>" : '') + "<span class='node" + at(i) + "'>" + s.name + '</span>').join('');
   showResult(true, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + ' · section ' + (R.section + 1) + '/' + rooms.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
-    + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + sec.size.n + '×' + sec.size.n + ' · ' + sec.matrices
+    + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + roomSize(sec.size) + ' · ' + sec.matrices
     + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + ' data</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
