@@ -387,8 +387,8 @@ interface Daemon {
   end?: (s: RunState, f: Facts, disconnected: boolean) => void; // after a matrix that uploaded something
 }
 
-// Rotate and Uptime pay the same flat data per stack.
-export const CRON_DATA = 5;
+// Flat data per stack: Uptime (no Disconnect) pays more than the easy Rotate.
+export const CRON_DATA = 5, ROTATE_DATA = 3;
 export const LONGJUMP_DATA = 8;
 export const PAINT_DATA = 5, PAINT_LEVELS = 3, PAINT_CELLS = 6;
 // Painter: data a painted cell pays when picked.
@@ -401,8 +401,8 @@ export const DAEMONS = {
     score: (f) => (f.shared ? { flat: 7 * f.shared } : null) },
   fullstack: { name: 'Full stack', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.4 per target) when every target is uploaded',
     score: (f) => (f.all ? { mult: Math.round((1 + 0.4 * f.done.length) * 10) / 10 } : null) },
-  overflow: { name: 'Overflow', family: 'Ghost', text: '+0.5 boost per empty buffer slot',
-    score: (f) => (f.empty ? { boost: 0.5 * f.empty } : null) },
+  overflow: { name: 'Overflow', family: 'Ghost', text: '+0.25 boost per empty buffer slot',
+    score: (f) => (f.empty ? { boost: 0.25 * f.empty } : null) },
   light: { name: 'Light footprint', family: 'Ghost', rarity: 'legendary', text: '×2 when at most half the buffer is used',
     score: (f) => (f.light ? { mult: 2 } : null) },
   silent: { name: 'Silent', family: 'Ghost', text: '+$2 each time you end a matrix early with Disconnect',
@@ -419,8 +419,8 @@ export const DAEMONS = {
   // Cron: scheduled jobs. Keep doing the thing every matrix and the stack grows; slip once and it is gone.
   heartbeat: { name: 'Heartbeat', family: 'Cron', rarity: 'rare', text: '+0.2 boost for every matrix in a row where you upload every target, this one included; missing one resets the stack',
     streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : 0), effect: (n) => ({ boost: n / 5 }) } },
-  rotate: { name: 'Rotate', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row whose first pick is in a different column than the last one; the same column resets the stack',
-    streak: { goal: 'start in a new column', next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: CRON_DATA * n }) } },
+  rotate: { name: 'Rotate', family: 'Cron', text: '+' + ROTATE_DATA + ' data for every matrix in a row whose first pick is in a different column than the last one; the same column resets the stack',
+    streak: { goal: 'start in a new column', next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: ROTATE_DATA * n }) } },
   backup: { name: 'Backup', family: 'Cron', rarity: 'rare', text: '+0.4 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending halves the stack',
     streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : Math.floor(n / 2)), effect: (n) => ({ boost: n * 2 / 5 }) } },
   uptime: { name: 'Uptime', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row with no Disconnect and no restart; either resets the stack',
@@ -692,8 +692,8 @@ export const ITEMS = {
   wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into ** (not the ×2 cell)', needs: 'wildcard1' },
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
   datanode2: { name: 'Data node', ver: '2.0', kind: 'NVMe SSD', price: 3, text: 'Upgrades v1.0: the node cell holds +30 data', needs: 'datanode' },
-  split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target at its random cut mark; its data splits by the length of each part' },
-  split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target is cut', needs: 'split1' },
+  split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target of 3+ codes at its random cut mark; its data splits by the length of each part' },
+  split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target of 3+ codes is cut', needs: 'split1' },
   sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
   bridge: { name: 'Bridge', ver: '1.0', kind: 'antenna', price: 3, text: 'Once per matrix, arm it to jump off your lane to a free cell next to your last pick, diagonals too; daemons skip the jump as a move' },
   bridge2: { name: 'Bridge', ver: '2.0', kind: 'long-range antenna', price: 4, text: 'Upgrades v1.0: the jump reaches any free cell on the matrix, even before your first pick', needs: 'bridge' },
@@ -836,6 +836,10 @@ export const cutMarks = (seed: number, targets: string[][]) => {
   const r = rng(hashStr(seed + '/cuts'));
   return targets.map((t) => 1 + Math.floor(r() * (t.length - 1)));
 };
+
+// Split needs 3+ codes: cutting a 2-code target into two 1-code ones lets a single ** upload both.
+export const SPLIT_MIN = 3;
+export const canSplit = (t: string[]) => t.length >= SPLIT_MIN;
 
 // Cuts target i before code `at` (default: the middle, rounded up) into two targets; each gets data in proportion to its length.
 export function splitTarget(targets: string[][], worth: number[], i: number, at = Math.ceil(targets[i].length / 2)) {

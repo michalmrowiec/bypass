@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, stockShop,
+  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -75,7 +75,7 @@ describe('daemons', () => {
   it('applies (data + flat) × (1 + boost) × mult', () => {
     expect(scoreMatrix(ctx, run()).total).toBe(35);
     expect(scoreMatrix(ctx, run('chain')).total).toBe(52); // B is shared: ×1.5
-    expect(scoreMatrix(ctx, run('overflow')).total).toBe(105); // 4 empty slots -> +2
+    expect(scoreMatrix(ctx, run('overflow')).total).toBe(70); // 4 empty slots -> +1
     expect(scoreMatrix(ctx, run('light', 'corner')).total).toBe(105); // ×2 ×1.5
     expect(scoreMatrix(ctx, run('longjump')).total).toBe(51); // two moves of length 4: +8 each
     expect(scoreMatrix(ctx, run('zigzag')).total).toBe(52); // 4,2,4: one longer move -> +0.5
@@ -255,6 +255,10 @@ describe('matrix items', () => {
     expect(m[0]).toBe(1);
     m.forEach((at, i) => expect(at >= 1 && at < targets[i].length).toBe(true));
     expect(cutMarks(9, targets)).toEqual(m);
+  });
+
+  it('split needs a target of 3+ codes', () => {
+    expect([['A', 'B'], ['A', 'B', 'C']].map(canSplit)).toEqual([false, true]);
   });
 
   it('split cuts a target and its data in two', () => {

@@ -9,8 +9,8 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, coverage, CRON_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  buy, coverage, ROTATE_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -251,7 +251,7 @@ function render() {
     }
     s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l - bought ? ' extra' : '')
       + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '') + (has('backup') && i === l - 1 ? ' spare' : '');
-    if (has('overflow')) s.dataset.bonus = '+.5';
+    if (has('overflow')) s.dataset.bonus = '+.25';
     if (s.classList.contains('extra')) s.dataset.tip = 'Extra slot from your rack';
     if (s.classList.contains('spare')) s.dataset.tip = 'Backup: leave this slot empty to grow the stack; any other ending halves it';
     if (i === M.kept) s.dataset.tip = 'Kept by Rewind: the buffer gained a slot for it';
@@ -270,7 +270,7 @@ function render() {
     const el = document.createElement('div');
     // Split, before the first move: v1.0 cuts a clicked target at its random mark, v2.0 at a clicked gap between codes.
     // Under Blackout v1.0 cuts blind (the mark stays hidden); v2.0 still picks its gap between the ?? codes.
-    const cut = S.mode === 'run' && armed === 'split' && t.length > 1;
+    const cut = S.mode === 'run' && armed === 'split' && canSplit(t);
     const gaps = cut && R.items.includes('split2');
     const blind = cut && !gaps && blackout();
     // The plan would upload it (never under Blackout, which hides the targets).
@@ -538,7 +538,7 @@ function renderDaemons() {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
     const ready = !!t && !S.over && !offer.length
-      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
+      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start && S.puzzle.targets.some(canSplit) : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
     const on = ready && armed === t;
     // Not ready: spent (used: until the next matrix, SIM until the next room), unused (its window passed without use)
     // or waiting (charged, not now).
@@ -547,7 +547,7 @@ function renderDaemons() {
     const spent = !ready && (used || missed);
     const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
       : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
-      : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
+      : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '')
@@ -1304,8 +1304,8 @@ function applyCross() {
     : [...movePreview(S.run.path, cursor, S.puzzle.grid.length, R.daemons, M.jumps, S.puzzle.ports, M.stay),
       ...(cellView(B(), cursor[0], cursor[1]).tags.includes('node') ? [{ name: 'data node', add: '+' + nodeData(R.items), kind: 'data' as const }] : []),
       ...(R.daemons.includes('rotate') && !S.run.path.length
-        ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(CRON_DATA * rot) : undefined, kind: 'data' as const,
-          ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+' + CRON_DATA }) }] : [])];
+        ? [{ id: 'rotate' as const, name: 'rotate', now: rot ? String(ROTATE_DATA * rot) : undefined, kind: 'data' as const,
+          ...(cursor[1] === R.lastStart ? { add: '→ 0', note: 'same column' } : { add: '+' + ROTATE_DATA }) }] : [])];
   // Name in the daemon's family colour; numbers in their own colours: data blue, boost and multipliers pink.
   $('peek').innerHTML = peek.map((p) => {
     if (typeof p === 'string') return p;
