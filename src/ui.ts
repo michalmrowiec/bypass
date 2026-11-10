@@ -1,7 +1,7 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, score,
-  stageSeed, targetProgress, WILD, fits, inLane, burning, pairOf, partner,
+  stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner,
 } from './game';
 import { gear } from './gear';
 import { hacker, logo } from './logos';
@@ -69,6 +69,8 @@ let armed: Tool | null = null; // deck tool picked for use before the first move
 const doneSeen = new Set<number>();
 // Cell under the mouse or keyboard focus, for the crosshair highlight.
 let cursor: [number, number] | null = null;
+// Scratchpad: planned picks, shown as numbered markers and a greyed buffer; the player clicks them out for real.
+let plan: [number, number][] = [], planning = false, planRun: unknown = null;
 const dailyKey = () => 'bypass:' + utcDate();
 const sprintBestKey = () => 'bypass:sprintBestMs:' + S.sprintLen;
 const stages = () => SPRINTS[S.sprintLen];
@@ -85,6 +87,42 @@ const B = (): Board => S.mode === 'run'
   ? { puzzle: S.puzzle, run: S.run, m: M, armed, ctx: ctxOf(R), over: S.over }
   : { puzzle: S.puzzle, run: S.run, m: emptyItems(), armed, ctx: EMPTY_CTX, over: S.over };
 const legal = (r: number, c: number) => !S.dealing && !offer.length && canPick(B(), r, c);
+// A plan step needs a legal cell and a free buffer slot.
+const planOk = (p: Board, r: number, c: number) => p.run.buffer.length < p.puzzle.l && canPick(p, r, c);
+// The plan played out on a copy of the board, so ICE, ports, belts and the Repeater follow the game's own rules.
+// It is cut at the first pick that is no longer legal; codes still encrypted on the real board stay ?? in it.
+function planBoard(): { board: Board; codes: string[] } {
+  // A new matrix, a finished one or another mode ends the script and its writing mode.
+  if (planRun !== S.run || S.mode !== 'run' || S.over) { plan = []; planRun = S.run; planning = false; stopPlan(); }
+  const b = B(), p: Board = { ...b, puzzle: structuredClone(b.puzzle), run: structuredClone(b.run), m: structuredClone(b.m), armed: null };
+  const codes: string[] = [];
+  let k = 0;
+  for (; k < plan.length && planOk(p, ...plan[k]); k++) {
+    const [r, c] = plan[k], from = p.run.buffer.length, hidden = cellView(b, r, c).hidden;
+    applyPick(p, r, c);
+    codes.push(...p.run.buffer.slice(from).map((x) => (hidden ? '??' : x)));
+  }
+  plan.length = k;
+  return { board: p, codes };
+}
+// ./run: the planned picks one by one, 0.2 s apart; any other action stops it.
+let planTimer = 0;
+const stopPlan = () => { clearTimeout(planTimer); planTimer = 0; };
+function runPlan() {
+  stopPlan();
+  const step = () => {
+    const p = plan[0];
+    if (!p || S.over || S.dealing || offer.length || armed || S.mode !== 'run' || !legal(p[0], p[1])) { stopPlan(); render(); return; }
+    choose(p[0], p[1]);
+    if (plan.length) planTimer = window.setTimeout(step, 200); else { planTimer = 0; render(); }
+  };
+  step();
+}
+// Planning a planned cell cuts the plan back to before it.
+function planAt(r: number, c: number, at: number) {
+  if (at >= 0) plan = plan.slice(0, at); else plan.push([r, c]);
+  render();
+}
 const doorOpen = () => isDoorOpen(B());
 const blackout = () => isBlackout(B());
 const encrypted = (r: number, c: number) => isEncrypted(B(), r, c);
@@ -103,6 +141,7 @@ function render() {
   const { buffer, axis, idx } = S.run;
   const g = $('grid');
   g.innerHTML = '';
+  const pl = planBoard();
   // Port board: the two matrices sit apart, with a narrow gap column between them.
   g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
   const gap = () => { const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); g.appendChild(d); };
@@ -159,6 +198,16 @@ function render() {
     } else {
       b.setAttribute('aria-disabled', 'true');
     }
+    const at = plan.findIndex(([pr, pc]) => pr === r && pc === c);
+    if (at >= 0) { b.classList.add('planned'); b.insertAdjacentHTML('beforeend', "<i class='pnum'>" + (at + 1) + '</i>'); }
+    // Plan mode: clicks plan instead of pick; the lit cells are the plan's next legal ones.
+    if (planning && !S.over) {
+      const can = at >= 0 || (!S.dealing && !offer.length && planOk(pl.board, r, c));
+      b.classList.toggle('ok', can);
+      b.onclick = can ? () => planAt(r, c, at) : null;
+      if (can) { b.removeAttribute('aria-disabled'); b.setAttribute('aria-label', (at >= 0 ? 'Cut the script at step ' + (at + 1) : 'Script step ' + (plan.length + 1)) + ' at row ' + (r + 1) + ' column ' + (c + 1)); }
+      else b.setAttribute('aria-disabled', 'true');
+    }
     b.tabIndex = -1;
     g.appendChild(b);
   }
@@ -172,6 +221,16 @@ function render() {
     : armed === 'jump' ? 'bridge: pick ' + (jumpAny(B()) ? 'any free cell' : 'a free cell next to your last pick') : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
     : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
+  if (S.mode !== 'run') planning = false;
+  g.classList.toggle('planning', planning);
+  if (planning && !S.over) $('laneLabel').textContent = 'script · ' + (plan.length ? plan.length + (plan.length > 1 ? ' picks' : ' pick') + ' · click a step to cut there' : 'click cells to write a route');
+  const pb = $('planBtn');
+  pb.hidden = S.over || S.mode !== 'run';
+  pb.textContent = planning || !plan.length ? '[ script ]' : '[ script · ' + plan.length + ' ]';
+  const go = $('runPlanBtn');
+  go.hidden = pb.hidden || planning || !plan.length;
+  go.textContent = planTimer ? '[ ^C ]' : '[ ./run ]';
+  pb.setAttribute('aria-pressed', String(planning));
   const buf = $('buffer');
   buf.innerHTML = '';
   $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l; // l already lacks the slots Throttle takes
@@ -197,6 +256,8 @@ function render() {
     if (s.classList.contains('spare')) s.dataset.tip = 'Backup: leave this slot empty to grow the stack; any other ending halves it';
     if (i === M.kept) s.dataset.tip = 'Kept by Rewind: the buffer gained a slot for it';
     s.textContent = buffer[i] ?? '';
+    const ghost = buffer[i] === undefined ? pl.codes[i - buffer.length] : undefined;
+    if (ghost !== undefined) { s.textContent = ghost; s.classList.add('plan'); }
     buf.appendChild(s);
     if (s.classList.contains('new')) scramble(s, buffer[i], 1, 1, 40);
   }
@@ -212,7 +273,9 @@ function render() {
     const cut = S.mode === 'run' && armed === 'split' && t.length > 1;
     const gaps = cut && R.items.includes('split2');
     const blind = cut && !gaps && blackout();
-    el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut ? ' cut' : '');
+    // The plan would upload it (never under Blackout, which hides the targets).
+    const planned = !st.done && pl.codes.length > 0 && !blackout() && targetProgress([...buffer, ...pl.codes], t, l, false).done;
+    el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut ? ' cut' : '') + (planned ? ' planned' : '');
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
     // Thumb drive pays per uploaded target, so each one shows its share.
     const thumb = S.mode === 'run' && st.done ? thumbData(R.items) : 0;
@@ -222,7 +285,7 @@ function render() {
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"
       : j && j === mark && !blind ? "<i class='gap mark'></i>" : '')
-      + '<span class="' + (j < st.k ? 'hit' : '') + (c === WILD ? ' wild' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state"><span class="stxt">' + state + '</span>' + tag + '</div>';
+      + '<span class="' + (j < st.k ? 'hit' : '') + (c === WILD ? ' wild' : '') + '">' + (blackout() ? '??' : c) + '</span>').join('') + '</div><div class="state"><span class="stxt">' + state + '</span>' + tag + (planned ? "<span class='plantag'>script ✓</span>" : '') + '</div>';
     el.querySelectorAll<HTMLElement>('.codes span').forEach((sp, j) => { sp.onmouseenter = () => markCode(t[j]); sp.onmouseleave = () => markCode(); });
     if (gaps) el.querySelectorAll<HTMLElement>('.gap').forEach((g) => { g.onclick = () => doSplit(i, +g.dataset.at!); });
     else if (cut) {
@@ -328,8 +391,8 @@ const ICONS: Record<DaemonId, string> = {
   deflate: "<path d='M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4'/>",
   joker: "<path d='M12 4v16M5 8l14 8M19 8L5 16'/>",
   saturate: "<rect x='3' y='8' width='18' height='8'/><path d='M7 8v8M11 8v8M15 8v8'/>",
-  // A footprint crossed out.
-  notrace: "<path d='M9 4c2 0 3 2 3 5s-1 5-3 5-3-2-3-5 1-5 3-5zM8 17h2v3H8zM4 20L20 4'/>",
+  // A fingerprint, crossed out.
+  notrace: "<path d='M18.9 7a8 8 0 0 1 1.1 5v1a5 5 0 0 0 .4 2M8 11a4 4 0 0 1 8 0v1.5a9 9 0 0 0 .7 4.5M12 11v2.5a12 12 0 0 0 1 6.5M8 15a18 18 0 0 0 1.8 6M4.9 19a22 22 0 0 1-.9-7v-1a8 8 0 0 1 12-6.95M3 3l18 18'/>",
   crawler: "<path d='M4 18h4v-4h4v-4h4V6h4'/><circle class='f' cx='4' cy='18' r='1.4'/>",
   // Route that leaves the start dot and comes back into its row.
   // Paint roller.
@@ -370,10 +433,31 @@ function glitchNow(c: HTMLElement) {
   }
 }
 
+// A daemon's name decrypts from random hex, letter by letter; only its text nodes change, so the <wbr> breaks and spans stay.
+function decrypt(el: HTMLElement | null) {
+  if (!el || el.dataset.scrambling || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.dataset.scrambling = '1';
+  // The name and its .dmn extension; the family folder stays put.
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement?.closest('.fdir') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) }), nodes: Text[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+  const words = nodes.map((n) => n.data), total = words.join('').length, HEX = '0123456789abcdef';
+  let shown = -1; // one frame fully scrambled first
+  const id = window.setInterval(() => {
+    let at = 0;
+    nodes.forEach((n, k) => {
+      n.data = [...words[k]].map((ch) => (at++ < shown || ch === '/' || ch === '_' || ch === '.' ? ch : HEX[Math.floor(Math.random() * 16)])).join('');
+    });
+    if (++shown > total) { clearInterval(id); nodes.forEach((n, k) => { n.data = words[k]; }); delete el.dataset.scrambling; }
+  }, 40);
+}
+
 // Cards lean toward the pointer, with a glare spot under it.
 function tilt(root: HTMLElement) {
   root.querySelectorAll<HTMLElement>('.dcard').forEach((c) => {
-    c.onpointerenter = () => glitchNow(c);
+    c.onpointerenter = () => {
+      glitchNow(c);
+      decrypt(c.querySelector<HTMLElement>('b'));
+    };
     c.onpointermove = (e) => {
       const r = c.parentElement!.getBoundingClientRect();
       const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
@@ -797,11 +881,12 @@ function showShop(restock = true) {
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
-  showResult(true, "<h2>Black market</h2><p class='meta'>credits " + money(R.credits)
-    + (R.charges ? " · <span class='bnt'>bonus</span> ×2 data charge ×" + R.charges : '') + ' · items stay for the whole run</p>' + owned(true)
+  showResult(true, "<h2>Black market</h2><p class='meta'>"
+    + (R.charges ? "<span class='bnt'>bonus</span> ×2 data charge ×" + R.charges + ' · ' : '') + 'items stay for the whole run</p>' + owned(true)
     + "<div class='wares shelf'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
       || "<div class='dslot empty'>sold out</div>") + '</div>' + "<div class='row'>"
+    + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
     + "<button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
@@ -969,7 +1054,7 @@ function showCompanies(seed: number, back: Mode) {
       // Hover by the same layout box the click uses, so what lights up is what opens the map.
       const hot = overMap(c, e);
       c.querySelector('.fmap')?.classList.toggle('hot', hot);
-      c.style.cursor = hot ? 'pointer' : '';
+      c.style.cursor = hot ? 'var(--hit)' : '';
       const r = c.getBoundingClientRect();
       t.style.transform = 'rotateX(' + (0.5 - (e.clientY - r.top) / r.height) * 14 + 'deg) rotateY(' + ((e.clientX - r.left) / r.width - 0.5) * 14 + 'deg)';
     };
@@ -1185,6 +1270,8 @@ function rewindPeek(on: boolean) {
 
 function doRewind() {
   if (!rewind(B())) return;
+  plan = [];
+  stopPlan();
   logAct({ w: 1 });
   note('Rewind · last pick undone');
   render();
@@ -1201,8 +1288,14 @@ function doSplit(i: number, at?: number) {
 }
 
 function applyCross() {
-  document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) =>
-    el.classList.toggle('x', !!cursor && (+el.id[1] === cursor[0] || +el.id[2] === cursor[1])));
+  // A plain pick here: the lane you would move into lights up (through the partner on a port).
+  const pb = planning ? planBoard().board : B();
+  const next = cursor && !armed && !S.over && !S.dealing && !offer.length && (planning ? planOk : canPick)(pb, cursor[0], cursor[1]) ? nextLane(pb.run, cursor[0], cursor[1], S.puzzle) : undefined;
+  document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
+    const r = +el.id[1], c = +el.id[2];
+    el.classList.toggle('x', !!cursor && (r === cursor[0] || c === cursor[1]));
+    el.classList.toggle('nx', !!next && inLane(next, r, c, S.puzzle));
+  });
   // Daemon lines read "name now +add": what it gives so far, then what this pick adds (highlighted); a loss shows "now → 0".
   const rot = R.stacks.rotate ?? 0;
   const peek: (Preview | string)[] = !cursor || S.mode !== 'run' || !legal(cursor[0], cursor[1]) ? []
@@ -1302,6 +1395,8 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 
 function choose(r: number, c: number) {
   if (!legal(r, c)) return;
+  // The planned pick clears its marker; any other pick drops the plan (and stops a running one).
+  if (!armed && plan[0]?.[0] === r && plan[0][1] === c) plan.shift(); else { plan = []; stopPlan(); }
   logAct(armed ? { r, c, t: armed } : { r, c });
   const bd = B(), tool = armed, cell = rowName(r) + '·' + colName(c);
   const isUp = (t: string[]) => targetProgress(S.run.buffer, t, S.puzzle.l, false).done;
@@ -1687,6 +1782,8 @@ export function init() {
   $('modeRun').onclick = () => setMode('run');
   $('catalogBtn').onclick = () => showCatalog(null);
   $('logBtn').onclick = showLog;
+  $('planBtn').onclick = () => { stopPlan(); planning = !planning; render(); };
+  $('runPlanBtn').onclick = () => { if (planTimer) { stopPlan(); render(); } else runPlan(); };
   $('exportSave').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([exportBackup()], { type: 'application/json' }));
