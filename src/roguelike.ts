@@ -1,5 +1,5 @@
 import { contains, fits, newRun, partner, pick, WILD, type Run } from './game';
-import { BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
+import { beltSrc, BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
 
 // Roguelike mode: a run breaches one company, a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
@@ -885,19 +885,8 @@ export function dealRunMatrix(seed: number, s: RunState): Puzzle {
   return rules.includes('conveyor') ? addBelt(seed, p) : p;
 }
 
-// Conveyor: belt slots skip ## cells; after k picks the code at slot j came from slot j - k.
-const beltSlots = (base: string[]) => base.flatMap((v, i) => (v === BLOCK ? [] : [i]));
-const wrap = (i: number, m: number) => ((i % m) + m) % m;
-// Where the code now at column c was before any pick.
-export function beltSrc(base: string[], c: number, k: number): number {
-  const slots = beltSlots(base);
-  return slots[wrap(slots.indexOf(c) - k, slots.length)];
-}
-export function beltRow(base: string[], k: number): string[] {
-  const out = [...base];
-  for (const s of beltSlots(base)) out[s] = base[beltSrc(base, s, k)];
-  return out;
-}
+// Belt helpers live with the Puzzle type, so the solver can read a moving belt too.
+export { beltRow, beltSrc } from './generator';
 
 // The buffer the planted solution fills, reading belt cells as they will be at each pick.
 export const planBuf = (p: Puzzle) => (p.path ?? []).map(([r, c], t) => (p.belt?.row === r ? p.belt.base[beltSrc(p.belt.base, c, t)] : p.grid[r][c]));

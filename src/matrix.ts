@@ -168,8 +168,6 @@ const canUndo = (b: Board) => b.m.rewind && !!b.m.back;
 export function isStuck(b: Board, runMode: boolean): boolean {
   const { run, puzzle } = b;
   if (runMode && canUndo(b)) return false;
-  // shortcut: the solver cannot see a moving belt, so a run matrix with one ends only when the buffer or lane runs out.
-  if (runMode && puzzle.belt) return false;
   if (!runMode) return !canComplete(run, puzzle);
   const tools = { ...b.m, loopAny: loopAny(b), near: !jumpAny(b), last: standAt(b) };
   return !puzzle.targets.some((t) => !contains(run.buffer, t) && canComplete(run, { ...puzzle, targets: [t] }, undefined, tools));

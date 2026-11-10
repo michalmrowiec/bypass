@@ -22,6 +22,13 @@ describe('canComplete', () => {
     l: 3,
   };
 
+  it('reads a Conveyor belt as it will be at each pick', () => {
+    // YY then QQ only works if the belt slides QQ under (0,1) by the 4th pick.
+    const p: Puzzle = { grid: [['QQ', 'XX'], ['ZZ', 'YY']], targets: [['YY', 'QQ']], l: 4 };
+    expect(canComplete(newRun(), p, Infinity)).toBe(false);
+    expect(canComplete(newRun(), { ...p, belt: { row: 0, base: ['QQ', 'XX'] } }, Infinity)).toBe(true);
+  });
+
   it('sees a target that is still reachable', () => {
     expect(canComplete(newRun(), tiny, Infinity)).toBe(true); // AA(0,0) -> CC(1,0)
   });

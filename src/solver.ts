@@ -1,5 +1,5 @@
 import { contains, WILD, halfOf, laneCells, nextLane, partner, portBack, partial, type Lane, type Run } from './game';
-import { BLOCK, type Puzzle } from './generator';
+import { beltSrc, BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to a free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
 // rep: the Repeater cell, whose code goes into the buffer twice.
@@ -15,6 +15,10 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
   const used = new Set(run.used);
   const burnt = new Map(run.burnt);
   const hot = (r: number, c: number) => (burnt.get(r + ',' + c) ?? 0) > buf.length;
+  // Conveyor: a belt cell holds the code the belt has slid under it by the k-th pick (k = picks made so far).
+  let k = run.path.length;
+  const belt = p.belt;
+  const code = (r: number, c: number) => (belt && r === belt.row ? belt.base[beltSrc(belt.base, c, k)] : p.grid[r][c]);
   const open = (r: number, c: number) => p.grid[r][c] !== BLOCK && !hot(r, c);
   const NEAR = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   let nodes = 0;
@@ -24,8 +28,10 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     const fresh = !used.has(key);
     used.add(key);
     const twice = tools.rep?.[0] === r && tools.rep[1] === c;
-    buf.push(p.grid[r][c]);
-    if (twice) buf.push(p.grid[r][c]);
+    const v = code(r, c);
+    buf.push(v);
+    if (twice) buf.push(v);
+    k++;
     const was = run.burn ? NEAR.map(([dr, dc]) => {
       const k = r + dr + ',' + (c + dc), old = burnt.get(k);
       burnt.set(k, Math.max(old ?? 0, buf.length + run.burn!));
@@ -34,6 +40,7 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     // `last` for the next step is where you stand: a port's partner, unless you came back through it.
     const ok = dfs(nextLane(from, r, c, through ? { half: p.half } : p), jump, loop, mux, through ? [r, c] : partner(p, r, c) ?? [r, c]);
     for (const [k, old] of was.reverse()) { if (old === undefined) burnt.delete(k); else burnt.set(k, old); }
+    k--;
     buf.pop();
     if (twice) buf.pop();
     if (fresh) used.delete(key);
@@ -48,14 +55,14 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     for (const [r, c] of laneCells(lane, p)) {
       if (!open(r, c)) continue;
       if (!used.has(r + ',' + c)) { if (step(r, c, lane, jump, loop, mux)) return true; }
-      else if (loop && !tools.loopAny && p.grid[r][c] !== WILD && step(r, c, lane, jump, false, mux)) return true;
+      else if (loop && !tools.loopAny && code(r, c) !== WILD && step(r, c, lane, jump, false, mux)) return true;
     }
     if (loop && !tools.loopAny) for (const [a, b] of p.ports ?? []) for (const [r, c] of [a, b]) {
-      if (used.has(r + ',' + c) && !hot(r, c) && p.grid[r][c] !== WILD && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
+      if (used.has(r + ',' + c) && !hot(r, c) && code(r, c) !== WILD && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
     }
     if (loop && tools.loopAny) for (const key of [...used]) {
       const [r, c] = key.split(',').map(Number);
-      if (!hot(r, c) && p.grid[r][c] !== WILD && step(r, c, lane, jump, false, mux)) return true;
+      if (!hot(r, c) && code(r, c) !== WILD && step(r, c, lane, jump, false, mux)) return true;
     }
     // Mux: a free cell in the row or column of the last pick, as if the lane were both lines through it.
     if (mux && !lane.free && last) {
