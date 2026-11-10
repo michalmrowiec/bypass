@@ -95,6 +95,10 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (same(b.m.rep, r, c)) tags.push('rep');
   const level = b.ctx.daemons.includes('painter') && code !== BLOCK ? b.ctx.paint?.[r + ',' + c] : undefined;
   if (level) cls.push('paint');
+  // Circuit: the row (across both port matrices) and column of the first pick, where the last one should land.
+  const first = b.ctx.daemons.includes('circuit') && !b.over ? b.run.path[0] : undefined;
+  if (first?.[0] === r) cls.push('circR');
+  if (first?.[1] === c) cls.push('circC');
   // Paid once per cell: still struck after Rewind frees it or Loopback re-picks it.
   if (level && b.run.path.some((p) => same(p, r, c))) cls.push('paid');
   // Ping: a solution's first cell, until the first pick.

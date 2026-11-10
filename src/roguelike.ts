@@ -362,7 +362,6 @@ function facts({ buf, path, targets, l, n, jumps, ports, stay }: MatrixCtx): Fac
     empty: l - buf.length, slots: l, light: buf.length <= l / 2,
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
     start: path[0]?.[1],
-    // shortcut: compares plain coordinates; on a port board the same row index in the other matrix counts too.
     loop: path.length > 1 && (path[0][0] === path[path.length - 1][0] || path[0][1] === path[path.length - 1][1]),
     travelled: moves.reduce((a, d) => a + d, 0),
     keys, upKeys: keys.filter((_, i) => wins.some((w) => w.includes(i))),
