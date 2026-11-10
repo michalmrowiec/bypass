@@ -477,6 +477,10 @@ button.unit{cursor:pointer}
 .cell:has(.ntag){border-color:color-mix(in srgb,var(--data) 45%,transparent)}
 .cell.used .ntag{display:none}
 .cell .rtag{color:var(--violet)}
+/* Painter: a lime wash and its data in the bottom-left corner, away from the other tags. */
+.cell.paint{background:color-mix(in srgb,#9dff3d 9%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,#9dff3d 70%,transparent)}
+.cell .gtag{position:absolute;bottom:1px;left:3px;font-size:9px;font-style:normal;line-height:1.2;color:#9dff3d;pointer-events:none}
+.cell.paid .gtag{color:var(--muted);text-decoration:line-through}
 .cell:has(.rtag){border-color:color-mix(in srgb,var(--violet) 45%,transparent)}
 /* Firewall ICE: sealed cells. */
 .cell.ice{color:color-mix(in srgb,var(--pink) 55%,transparent);background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(255,61,139,.07) 5px 10px)}

@@ -209,6 +209,7 @@ export interface RunState {
   daemons: DaemonId[];
   stacks: Partial<Record<string, number>>; // by daemon id (string keeps DAEMONS from typing itself) // streak daemons' banked stacks
   lastStart?: number; // column of the previous matrix's first pick (cron/rotate)
+  paint?: Record<string, number>; // Painter: cell 'r,c' → level 1–3, from the last matrix with an upload
   rack: number; // rack slots for items
   items: ItemId[]; // shop items owned, kept for the run
   shelf: ItemId[]; // what the shop offers on this visit
@@ -317,7 +318,11 @@ interface Facts {
   picks: number;
   cells: number; // different cells on the path
   wilds: number; // uploaded targets running through a ** slot
-  echoes: number; // uploaded targets holding a code picked again by Loopback
+  trace: boolean; // every buffer code sits inside an uploaded target
+  loop: boolean; // the last pick shares a row or column with the first
+  travelled: number; // cells crossed by all moves
+  keys: string[]; // 'r,c' of each pick
+  upKeys: string[]; // 'r,c' of the picks inside an uploaded target (buffer index = pick index)
 }
 
 type Cell = [number, number];
@@ -351,15 +356,18 @@ function facts({ buf, path, targets, l, n, jumps, ports, stay }: MatrixCtx): Fac
   const done = targets.filter((t) => contains(buf, t));
   const moves = moveLens(path, jumps, ports, stay);
   const keys = path.map((p) => p[0] + ',' + p[1]);
-  const again = keys.flatMap((k, i) => (keys.indexOf(k) < i ? [i] : []));
   const wins = done.map((t) => windowOf(buf, t));
   return {
     codes: done.reduce((a, t) => a + t.length, 0), picks: path.length, cells: new Set(keys).size,
-    wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length, echoes: wins.filter((w) => w.some((i) => again.includes(i))).length,
+    wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length, trace: buf.every((_, i) => wins.some((w) => w.includes(i))),
     done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
     empty: l - buf.length, slots: l, light: buf.length <= l / 2,
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
     start: path[0]?.[1],
+    // shortcut: compares plain coordinates; on a port board the same row index in the other matrix counts too.
+    loop: path.length > 1 && (path[0][0] === path[path.length - 1][0] || path[0][1] === path[path.length - 1][1]),
+    travelled: moves.reduce((a, d) => a + d, 0),
+    keys, upKeys: keys.filter((_, i) => wins.some((w) => w.includes(i))),
   };
 }
 
@@ -384,14 +392,18 @@ interface Daemon {
 
 // Rotate and Uptime pay the same flat data per stack.
 export const CRON_DATA = 5;
+export const LONGJUMP_DATA = 8;
+export const PAINT_DATA = 5, PAINT_LEVELS = 3, PAINT_CELLS = 6;
+// Painter: data a painted cell pays when picked.
+export const paintData = (level: number) => PAINT_DATA * level;
 
 export const DAEMONS = {
   chain: { name: 'Chain', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
     score: (f) => (f.shared ? { boost: 0.5 * f.shared } : null) },
-  compressor: { name: 'Compressor', family: 'Splicer', text: '+5 data per buffer slot shared by 2 uploaded targets',
-    score: (f) => (f.shared ? { flat: 5 * f.shared } : null) },
-  fullstack: { name: 'Full stack', family: 'Splicer', rarity: 'legendary', text: '×2 when every target is uploaded',
-    score: (f) => (f.all ? { mult: 2 } : null) },
+  compressor: { name: 'Compressor', family: 'Splicer', text: '+7 data per buffer slot shared by 2 uploaded targets',
+    score: (f) => (f.shared ? { flat: 7 * f.shared } : null) },
+  fullstack: { name: 'Full stack', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.4 per target) when every target is uploaded',
+    score: (f) => (f.all ? { mult: Math.round((1 + 0.4 * f.done.length) * 10) / 10 } : null) },
   overflow: { name: 'Overflow', family: 'Ghost', text: '+0.5 boost per empty buffer slot',
     score: (f) => (f.empty ? { boost: 0.5 * f.empty } : null) },
   light: { name: 'Light footprint', family: 'Ghost', rarity: 'legendary', text: '×2 when at most half the buffer is used',
@@ -401,8 +413,8 @@ export const DAEMONS = {
   cache: { name: 'Cache', family: 'Ghost', rarity: 'rare',
     text: '+0.25 boost for every matrix ending with 2+ empty buffer slots, this one included; uploading every target resets the stack',
     streak: { goal: '2+ empty slots, not every target', next: (n, f) => (f.all ? 0 : f.empty >= 2 ? n + 1 : n), effect: (n) => ({ boost: 0.25 * n }) } },
-  longjump: { name: 'Long jump', family: 'Runner', text: '+5 data per move from one end of a lane to the other',
-    score: (f) => (f.edgeJumps ? { flat: 5 * f.edgeJumps } : null) },
+  longjump: { name: 'Long jump', family: 'Runner', text: '+' + LONGJUMP_DATA + ' data per move from one end of a lane to the other',
+    score: (f) => (f.edgeJumps ? { flat: LONGJUMP_DATA * f.edgeJumps } : null) },
   corner: { name: 'Corner', family: 'Runner', text: '×1.5 when the path starts or ends in a corner',
     score: (f) => (f.corner ? { mult: 1.5 } : null) },
   zigzag: { name: 'Zigzag', family: 'Runner', rarity: 'rare', text: '+0.5 boost per move longer than the one before',
@@ -422,10 +434,21 @@ export const DAEMONS = {
     score: (f) => (f.wilds ? { boost: 0.5 * f.wilds } : null) },
   saturate: { name: 'Saturate', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.2 per buffer slot) with a full buffer and every target uploaded',
     score: (f) => (f.all && f.empty === 0 ? { mult: Math.round(10 + 2 * f.slots) / 10 } : null) },
-  echo: { name: 'Echo', family: 'Ghost', rarity: 'rare', text: '+1 boost per uploaded target holding a code Loopback picked again',
-    score: (f) => (f.echoes ? { boost: f.echoes } : null) },
-  crawler: { name: 'Crawler', family: 'Runner', text: '+3 data per different cell on the path',
-    score: (f) => (f.cells ? { flat: 3 * f.cells } : null) },
+  notrace: { name: 'No trace', family: 'Ghost', rarity: 'rare', text: '×1.5 with 2+ targets uploaded and every code in the buffer inside one of them',
+    score: (f) => (f.done.length >= 2 && f.trace ? { mult: 1.5 } : null) },
+  crawler: { name: 'Crawler', family: 'Runner', text: '+5 data per different cell on the path',
+    score: (f) => (f.cells ? { flat: 5 * f.cells } : null) },
+  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Cells you upload a target through stay painted in the next matrix; picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again (up to +' + paintData(PAINT_LEVELS) + ')',
+    score: (f, s) => { const v = [...new Set(f.keys)].reduce((a, k) => a + (s.paint?.[k] ? paintData(s.paint[k]) : 0), 0); return v ? { flat: v } : null; },
+    end: (s, f) => {
+      // Repainted cells go up a level; the highest levels stay when there are too many.
+      const next = [...new Set(f.upKeys)].map((k) => [k, Math.min(PAINT_LEVELS, (s.paint?.[k] ?? 0) + 1)] as const);
+      s.paint = Object.fromEntries(next.sort((a, b) => b[1] - a[1]).slice(0, PAINT_CELLS));
+    } },
+  circuit: { name: 'Circuit', family: 'Runner', rarity: 'legendary', text: '×2 when the last pick is in the row or column of the first',
+    score: (f) => (f.loop ? { mult: 2 } : null) },
+  odometer: { name: 'Odometer', family: 'Runner', rarity: 'legendary', text: '×(1 + 0.05 per cell your moves cross)',
+    score: (f) => (f.travelled ? { mult: Math.round((1 + 0.05 * f.travelled) * 100) / 100 } : null) },
   sandbag: { name: 'Sandbag', family: 'Ghost', rarity: 'rare', scope: 'room',
     text: '+1.5 boost for the rest of the room per matrix you Disconnect with at most 1 target uploaded',
     score: (_f, s) => (s.stacks.sandbag ? { boost: 1.5 * s.stacks.sandbag } : null),
@@ -651,7 +674,7 @@ export function movePreview(path: Cell[], cell: Cell, n: number, daemons: Daemon
     out.push({ id: 'corner', name: path.length ? 'corner' : 'corner start', add: '×1.5', kind: 'boost', ...(path.length ? { note: 'if the path ends here' } : {}) });
   }
   if (prev && daemons.includes('longjump') && moveLen(from(prev, path.length - 1), cell) === n - 1) {
-    out.push({ id: 'longjump', name: 'long jump', now: num(5 * moves.filter((d) => d === n - 1).length), add: '+5', kind: 'data' });
+    out.push({ id: 'longjump', name: 'long jump', now: num(LONGJUMP_DATA * moves.filter((d) => d === n - 1).length), add: '+' + LONGJUMP_DATA, kind: 'data' });
   }
   if (before && daemons.includes('zigzag') && moveLen(from(prev, path.length - 1), cell) > moveLen(from(before, path.length - 2), prev)) {
     out.push({ id: 'zigzag', name: 'zigzag', now: num(0.5 * moves.filter((d, i) => i > 0 && d > moves[i - 1]).length), add: '+0.5 boost', kind: 'boost' });

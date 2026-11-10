@@ -130,6 +130,7 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - **Kredyty za niewykorzystane macierze:** za blisko Balatro.
 - **Tasowanie kodów co 3 ruchy:** psuje planowanie.
 - **Inne znaki „deszyfrowania”:** niezauważalne.
+- **Notacja `ICE.Nazwa`** (2026-11-10): dłuższe nazwy na telefonie, a kolor i miejsce już mówią, że to ICE.
 
 ## 7. Jak dodać nową mechanikę
 

@@ -3,7 +3,7 @@ import { burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, port
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
-  beltRow, beltSrc, bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
+  beltRow, beltSrc, bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, paintData, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
   type BountyId, type DaemonId, type IceId, type ItemId, type RewardId, type RunState,
 } from './roguelike';
 
@@ -23,9 +23,9 @@ export interface ItemState {
 export const emptyItems = (): ItemState => ({ worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] });
 
 // What the run brings into the matrix; other modes pass EMPTY_CTX.
-export interface Ctx { items: ItemId[]; daemons: DaemonId[]; ice: IceId[]; lastStart?: number }
+export interface Ctx { items: ItemId[]; daemons: DaemonId[]; ice: IceId[]; lastStart?: number; paint?: Record<string, number> }
 export const EMPTY_CTX: Ctx = { items: [], daemons: [], ice: [] };
-export const ctxOf = (s: RunState): Ctx => ({ items: s.items, daemons: s.daemons, ice: roomIce(s), lastStart: s.lastStart });
+export const ctxOf = (s: RunState): Ctx => ({ items: s.items, daemons: s.daemons, ice: roomIce(s), lastStart: s.lastStart, paint: s.paint });
 
 export interface Board { puzzle: Puzzle; run: Run; m: ItemState; armed: Tool | null; ctx: Ctx; over: boolean }
 
@@ -78,7 +78,7 @@ export function canPick(b: Board, r: number, c: number): boolean {
   }
 }
 
-export interface CellView { code: string; hidden: boolean; cls: string[]; tags: ('node' | 'trap' | 'rep')[]; burnLeft?: number }
+export interface CellView { code: string; hidden: boolean; cls: string[]; tags: ('node' | 'trap' | 'rep')[]; burnLeft?: number; paint?: number }
 
 // What a cell shows; `cls` are the cell's CSS classes, except 'ok' (pickable), which the UI adds.
 export function cellView(b: Board, r: number, c: number): CellView {
@@ -93,6 +93,10 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (same(b.m.node, r, c)) tags.push('node');
   if (same(b.m.trap, r, c)) { cls.push('trap'); tags.push('trap'); }
   if (same(b.m.rep, r, c)) tags.push('rep');
+  const level = b.ctx.daemons.includes('painter') && code !== BLOCK ? b.ctx.paint?.[r + ',' + c] : undefined;
+  if (level) cls.push('paint');
+  // Paid once per cell: still struck after Rewind frees it or Loopback re-picks it.
+  if (level && b.run.path.some((p) => same(p, r, c))) cls.push('paid');
   // Ping: a solution's first cell, until the first pick.
   if (b.ctx.items.includes('ping') && !b.run.path.length && !b.over && same(path?.[0], r, c)) cls.push('ping');
   if (!b.over && (inLane(b.run, r, c, b.puzzle) || doorEdge(b, r, c))) cls.push('lane');
@@ -105,7 +109,7 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length, b.puzzle.half)) cls.push('corner');
   // Belt row: used cells show, greyed, the code sliding under them, so the belt stays readable.
   if (b.puzzle.belt?.row === r && code !== BLOCK) cls.push('belt', 'memo');
-  return { code, hidden, cls, tags, burnLeft };
+  return { code, hidden, cls, tags, burnLeft, paint: level && paintData(level) };
 }
 
 export function dealBoard(seed: number, s: RunState): Board {

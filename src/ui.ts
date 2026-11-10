@@ -139,6 +139,7 @@ function render() {
     b.classList.add(...v.cls);
     if (moved && v.cls.includes('belt')) b.classList.add('shift');
     for (const t of v.tags) b.insertAdjacentHTML('beforeend', TAG[t]);
+    if (v.paint) b.insertAdjacentHTML('beforeend', "<i class='gtag'>+" + v.paint + '</i>');
     const port = portNo(r, c);
     if (port) {
       b.insertAdjacentHTML('beforeend', "<i class='pframe'></i><i class='pring'></i><i class='ptag'>" + portTag(port) + '</i>');
@@ -327,8 +328,15 @@ const ICONS: Record<DaemonId, string> = {
   deflate: "<path d='M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5M9 5v4H5M15 5v4h4M9 19v-4H5M15 19v-4h4'/>",
   joker: "<path d='M12 4v16M5 8l14 8M19 8L5 16'/>",
   saturate: "<rect x='3' y='8' width='18' height='8'/><path d='M7 8v8M11 8v8M15 8v8'/>",
-  echo: "<path d='M5 12a7 7 0 1 0 2-5M5 4v4h4'/><circle cx='12' cy='12' r='2'/>",
+  // A footprint crossed out.
+  notrace: "<path d='M9 4c2 0 3 2 3 5s-1 5-3 5-3-2-3-5 1-5 3-5zM8 17h2v3H8zM4 20L20 4'/>",
   crawler: "<path d='M4 18h4v-4h4v-4h4V6h4'/><circle class='f' cx='4' cy='18' r='1.4'/>",
+  // Route that leaves the start dot and comes back into its row.
+  // Paint roller.
+  painter: "<rect x='4' y='4' width='14' height='6' rx='1'/><path d='M18 7h2v5h-8v3M11 15h2v6h-2z'/>",
+  circuit: "<path d='M6 6h12v12H9'/><circle class='f' cx='6' cy='6' r='1.4'/><path d='M11 16l-2 2 2 2'/>",
+  // Dial with a needle and distance ticks.
+  odometer: "<path d='M4 16a8 8 0 1 1 16 0M12 16l4-5M6.5 10.5l1 1M12 8v1.5M17.5 10.5l-1 1'/>",
   sandbag: "<path d='M6 20h12l-2-12H8zM9 8c0-2 1.5-3 3-3s3 1 3 3'/><path d='M8 14h8'/>",
   allin: "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='3.5'/><path d='M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3'/>",
   overtime: "<circle cx='12' cy='13' r='7.5'/><path d='M12 9v4l2.5 2M9 3h6M18.5 6.5l1.5-1.5'/>",
@@ -1582,6 +1590,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
     const sv = loadRun<SavedRun>();
     try {
       if (sv?.v !== RUN_V) throw 0;
+      sv.R.daemons = sv.R.daemons.filter((d) => d in DAEMONS); // a daemon removed from the game drops out of old saves
       showResume(sv, seed, back);
     } catch {
       if (sv) dropRun();

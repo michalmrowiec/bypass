@@ -77,11 +77,15 @@ describe('daemons', () => {
     expect(scoreMatrix(ctx, run('chain')).total).toBe(52); // B is shared: ×1.5
     expect(scoreMatrix(ctx, run('overflow')).total).toBe(105); // 4 empty slots -> +2
     expect(scoreMatrix(ctx, run('light', 'corner')).total).toBe(105); // ×2 ×1.5
-    expect(scoreMatrix(ctx, run('longjump')).total).toBe(45); // two moves of length 4
+    expect(scoreMatrix(ctx, run('longjump')).total).toBe(51); // two moves of length 4: +8 each
     expect(scoreMatrix(ctx, run('zigzag')).total).toBe(52); // 4,2,4: one longer move -> +0.5
-    expect(scoreMatrix(ctx, run('compressor')).total).toBe(40); // B is shared: +5 data
-    expect(scoreMatrix(ctx, run('chain', 'compressor')).total).toBe(60);
+    expect(scoreMatrix(ctx, run('circuit')).total).toBe(70); // ends at (0,2), in the first pick's row
+    expect(scoreMatrix({ ...ctx, path: ctx.path.slice(0, 3) }, run('circuit')).fired).toEqual([]);
+    expect(scoreMatrix(ctx, run('odometer')).total).toBe(52); // 4+2+4 = 10 cells: ×1.5
+    expect(scoreMatrix(ctx, run('compressor')).total).toBe(42); // B is shared: +7 data
+    expect(scoreMatrix(ctx, run('chain', 'compressor')).total).toBe(63);
     expect(scoreMatrix(ctx, run('fullstack')).fired).toEqual([]); // XY not uploaded
+    expect(scoreMatrix({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] }, run('fullstack')).total).toBe(99); // 45 × 2.2 (3 targets)
   });
 
   it('Cache stacks on roomy matrices, this one included, and resets when every target is uploaded', () => {
@@ -139,8 +143,8 @@ describe('daemons', () => {
     const path = ctx.path.slice(0, 2); // (0,0) -> (4,0): a length-4 move
     expect(movePreview([], [0, 4], 5, ['corner'])).toEqual([{ id: 'corner', name: 'corner start', add: '×1.5', kind: 'boost' }]);
     // corner start already counts; one long jump is banked, this one adds another
-    expect(movePreview(path, [4, 4], 5, ['corner', 'longjump', 'zigzag'])).toEqual([{ id: 'longjump', name: 'long jump', now: '5', add: '+5', kind: 'data' }]);
-    expect(movePreview(path, [4, 4], 5, ['longjump'], [1])).toEqual([{ id: 'longjump', name: 'long jump', now: undefined, add: '+5', kind: 'data' }]); // a jump is no move
+    expect(movePreview(path, [4, 4], 5, ['corner', 'longjump', 'zigzag'])).toEqual([{ id: 'longjump', name: 'long jump', now: '8', add: '+8', kind: 'data' }]);
+    expect(movePreview(path, [4, 4], 5, ['longjump'], [1])).toEqual([{ id: 'longjump', name: 'long jump', now: undefined, add: '+8', kind: 'data' }]); // a jump is no move
     expect(movePreview(path, [4, 4], 5, [])).toEqual([]);
     expect(movePreview([[0, 1], [3, 1]], [3, 0], 5, ['zigzag'])).toEqual([]);
     expect(movePreview([[0, 1], [1, 1]], [1, 4], 5, ['zigzag', 'corner'])).toEqual([{ id: 'zigzag', name: 'zigzag', now: undefined, add: '+0.5 boost', kind: 'boost' }]);
@@ -297,8 +301,8 @@ describe('movement items', () => {
   it('a Bridge jump is no move for daemons', () => {
     const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
     const s = { ...newRunState(1), daemons: ['longjump'] as DaemonId[] };
-    expect(scoreMatrix(ctx, s).total).toBe(45);
-    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(40);
+    expect(scoreMatrix(ctx, s).total).toBe(51);
+    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(43);
   });
 });
 
@@ -556,13 +560,25 @@ describe('playtest daemons, bounties and Glob', () => {
   const fired = (c: typeof ctx, ...d: DaemonId[]) => scoreMatrix(c, run(...d)).fired;
 
   it('Deflate, Crawler and Saturate read codes, cells and a full buffer', () => {
-    expect(fired(ctx, 'deflate', 'crawler', 'saturate')).toEqual([['deflate', { mult: 1.25 }], ['crawler', { flat: 12 }]]);
+    expect(fired(ctx, 'deflate', 'crawler', 'saturate')).toEqual([['deflate', { mult: 1.25 }], ['crawler', { flat: 20 }]]);
     expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.8 }]]);
   });
 
-  it('Joker counts targets through **, Echo targets holding a re-picked code', () => {
+  it('Joker counts targets through **; No trace wants 2+ targets and no stray code', () => {
     expect(fired({ ...ctx, buf: ['A', WILD, 'C', 'D'] }, 'joker')).toEqual([['joker', { boost: 1 }]]);
-    expect(fired({ ...ctx, path: [[0, 0], [4, 0], [4, 2], [4, 0]] }, 'echo')).toEqual([['echo', { boost: 1 }]]);
+    expect(fired(ctx, 'notrace')).toEqual([['notrace', { mult: 1.5 }]]); // A B C D: all inside AB and BCD
+    expect(fired({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X'] }, 'notrace')).toEqual([]); // X is a stray code
+    expect(fired({ ...ctx, buf: ['A', 'B'] }, 'notrace')).toEqual([]); // one target only
+  });
+
+  it('Painter paints the upload cells for the next matrix and levels up a repainted one', () => {
+    const s = run('painter');
+    daemonsAfterMatrix(ctx, s, false); // A B C D all uploaded
+    expect(s.paint).toEqual({ '0,0': 1, '4,0': 1, '4,2': 1, '0,2': 1 });
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 20 }]]);
+    daemonsAfterMatrix({ ...ctx, buf: ['A', 'B', 'X', 'Y'], targets: [['A', 'B']] }, s, false); // only AB
+    expect(s.paint).toEqual({ '0,0': 2, '4,0': 2 });
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 20 }]]); // 2 cells at +10
   });
 
   it('Sandbag stacks on a weak Disconnect for the rest of the room; Warm-up counts played matrices', () => {
