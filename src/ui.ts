@@ -47,7 +47,7 @@ let endWhy = ''; // why a run matrix ended on its own
 type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 };
 type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
-const RUN_V = 1; // bump when RunState changes shape; older saves are dropped
+const RUN_V = 2; // bump when RunState changes shape; older saves are dropped
 let cur: SavedRun | null = null, replaying = false;
 function checkpoint(screen: RunScreen) {
   cur = { v: RUN_V, R: structuredClone(R), screen, log: [] };
