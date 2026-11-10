@@ -608,6 +608,11 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .fface p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
 .fface .btn{margin-top:auto;align-self:flex-end}
 .fhint{margin-top:auto;font-size:11px;color:var(--mint);letter-spacing:.08em}
+.fmap{align-self:flex-start;background:none;border:0;padding:0;font-family:inherit;cursor:pointer}
+/* The whole front flips the card, so hovering it lights "details" the way the map link lights. */
+.fcard.now:not(.flip):not(.sealed):hover .front .fhint,.fmap.hot,.fmap:focus-visible{color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-shadow:0 0 8px var(--mint)}
+.mapIt{margin:16px 0 8px;font-size:12px;font-weight:400;color:var(--mint)}
+.mapBoss{font-size:10px;color:var(--bad);letter-spacing:.06em}
 .flogo{width:150px;height:150px;flex:none;color:var(--mint);filter:drop-shadow(0 0 10px color-mix(in srgb,var(--lg1,var(--mint)) 40%,transparent))}
 .lg-ring{fill:none;stroke:var(--lg2,currentColor);stroke-width:2}
 .lg-ring.dashed{stroke-dasharray:6 6}

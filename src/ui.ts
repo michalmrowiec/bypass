@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, coverage, CRON_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -870,10 +870,25 @@ const firmCard = (co: Company | undefined, i: number) => {
     + "</table><p class='meta'>" + LOOPS + ' iterations, quotas ×' + QUOTA_GROWTH + ' each</p>'
     + (co.always ? "<p class='meta'>in every room:<br>" + iceTags(co.always) + '</p>' : '')
     + "<p class='meta'>boss ICE, one per run:<br>" + iceTags(co.ice, fresh) + '</p>' + "<p class='meta'>patches between iterations:<br>" + iceTags(co.patches, fresh) + '</p>'
-    + (fresh.length ? "<p class='meta'><span class='newkey'>bold</span> = new in this contract</p>" : '') + (isOpen(i) ? '' : lock)) : '';
+    + (fresh.length ? "<p class='meta'><span class='newkey'>bold</span> = new in this contract</p>" : '') + (won ? "<button class='fhint fmap'>map ›</button>" : '') + (isOpen(i) ? '' : lock)) : '';
   return "<div class='fcard" + (!co ? ' locked' : isOpen(i) ? '' : ' sealed') + "' role='button' tabindex='0' aria-label='" + (co ? co.name : 'Locked contract') + "'><div class='ftilt'><div class='finner'>"
     + front + back + '</div></div></div>';
 };
+
+// Contract map of a breached company: every iteration's rooms with grown quotas; patches are rolled per run, so only their rule shows.
+const patchNote = (l: number) => (!PATCH_COVER[l] ? 'no patches yet' : 'patches add ICE to ' + (PATCH_COVER[l] >= 1 ? 'every room' : '~' + PATCH_COVER[l] * 100 + '% of rooms')
+  + (PATCH_DOUBLE[l] ? ', a second rule to ~1/' + Math.round(1 / PATCH_DOUBLE[l]) : ''));
+function showMap(co: Company, seed: number, back: Mode) {
+  const last = co.sections.length - 1;
+  showResult(true, '<h2>' + co.name + " · map</h2><p class='meta'>" + (co.always ? 'every room: ' + iceTags(co.always) + '<br>' : '')
+    + 'boss ICE, one per run: ' + iceTags(co.ice) + '<br>patch pool: ' + iceTags(co.patches) + '</p>'
+    + Array.from({ length: LOOPS }, (_, l) => "<h3 class='mapIt'>iteration " + (l + 1) + " <span class='meta'>· " + patchNote(l) + "</span></h3><div class='steplist'>"
+      + co.sections.map((sec, i) => "<div class='step done'><span class='sname'>" + sec.name + (i === last ? " <span class='mapBoss'>boss</span>" : '') + (sec.ice ? ' ' + iceTags(sec.ice) : '')
+        + "</span><span class='squota'>quota " + Math.round((sec.quota * QUOTA_GROWTH ** l) / 5) * 5 + "</span><div class='boxes'>" + Array.from({ length: sec.matrices }, () => "<span class='box'>" + roomSize(sec.size) + '</span>').join('') + '</div></div>')
+        .join("<span class='sarrow' aria-hidden='true'>›</span>") + '</div>').join('')
+    + "<div class='row'><button class='btn' id='mapBack'>‹ Back</button></div>");
+  $('mapBack').onclick = () => showCompanies(seed, back);
+}
 
 // Port rooms show both matrices: 5×5 ⇄ 5×5.
 const roomSize = (z: { n: number; ports?: number }) => z.n + '×' + z.n + (z.ports ? ' ⇄ ' + z.n + '×' + z.n : '');
@@ -928,20 +943,37 @@ function showCompanies(seed: number, back: Mode) {
     dragged = true;
   });
   car.onpointerup = car.onpointerleave = () => { dragX = null; };
-  const press = (c: HTMLElement, i: number) => {
+  // The tilted back face can let a click through to the card itself; find the map link by its layout box, which transforms leave alone.
+  const overMap = (c: HTMLElement, e: MouseEvent) => {
+    const m = c.querySelector<HTMLElement>('.fmap');
+    if (!m || !c.classList.contains('flip')) return false;
+    let x = 0, y = 0;
+    for (let el: HTMLElement | null = m; el && el !== c; el = el.offsetParent as HTMLElement | null) { x += el.offsetLeft; y += el.offsetTop; }
+    y -= m.closest<HTMLElement>('.fface')?.scrollTop ?? 0; // the back face scrolls on its own
+    const r = c.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, pad = 8;
+    return px > x - pad && px < x + m.offsetWidth + pad && py > y - pad && py < y + m.offsetHeight + pad;
+  };
+  const press = (c: HTMLElement, i: number, e?: MouseEvent) => {
     if (dragged) dragged = false;
+    else if (i === firmAt && e && overMap(c, e)) showMap(COMPANIES[i], seed, back);
     else if (i !== firmAt) go(i);
     else if (!c.classList.contains('locked')) c.classList.toggle('flip');
   };
   cards.forEach((c, i) => {
-    c.onclick = () => press(c, i);
+    c.onclick = (e) => press(c, i, e);
+    const map = c.querySelector<HTMLElement>('.fmap');
+    if (map) map.onclick = (e) => { e.stopPropagation(); showMap(COMPANIES[i], seed, back); };
     c.onkeydown = (e) => { if (e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); press(c, i); } };
     const t = c.querySelector<HTMLElement>('.ftilt')!;
     c.onpointermove = (e) => {
+      // Hover by the same layout box the click uses, so what lights up is what opens the map.
+      const hot = overMap(c, e);
+      c.querySelector('.fmap')?.classList.toggle('hot', hot);
+      c.style.cursor = hot ? 'pointer' : '';
       const r = c.getBoundingClientRect();
       t.style.transform = 'rotateX(' + (0.5 - (e.clientY - r.top) / r.height) * 14 + 'deg) rotateY(' + ((e.clientX - r.left) / r.width - 0.5) * 14 + 'deg)';
     };
-    c.onpointerleave = () => { t.style.transform = ''; };
+    c.onpointerleave = () => { t.style.transform = ''; c.querySelector('.fmap')?.classList.remove('hot'); };
   });
   $('startFirm').onclick = () => { R = newRunState(seed, firmAt); enterSection(); };
   $('cPrev').onclick = () => go(firmAt - 1);
