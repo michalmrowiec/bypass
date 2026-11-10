@@ -534,8 +534,10 @@ describe('cron daemons', () => {
     const b = run('backup');
     daemonsAfterMatrix({ ...ctx, l: 5 }, b, false);
     expect(b.stacks.backup).toBe(1);
+    daemonsAfterMatrix({ ...ctx, l: 5 }, b, false);
+    daemonsAfterMatrix({ ...ctx, l: 5 }, b, false);
     daemonsAfterMatrix(ctx, b, false);
-    expect(b.stacks.backup).toBe(0);
+    expect(b.stacks.backup).toBe(1); // a miss halves 3 → 1
     const u = run('uptime');
     daemonsAfterMatrix(ctx, u, false);
     daemonsAfterMatrix(ctx, u, false);

@@ -498,6 +498,11 @@ button.unit{cursor:pointer}
 .slot.ghost{border:1px dashed var(--cyan)}
 .slot.ghost::before{content:"+1";color:var(--cyan);font-size:11px}
 .slot.kept{border-style:dashed;border-color:var(--cyan)}
+/* Backup: the last slot, the one to leave empty, in the cron colour. */
+.slot.spare{border-style:dashed;border-color:color-mix(in srgb,#c6e46b 55%,var(--line))}
+.slot.spare:not(.filled)::before{content:none}
+.slot.spare:not(.filled)::after{content:"";position:absolute;inset:4px;opacity:.5;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' preserveAspectRatio='none'%3E%3Cpath d='M0 0L10 10M10 0L0 10' stroke='%23c6e46b' stroke-width='1' stroke-dasharray='3 2' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center/100% 100%}
 .tally .ot{font-size:11px;color:var(--fc)}
 /* Split: a cuttable target, or the gaps between its codes. */
 .target.cut{outline:1px dashed var(--pink);outline-offset:2px}
@@ -823,8 +828,8 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 .cell .pframe{opacity:.85}
 .cell .pring{opacity:0}
 .cell.port.used .pframe{opacity:.3}
-.cell .ptag{position:absolute;bottom:1px;right:3px;font-size:9px;font-style:normal;line-height:1.2;pointer-events:none;
-  color:var(--pc)}
+.cell .ptag{position:absolute;bottom:-.6em;left:50%;transform:translateX(-50%);z-index:2;padding:0 2px;background:var(--bg);
+  font-size:9px;font-style:normal;line-height:1.2;white-space:nowrap;pointer-events:none;color:var(--pc)}
 .cell.port.used .ptag{opacity:.45}
 .cell.port.ok .pring{animation:ringIn 2.4s ease-in infinite}
 .cell.pin .pring{animation:ringOut 2.4s ease-out 1.68s infinite} /* starts as the entry ring closes */

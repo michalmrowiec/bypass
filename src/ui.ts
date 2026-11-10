@@ -107,6 +107,7 @@ function render() {
   g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
   const gap = () => { const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); g.appendChild(d); };
   const portNo = (r: number, c: number) => pairOf(S.puzzle, r, c) + 1;
+  const portTag = (p: number) => [':22', ':80'][p - 1]; // pair name: both ends show the same real port
   // Hex-dump headers: column offsets on top, row addresses on the left; the active lane's header lights up.
   const hx = (text: string, on: boolean, cls = '') => {
     const h = document.createElement('div');
@@ -121,7 +122,7 @@ function render() {
   const lastCol = S.mode === 'run' && R.daemons.includes('rotate') && !S.run.path.length && !S.over ? R.lastStart : undefined;
   for (let c = 0; c < cols; c++) {
     if (w && c === w) gap();
-    hx(colName(w ? c % w : c), free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
+    hx(colName(c),free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
   }
   const bd = B();
   // Conveyor: the belt slides only on the render right after a pick.
@@ -140,7 +141,7 @@ function render() {
     for (const t of v.tags) b.insertAdjacentHTML('beforeend', TAG[t]);
     const port = portNo(r, c);
     if (port) {
-      b.insertAdjacentHTML('beforeend', "<i class='pframe'></i><i class='pring'></i><i class='ptag'>⇄" + port + '</i>');
+      b.insertAdjacentHTML('beforeend', "<i class='pframe'></i><i class='pring'></i><i class='ptag'>" + portTag(port) + '</i>');
       b.classList.add('port' + port);
       // Pointing at a port lights it and its partner in the other matrix.
       const [pr, pc] = partner(S.puzzle, r, c)!;
@@ -152,7 +153,7 @@ function render() {
     if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
       b.classList.add('ok');
-      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + port + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
+      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + portTag(port) + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
       b.onclick = () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
@@ -169,7 +170,7 @@ function render() {
   $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
     : armed === 'jump' ? 'bridge: pick ' + (jumpAny(B()) ? 'any free cell' : 'a free cell next to your last pick') : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
-    : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(w ? idx % w : idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
+    : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
   const buf = $('buffer');
   buf.innerHTML = '';
   $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l; // l already lacks the slots Throttle takes
@@ -189,9 +190,10 @@ function render() {
       continue;
     }
     s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l - bought ? ' extra' : '')
-      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '');
+      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '') + (has('backup') && i === l - 1 ? ' spare' : '');
     if (has('overflow')) s.dataset.bonus = '+.5';
     if (s.classList.contains('extra')) s.dataset.tip = 'Extra slot from your rack';
+    if (s.classList.contains('spare')) s.dataset.tip = 'Backup: leave this slot empty to grow the stack; any other ending halves it';
     if (i === M.kept) s.dataset.tip = 'Kept by Rewind: the buffer gained a slot for it';
     s.textContent = buffer[i] ?? '';
     buf.appendChild(s);
