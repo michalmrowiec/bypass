@@ -332,7 +332,7 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
 /* View matrix: the summary steps aside, the overlay stays to catch the click back. */
 .overlay.peek{background:transparent;backdrop-filter:none;cursor:var(--hit)}
 .overlay.peek #modalBox{display:none}
-.overlay.peek::after{content:'click or Esc \00b7  back to summary';position:fixed;left:50%;bottom:16px;transform:translateX(-50%);padding:6px 12px;font-size:12px;
+.overlay.peek::after{content:'click or Esc \00b7  back';position:fixed;left:50%;bottom:16px;transform:translateX(-50%);padding:6px 12px;font-size:12px;
   color:var(--ink);background:var(--panel);border:1px solid var(--mint-dim)}
 .dslot.drag{opacity:.6;animation:none;cursor:var(--grab)}
 .dslot.drag .dcard{outline:1px dashed var(--mint)}
@@ -473,6 +473,8 @@ button.unit{cursor:var(--hit)}
 .g-pin{fill:#9aa5ab}
 /* v2.0 upgrades: small accents (green parts, pink LEDs, pink reticle), never whole frames. */
 .g-pin.g-green,.g-tongue.g-green{fill:var(--mint-dim)}
+.g-tongue.g-red{fill:#c2414a}
+.g-tongue.g-grey{fill:var(--muted)}
 .g-hole.g-pink,.g-act.g-pink{fill:var(--pink)}
 .gear.v2 .g-reticle{stroke:var(--pink)}
 .g-led{fill:var(--mint-dim)}
@@ -576,6 +578,8 @@ button.unit{cursor:var(--hit)}
 .hw:is(:hover,:focus-visible) :is(.g-busy,.g-track,.g-fill){opacity:1}
 .hw:is(:hover,:focus-visible) .g-fill{animation:gcopy 1.6s steps(8) infinite}
 .hw:is(:hover,:focus-visible) .v2 .g-fill{animation-duration:.8s}
+.hw:is(:hover,:focus-visible) .v3 .g-fill{animation-duration:.4s}
+.hw:is(:hover,:focus-visible) .v2 .g-pulse.g-fast{animation-duration:.5s}
 @keyframes gcopy{to{transform:scaleX(1)}}
 .hw:is(:hover,:focus-visible) .g-read{animation:gread .7s steps(1) infinite}
 @keyframes gread{0%,30%{fill:var(--mint)}}

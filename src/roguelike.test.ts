@@ -513,7 +513,7 @@ describe('economy', () => {
     const s = { ...newRunState(1), credits: 50, items: ['buffer1', 'shortkey', 'bridge', 'thumb'] as ItemId[], shelf: ['datanode', 'buffer2'] as ItemId[] };
     expect(buy(s, 'datanode')).toBe(false);
     expect(buy(s, 'buffer2')).toBe(true);
-    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([5, true, RACK_BASE + 1, 8]);
+    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([4, true, RACK_BASE + 1, 7]);
     expect(buy(s, 'datanode')).toBe(true);
     const before = s.credits;
     expect(sell(s, 'buffer2')).toBe(true);
@@ -534,6 +534,7 @@ describe('economy', () => {
     expect(scoreMatrix(ctx, s).total).toBe(41); // 2 of 3 uploaded: 35 + 2×3
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, s).total).toBe(0);
     expect(scoreMatrix(ctx, { ...s, items: ['thumb2'] }).gear).toEqual([['thumb2', { flat: 14 }]]);
+    expect(scoreMatrix(ctx, { ...s, items: ['thumb3'] }).gear).toEqual([['thumb3', { flat: 26 }]]);
     expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0]] }, { ...s, items: ['datanode2'] }).gear).toEqual([['datanode2', { flat: 30 }]]);
     expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0], ctx.path[1]] }, { ...s, items: ['datanode3'] }).gear).toEqual([['datanode3', { flat: 60 }]]);
     const h = { ...newRunState(1), loop: 1, items: ['heatsink'] as ItemId[], patches: [{ ice: 'corruption' as const, room: 0, loop: 1 }] };
@@ -609,11 +610,11 @@ describe('playtest daemons, bounties and Glob', () => {
     expect(fired({ ...ctx, l: 4 }, 'saturate')).toEqual([['saturate', { mult: 1.8 }]]);
   });
 
-  it('Joker counts targets through **; No trace wants 2+ targets and no stray code', () => {
+  it('Joker counts targets through **; No trace scales per target and wants no stray code', () => {
     expect(fired({ ...ctx, buf: ['A', WILD, 'C', 'D'] }, 'joker')).toEqual([['joker', { boost: 1 }]]);
     expect(fired(ctx, 'notrace')).toEqual([['notrace', { mult: 1.5 }]]); // A B C D: all inside AB and BCD
     expect(fired({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X'] }, 'notrace')).toEqual([]); // X is a stray code
-    expect(fired({ ...ctx, buf: ['A', 'B'] }, 'notrace')).toEqual([]); // one target only
+    expect(fired({ ...ctx, buf: ['A', 'B'] }, 'notrace')).toEqual([['notrace', { mult: 1.25 }]]); // one target
   });
 
   it('Painter paints the upload cells for the next matrix and levels up a repainted one', () => {

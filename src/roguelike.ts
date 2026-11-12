@@ -451,8 +451,8 @@ export const DAEMONS = {
     score: (f) => (f.wilds ? { boost: 0.5 * f.wilds } : null) },
   saturate: { name: 'Saturate', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.2 per buffer slot) with a full buffer and every target uploaded',
     score: (f) => (f.all && f.empty === 0 ? { mult: Math.round(10 + 2 * f.slots) / 10 } : null) },
-  notrace: { name: 'No trace', family: 'Ghost', rarity: 'rare', text: '×1.5 with 2+ targets uploaded and every code in the buffer inside one of them',
-    score: (f) => (f.done.length >= 2 && f.trace ? { mult: 1.5 } : null) },
+  notrace: { name: 'No trace', family: 'Ghost', rarity: 'rare', text: '×(1 + 0.25 per uploaded target) when every code in the buffer is inside one of them',
+    score: (f) => (f.done.length && f.trace ? { mult: 1 + 0.25 * f.done.length } : null) },
   crawler: { name: 'Crawler', family: 'Runner', text: '+5 data per different cell on the path',
     score: (f) => (f.cells ? { flat: 5 * f.cells } : null) },
   painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Cells you upload a target through stay painted in the next matrix; picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again (up to +' + paintData(PAINT_LEVELS) + ')',
@@ -507,9 +507,9 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     sc.flat += v;
     sc.gear.push([prio, { flat: v }]);
   }
-  const thumb = s.items.includes('thumb2') ? 'thumb2' : s.items.includes('thumb') ? 'thumb' : undefined;
+  const thumb = thumbId(s.items);
   if (f.done.length && thumb) {
-    const v = thumbData(s.items) * f.done.length;
+    const v = THUMB_DATA[thumb] * f.done.length;
     sc.flat += v;
     sc.gear.push([thumb, { flat: v }]);
   }
@@ -732,6 +732,7 @@ export const ITEMS = {
   // Cheap, modest modules: filler for the shelf and a use for spare credits.
   thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+3 data for every uploaded target' },
   thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +7 data for every uploaded target', needs: 'thumb' },
+  thumb3: { name: 'Thumb drive', ver: '3.0', kind: 'USB4 stick', price: 4, text: 'Upgrades v2.0: +13 data for every uploaded target', needs: 'thumb2' },
   chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: '+$1 for every room you clear' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
@@ -744,9 +745,10 @@ export const ITEMS = {
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 4;
-// Thumb drive data per uploaded target: v1.0, v2.0.
-export const THUMB_DATA = [3, 7] as const;
-export const thumbData = (items: ItemId[]) => (items.includes('thumb2') ? THUMB_DATA[1] : items.includes('thumb') ? THUMB_DATA[0] : 0);
+// Thumb drive data per uploaded target: v1.0, v2.0, v3.0.
+export const THUMB_DATA = { thumb: 3, thumb2: 7, thumb3: 13 } as const;
+const thumbId = (items: ItemId[]) => (['thumb3', 'thumb2', 'thumb'] as const).find((id) => items.includes(id));
+export const thumbData = (items: ItemId[]) => { const id = thumbId(items); return id ? THUMB_DATA[id] : 0; };
 export const PRIO_MULT = { prio1: 2, prio2: 3 } as const;
 // Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
 export function firstTargetData(buf: string[], targets: string[][], worth?: number[]): number {
@@ -761,7 +763,7 @@ export function firstTargetData(buf: string[], targets: string[][], worth?: numb
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
-export const slotCost = (s: RunState) => 5 + 3 * (s.rack - RACK_BASE);
+export const slotCost = (s: RunState) => 4 + 3 * (s.rack - RACK_BASE);
 // The Co-processor module adds one daemon slot.
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;

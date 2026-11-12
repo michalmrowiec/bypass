@@ -629,7 +629,7 @@ function renderDaemons() {
     + Array.from({ length: Math.max(RACK_MAX, units.length) }, (_, i) => {
       const u = units[i];
       if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
-      if (!u) return rail(i + 1) + "<div class='unit blank' data-tip='Locked: buy a rack slot in the shop'><i class='scr'></i><i class='vent'></i>"
+      if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'><i class='scr'></i><i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
       return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
@@ -660,6 +660,14 @@ function renderDaemons() {
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
     if (el.dataset.tool) el.onclick = () => use(el.dataset.tool!);
+  });
+  // A locked slot tells its price; slots are bought in order, one per shop click.
+  $('items').querySelectorAll<HTMLElement>('.unit.blank').forEach((el, k) => {
+    const n = R.rack + k;
+    const show = () => { $('lcd').innerHTML = '<b>&gt; slot_' + String(n + 1).padStart(2, '0') + '</b> locked · buy it in the shop between rooms · ' + money(slotCost({ ...R, rack: n }))
+      + (k ? ' · slots unlock in order' : ''); };
+    el.onpointerenter = el.onfocus = el.onclick = show;
+    el.onpointerleave = el.onblur = () => { $('lcd').innerHTML = lcd; };
   });
   dragSort($('items'), '.unit.hw', R.items, (l) => { R.items = l; if (cur) { cur.R.items = [...l]; saveRun(cur); } });
 }
@@ -945,9 +953,10 @@ function showOffer() {
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
     + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + rich(DAEMONS[id].text), !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
-    + "<div class='row'><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
+    + "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
   $('offerCatalog').onclick = () => showCatalog(showOffer);
+  $('viewMatrix').onclick = () => peek(true);
   $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
     b.onclick = () => { if (!full) { R.daemons.push(offer[i]); note('offer · installed ' + dmnFile(offer[i])); showShop(); } else if (!poor) showSwap(offer[i]); };
   });
@@ -969,9 +978,10 @@ function showShop(restock = true) {
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
-    + "<button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
+    + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
   $('shopCatalog').onclick = () => showCatalog(() => showShop(false));
+  $('viewMatrix').onclick = () => peek(true);
   $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
@@ -1872,18 +1882,18 @@ function showResult(win: boolean, html: string) {
   on('runSection', () => { nextSection(R); showOffer(); });
   on('runLoop', () => { nextSection(R); showPatch(); });
   on('runNew', () => setMode('run'));
-  on('viewMatrix', peek);
+  on('viewMatrix', () => peek());
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
   on('retrySprint', () => setMode('sprint', S.seed, S.challenge));
   wireCopy('share', () => $('shareTxt').textContent ?? '');
 }
 
-// The summary steps aside to show the finished matrix; a click or Esc brings it back.
-function peek() {
+// The dialog steps aside to show the board; a click or Esc brings it back. Offer and shop open at the top: the run and rooms left.
+function peek(top = false) {
   const m = $('modal');
   m.classList.add('peek');
-  $('grid').scrollIntoView({ block: 'center' });
+  if (top) scrollTo(0, 0); else $('grid').scrollIntoView({ block: 'center' });
   const back = () => { m.classList.remove('peek'); m.removeEventListener('click', back); removeEventListener('keydown', esc); $('viewMatrix').focus(); };
   const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') back(); };
   setTimeout(() => { m.addEventListener('click', back); addEventListener('keydown', esc); });

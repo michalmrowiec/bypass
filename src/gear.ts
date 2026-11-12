@@ -50,11 +50,11 @@ const ssdPair = "<g transform='translate(-4 -13)'>" + ssdArt(true) + "</g><g tra
 // v2.0: a pink LED on port 1.
 const port = (x: number, n: number, led: string) => "<rect class='g-hole' x='" + x + "' y='46' width='16' height='13' rx='1'/>"
   + "<circle class='" + led + "' cx='" + (x + 8) + "' cy='40' r='2'/><text class='g-silk' x='" + (x + 8) + "' y='66' text-anchor='middle'>" + n + '</text>';
-const prio = (k: number) => "<path class='g-shaft' d='M28 30V10M122 30V10'/><circle class='g-steel' cx='28' cy='9' r='2.5'/><circle class='g-steel' cx='122' cy='9' r='2.5'/>"
-  + "<rect class='g-plug' x='10' y='30' width='130' height='42' rx='4'/>"
+// Lifted 9 so the case sits centred; the cable still runs to the bottom edge.
+const prio = (k: number) => "<g transform='translate(0 -9)'><rect class='g-plug' x='10' y='30' width='130' height='42' rx='4'/>"
   + port(20, 1, k > 2 ? 'g-act g-pink' : 'g-act') + port(40, 2, 'g-tongue') + port(60, 3, 'g-tongue') + port(80, 4, 'g-tongue')
   + "<rect class='g-pcb' x='99' y='36' width='38' height='30' rx='3'/><text class='g-mult' x='102' y='57'>×" + k + '</text>' + dataGlyph(123, 45.5, 11.5)
-  + "<path class='g-wire' d='M28 52V84'/><path class='g-pulse' d='M28 84V52'/><rect class='g-plug' x='22' y='47' width='12' height='12' rx='1'/>";
+  + "<path class='g-wire' d='M28 52V93'/><path class='g-pulse g-fast' d='M28 93V52'/><rect class='g-plug' x='22' y='47' width='12' height='12' rx='1'/></g>";
 
 // Y-splitter: one pulse comes in from the left and splits in two at the junction; v2.0 has a tuning dial that sweeps.
 const flow = (d: string, part: string) => "<path class='g-wire' d='" + d + "'/><path class='g-flow " + part + "' pathLength='100' d='" + d + "'/>";
@@ -158,9 +158,12 @@ const ART: Record<ItemId, string> = {
   bridge2: antennaPair,
   loopback1: loopback,
   loopback2,
-  thumb: thumbArt(3),
+  thumb: thumbArt(3).replaceAll("class='g-tongue'", "class='g-tongue g-grey'"),
   // v2.0: the same stick with a +7 label, green USB 3 strips, a pink LED and a faster copy.
   thumb2: thumbArt(7).replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-green'"),
+  // v3.0: red USB4 strips, a pink LED; the wider +13 label sits a bit right to stay centred.
+  thumb3: thumbArt(13).replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-red'")
+    .replace("<g class='g-idle'>", "<g class='g-idle' transform='translate(4 0)'>"),
   chip,
   ping,
   heatsink,
@@ -172,5 +175,5 @@ const ART: Record<ItemId, string> = {
   socket,
 };
 
-// Every upgrade id ends in 2 or 3; those get the v2 accents (.gear.v2 in style.css).
-export const gear = (id: ItemId) => "<svg class='gear" + (/[23]$/.test(id) ? ' v2' : '') + "' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';
+// Every upgrade id ends in 2 or 3; those get the v2 accents (.gear.v2 in style.css), v3.0 also .v3.
+export const gear = (id: ItemId) => "<svg class='gear" + (/[23]$/.test(id) ? ' v2' : '') + (/3$/.test(id) ? ' v3' : '') + "' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';
