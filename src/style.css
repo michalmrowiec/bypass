@@ -311,6 +311,9 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
 .dslot.drag .dcard{outline:1px dashed var(--mint)}
 .unit.hw.drag{opacity:.6;outline:1px dashed var(--mint);cursor:var(--grab)}
 #daemons,#items{user-select:none}
+/* Daemon cards: the icon sits in the top-left corner like an app's, centred on the name line; the text gets the full width. */
+.dbody>.ico{position:absolute;top:8px;left:10px;width:22px;height:22px;padding:2px}
+.dmain>b{text-indent:28px}
 /* Catalog (mouse only): installed daemons cascade like windows, each folded to its title bar with a small icon and its state.
    Pointing at a title bar brings that card to the front over the others, nothing moves; a click opens it and pushes the rest down.
    The last one is always open. No tilt here. Opaque cards, dimmed by brightness instead, so covered ones do not show through. */
@@ -330,10 +333,8 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
   #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover{position:relative;z-index:2}
   #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover>.dcard{transform:translateY(-3px)}
   #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover .dbody{filter:none}
-  #daemons .ico{transition:width .2s,height .2s,padding .2s}
-  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),#daemons:has(.drag) .dslot) .ico{align-self:flex-start;width:18px;height:18px;padding:2px}
   /* Boost, data or state on the title bar while folded; centred again once open. */
-  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),#daemons:has(.drag) .dslot) .dcard i{align-items:flex-start;align-content:flex-start;padding-top:2px}
+  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),#daemons:has(.drag) .dslot) .dcard i{align-items:flex-start;align-content:flex-start;padding:2px 6px 0 12px}
   #daemons .dslot:not(.empty):nth-child(2){margin-left:10px}
   #daemons .dslot:not(.empty):nth-child(3){margin-left:20px}
   #daemons .dslot:not(.empty):nth-child(4){margin-left:30px}

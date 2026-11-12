@@ -439,7 +439,7 @@ export const DAEMONS = {
   // Cron: scheduled jobs. Keep doing the thing every matrix and the stack grows; slip once and it is gone.
   heartbeat: { name: 'Heartbeat', family: 'Cron', rarity: 'rare', text: '+0.2 boost for every matrix in a row where you upload every target, this one included; missing one resets the stack',
     streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : 0), effect: (n) => ({ boost: n / 5 }) } },
-  rotate: { name: 'Rotate', family: 'Cron', text: '+' + ROTATE_DATA + ' data for every matrix in a row whose first pick is in a different column than the last one; the same column resets the stack',
+  rotate: { name: 'Rotate', family: 'Cron', text: '+' + ROTATE_DATA + ' data per matrix in a row started in a new column; the same column resets it',
     streak: { goal: 'start in a new column', next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: ROTATE_DATA * n }) } },
   backup: { name: 'Backup', family: 'Cron', rarity: 'rare', text: '+0.4 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending halves the stack',
     streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : Math.floor(n / 2)), effect: (n) => ({ boost: n * 2 / 5 }) } },
