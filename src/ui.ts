@@ -592,13 +592,7 @@ function renderDaemons() {
     return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : c ? c[0] : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : c ? c[1] : '');
   }).join('');
   lastFired = [...fired.keys()];
-  // Catalog (mouse): a click keeps a card open or folds it again, any number can be open (pointing unfolds it in CSS).
-  $('daemons').style.setProperty('--n', String(R.daemons.length));
-  $('daemons').querySelectorAll<HTMLElement>('.dslot:not(.empty)').forEach((el, i) => {
-    const id = R.daemons[i];
-    el.classList.toggle('open', openDaemons.has(id));
-    el.onclick = () => { if (!openDaemons.delete(id)) openDaemons.add(id); el.classList.toggle('open', openDaemons.has(id)); };
-  });
+  fold($('daemons'));
   tilt($('daemons'));
   // The order survives a reload.
   dragSort($('daemons'), '.dslot:not(.empty)', R.daemons, (l) => { R.daemons = l; if (cur) { cur.R.daemons = [...l]; saveRun(cur); } });
@@ -923,11 +917,21 @@ function showPatch() {
   $('patchOk').onclick = showOffer;
 }
 
-// What the player owns, shown beside offers and the shop: daemon chips, then rack modules with their art.
+// Installed daemons as a folded cascade (mouse): a click keeps a card open or folds it again, any number can be open (pointing unfolds it in CSS).
+function fold(box: HTMLElement) {
+  box.style.setProperty('--n', String(R.daemons.length));
+  box.querySelectorAll<HTMLElement>('.dslot:not(.empty)').forEach((el, i) => {
+    const id = R.daemons[i];
+    el.classList.toggle('open', openDaemons.has(id));
+    el.onclick = () => { if (!openDaemons.delete(id)) openDaemons.add(id); el.classList.toggle('open', openDaemons.has(id)); };
+  });
+}
+
+// What the player owns, shown beside offers and the shop: daemons folded like in play, then rack modules with their art.
 const owned = (shop = false) => {
   const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' data-tip='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
-  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist'>"
+  return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist dfold'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
     + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>") + '</div></div>';
 };
@@ -942,6 +946,7 @@ function showOffer() {
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
     + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + rich(DAEMONS[id].text), !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
     + "<div class='row'><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
+  fold($('modalBox').querySelector('.dfold')!);
   $('offerCatalog').onclick = () => showCatalog(showOffer);
   $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
     b.onclick = () => { if (!full) { R.daemons.push(offer[i]); note('offer · installed ' + dmnFile(offer[i])); showShop(); } else if (!poor) showSwap(offer[i]); };
@@ -965,6 +970,7 @@ function showShop(restock = true) {
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
     + "<button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
+  fold($('modalBox').querySelector('.dfold')!);
   $('shopCatalog').onclick = () => showCatalog(() => showShop(false));
   $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
@@ -1804,7 +1810,7 @@ function playBill(sc: Score, room: string, before: number, goal: number) {
       roll(td, d0, data, 260);
       // A big add (20+) flickers the number; every add floats its +N above it.
       restart(td, Math.abs(data - d0) >= 20 ? 'dflick' : 'bump');
-      td.insertAdjacentHTML('beforeend', "<i class='chip'>" + (data > d0 ? '+' : '') + (data - d0) + '</i>');
+      td.insertAdjacentHTML('beforeend', "<i class='dpop'>" + (data > d0 ? '+' : '') + (data - d0) + '</i>');
     }
     if (m1 !== m0) {
       tm.textContent = fmtM(m1);

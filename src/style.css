@@ -341,33 +341,33 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
 /* Daemon cards: the icon sits in the top-left corner like an app's, centred on the name line; the text gets the full width. */
 .dbody>.ico{position:absolute;top:8px;left:10px;width:22px;height:22px;padding:2px}
 .dmain>b{text-indent:28px}
-/* Catalog (mouse only): installed daemons cascade like windows, each folded to its title bar with a small icon and its state.
+/* Mouse only: installed daemons (in play and beside offers/shop) cascade like windows, each folded to its title bar with a small icon and its state.
    Pointing at a title bar brings that card to the front over the others, nothing moves; a click opens it and pushes the rest down.
    The last one is always open. No tilt here. Opaque cards, dimmed by brightness instead, so covered ones do not show through. */
 @media (hover:hover){
   /* No gap between title bars: a pointer in a gap would drop the card it just left back for a moment. */
-  #daemons{gap:0}
-  #daemons .dslot.open{margin-bottom:4px}
-  #daemons .dslot.empty{margin-top:10px}
+  :is(#daemons,.dfold){gap:0}
+  :is(#daemons,.dfold) .dslot.open{margin-bottom:4px}
+  :is(#daemons,.dfold) .dslot.empty{margin-top:10px}
   /* Each window is the same width, shifted a step right (--n: installed daemons, steps capped at 4).
      max-height animates where height:auto would not; 160px is above any card's height (a lower cap folds back sooner). */
-  #daemons .dslot:not(.empty){width:calc(100% - min(var(--n) - 1, 4) * 10px);max-height:160px;transition:max-height .25s ease-out}
+  :is(#daemons,.dfold) .dslot:not(.empty){width:calc(100% - min(var(--n) - 1, 4) * 10px);max-height:160px;transition:max-height .25s ease-out}
   /* Folded: not the last, not clicked open. Only its title bar takes the pointer, so moving down reaches the next one. */
-  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open){align-items:flex-start;max-height:32px;cursor:var(--hit)}
-  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open)>.dcard{pointer-events:none}
-  #daemons .dcard,#daemons .dcard:hover{transform:none;cursor:var(--hit)}
+  :is(#daemons,.dfold) .dslot:has(+ .dslot:not(.empty)):not(.open){align-items:flex-start;max-height:32px;cursor:var(--hit)}
+  :is(#daemons,.dfold) .dslot:has(+ .dslot:not(.empty)):not(.open)>.dcard{pointer-events:none}
+  :is(#daemons,.dfold) .dcard,:is(#daemons,.dfold) .dcard:hover{transform:none;cursor:var(--hit)}
   /* Pointed at (not while dragging): on top of the rest, lifted, full brightness. */
-  #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover{position:relative;z-index:2}
-  #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover>.dcard{transform:translateY(-3px)}
-  #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover .dbody{filter:none}
+  :is(#daemons,.dfold):not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover{position:relative;z-index:2}
+  :is(#daemons,.dfold):not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover>.dcard{transform:translateY(-3px)}
+  :is(#daemons,.dfold):not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover .dbody{filter:none}
   /* Boost, data or state on the title bar while folded; centred again once open. */
-  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),#daemons:has(.drag) .dslot) .dcard i{align-items:flex-start;align-content:flex-start;padding:2px 6px 0 12px}
-  #daemons .dslot:not(.empty):nth-child(2){margin-left:10px}
-  #daemons .dslot:not(.empty):nth-child(3){margin-left:20px}
-  #daemons .dslot:not(.empty):nth-child(4){margin-left:30px}
-  #daemons .dslot:not(.empty):nth-child(n+5){margin-left:40px}
+  :is(#daemons,.dfold) .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),:is(#daemons,.dfold):has(.drag) .dslot) .dcard i{align-items:flex-start;align-content:flex-start;padding:2px 6px 0 12px}
+  :is(#daemons,.dfold) .dslot:not(.empty):nth-child(2){margin-left:10px}
+  :is(#daemons,.dfold) .dslot:not(.empty):nth-child(3){margin-left:20px}
+  :is(#daemons,.dfold) .dslot:not(.empty):nth-child(4){margin-left:30px}
+  :is(#daemons,.dfold) .dslot:not(.empty):nth-child(n+5){margin-left:40px}
   /* An opened program leaves the cascade: full width, flush left. */
-  #daemons .dslot.open:not(.empty){width:100%;margin-left:0}
+  :is(#daemons,.dfold) .dslot.open:not(.empty){width:100%;margin-left:0}
   #daemons .dslot .dcard:not(.on){opacity:1}
   #daemons .dslot .dcard:not(.on) .dbody{filter:brightness(.72)}
 }
@@ -745,7 +745,7 @@ button.unit{cursor:var(--hit)}
 @keyframes jit{0%{transform:translate(1px,0)}15%{transform:translate(-2px,1px)}30%,100%{transform:none}}
 /* Data: every add floats its +N; a big one flickers. Mult: a bump; from ×4 it stays unstable. */
 .td,.tm{position:relative}
-.chip{position:absolute;left:50%;top:-6px;font-size:14px;font-style:normal;font-weight:700;color:var(--data);transform:translateX(-50%);animation:chipup .8s ease-out forwards;pointer-events:none;white-space:nowrap}
+.dpop{position:absolute;left:50%;top:-6px;font-size:14px;font-style:normal;font-weight:700;color:var(--data);transform:translateX(-50%);animation:chipup .8s ease-out forwards;pointer-events:none;white-space:nowrap}
 @keyframes chipup{to{transform:translate(-50%,-34px);opacity:0}}
 .dflick{animation:dfl .35s steps(2)}
 @keyframes dfl{0%{text-shadow:0 0 18px var(--data);opacity:.6}50%{opacity:1;transform:scale(1.18)}}
@@ -754,7 +754,7 @@ button.unit{cursor:var(--hit)}
 /* Keeps the total's own glow between flickers (no text-shadow outside the flicker frames). */
 @keyframes unstT{0%,86%{transform:none}88%{transform:translateX(-2px);text-shadow:2px 0 var(--cyan),0 0 16px rgba(90,242,168,.6)}92%{transform:translateX(2px);text-shadow:-2px 0 var(--cyan),0 0 16px rgba(90,242,168,.6)}}
 @keyframes unst{0%,86%{transform:none;text-shadow:none}88%{transform:translateX(-2px);text-shadow:2px 0 var(--cyan)}92%{transform:translateX(2px);text-shadow:-2px 0 var(--cyan)}}
-@media (prefers-reduced-motion:reduce){.bump,.tstamp,.tt,.tt::before,.tt::after,.tt span,.chip,.dflick,.tm.unstable{animation:none}.chip{display:none}}
+@media (prefers-reduced-motion:reduce){.bump,.tstamp,.tt,.tt::before,.tt::after,.tt span,.dpop,.dflick,.tm.unstable{animation:none}.dpop{display:none}}
 .result h2{font-size:20px;font-weight:700;line-height:1.2;margin:0;color:var(--pink);text-transform:uppercase;letter-spacing:.06em}
 .result.win{border-color:var(--mint)}
 .result.win h2{color:var(--mint)}
