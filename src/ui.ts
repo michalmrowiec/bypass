@@ -3,14 +3,14 @@ import {
   MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, score,
   stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner,
 } from './game';
-import { gear } from './gear';
+import { gear, DATA_PATHS } from './gear';
 import { hacker, logo } from './logos';
 import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -133,7 +133,7 @@ const rowName = (r: number) => (S.mode === 'run' && COMPANIES[R.company].rowLabe
 const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabel?.(c)) || '+' + c;
 
 let beltSeen = 0;
-const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
+const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + DI + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
 
 function render() {
   const { grid, targets, l } = S.puzzle;
@@ -250,7 +250,7 @@ function render() {
       continue;
     }
     s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l - bought ? ' extra' : '')
-      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.floor(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '') + (has('backup') && i === l - 1 ? ' spare' : '');
+      + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.ceil(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '') + (has('backup') && i === l - 1 ? ' spare' : '');
     if (has('overflow')) s.dataset.bonus = '+.25';
     if (s.classList.contains('extra')) s.dataset.tip = 'Extra slot from your rack';
     if (s.classList.contains('spare')) s.dataset.tip = 'Backup: leave this slot empty to grow the stack; any other ending halves it';
@@ -279,9 +279,9 @@ function render() {
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
     // Thumb drive pays per uploaded target, so each one shows its share.
     const thumb = S.mode === 'run' && st.done ? thumbData(R.items) : 0;
-    const tag = thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + '</span>' : '';
-    const state = st.done ? 'Uploaded' + worth : st.fail ? 'Failed' : cut ? worth.trim() + ' data · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
-      : worth ? worth.trim() + ' data' : 'Target ' + (i + 1);
+    const tag = thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + DI + '</span>' : '';
+    const state = st.done ? 'Uploaded' + worth + (worth && DI) : st.fail ? 'Failed' : cut ? worth.trim() + DI + ' · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
+      : worth ? worth.trim() + DI : 'Target ' + (i + 1);
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"
       : j && j === mark && !blind ? "<i class='gap mark'></i>" : '')
@@ -312,10 +312,11 @@ function render() {
     if (st.done && !doneSeen.has(i)) {
       doneSeen.add(i);
       el.classList.add('just');
-      scramble(el.querySelector<HTMLElement>('.state .stxt')!, state, 2, 1, 40);
+      const label = el.querySelector<HTMLElement>('.state .stxt')!, text = label.textContent ?? '';
+      scramble(label, text, 2, 1, 40);
       // The Thumb drive tag decrypts right after the label.
       const tagEl = el.querySelector<HTMLElement>('.thumbtag');
-      if (tagEl) scramble(tagEl, tagEl.textContent ?? '', state.length + 2, 1, 40);
+      if (tagEl) scramble(tagEl, tagEl.textContent ?? '', text.length + 2, 1, 40);
     }
   });
   // The matrix's bonus objective, ticked while it holds.
@@ -347,7 +348,7 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, stay: M.stay, worth: M.worth, node: M.node, trap: M.trap, jumps: M.jumps,
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, stay: M.stay, worth: M.worth, nodes: M.nodes, trap: M.trap, jumps: M.jumps,
     par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
@@ -364,10 +365,18 @@ function runStatus() {
 
 // Score reads as data × boost: data = target data + flat bonuses, boost = (1 + additive boosts) × multipliers.
 const num = (x: number) => String(Number(x.toFixed(2)));
-const scoreHtml = (sc: Score) => "<span class='vd'>" + (sc.base + sc.flat) + "</span> × <span class='vm'>"
+const DI = "<svg class='di' viewBox='0 0 24 24' role='img' aria-label='data'>" + DATA_PATHS + '</svg>';
+const DI_SM = DI.replace("'di'", "'di sm'"); // smaller, inside calculations
+// In a description, "+7 data" / "×2 data" becomes the number in the data colour with the data icon;
+// boosts ("+0.25 boost") and multipliers ("×2", "×(1 + …)") take the boost colour, money ("+$2") gold,
+// and the Repeater's ×2 cell ("(×2)", "×2 cell") its violet.
+const rich = (s: string) => s.replace(/([+×]?\d+) data\b|(\(×2\)|×2(?= cell))|\+\d*\.?\d+ boost\b|×\([^)]*\)|×\d*\.?\d+|([+−-]?\$\d+)/g,
+  (m, d, rep, cash) => (d ? "<span class='vd'>" + d + DI + '</span>' : rep ? "<span class='vr'>" + rep + '</span>'
+    : cash ? "<span class='cr'>" + cash + '</span>' : "<span class='vm'>" + m + '</span>'));
+const scoreHtml = (sc: Score) => "<span class='vd'>" + (sc.base + sc.flat) + DI_SM + "</span> × <span class='vm'>"
   + num((1 + sc.boost) * sc.mult) + '</span> = <b>' + sc.total + '</b>';
 
-const fmtEffect = (e: Effect) => [e.flat && "<span class='vd'>+" + e.flat + ' data</span>',
+const fmtEffect = (e: Effect) => [e.flat && "<span class='vd'>+" + e.flat + DI_SM + '</span>',
   e.boost && "<span class='vm'>+" + e.boost + ' boost</span>', e.mult && "<span class='vm'>×" + e.mult + '</span>'].filter(Boolean).join(' ');
 
 const shownScore: string[] = [];
@@ -556,7 +565,7 @@ function renderDaemons() {
       : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
-      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + it.text + (hint ? ' · <b>' + hint + '</b>' : '')
+      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + rich(it.text) + (hint ? ' · <b>' + hint + '</b>' : '')
         + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });
   const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
@@ -614,13 +623,13 @@ let lastBill: Score | null = null;
 // Overtime over the room's quota (live matrix included): what passes on, lit like a firing daemon.
 const carryFoot = (id: DaemonId, live: number) => {
   const n = id === 'overtime' ? overtimeCarry(R, R.data + (S.over ? 0 : live)) : 0;
-  return n ? ['<span>+' + n + ' data</span><span>→ next room</span>', ' on carry'] : null;
+  return n ? ['<span>+' + n + DI_SM + '</span><span>→ next room</span>', ' on carry'] : null;
 };
 
 // An installed streak daemon (or Sandbag, whose stack lasts a room) also shows its current stack.
 const daemonText = (id: DaemonId) => {
   const st = streakOf(id), n = R.stacks[id] ?? 0;
-  return DAEMONS[id].text + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '')
+  return rich(DAEMONS[id].text) + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '')
     + (st && n && R.daemons.includes(id) && R.bonus?.includes('stack') ?" <span class='bnt'>bonus</span> +" + BOUNTY_STACKS + ' stacks' : '');
 };
 
@@ -628,14 +637,13 @@ const daemonText = (id: DaemonId) => {
 const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
   const it = ITEMS[id];
   return '<' + tag + " class='ware hw" + cls + "'><span class='stage'>" + gear(id) + '</span><b>' + it.name + ' <small>v' + it.ver + '</small></b><small>' + it.kind
-    + '</small><p>' + it.text + "</p><span class='price'>" + foot + '</span></' + tag + '>';
+    + '</small><p>' + rich(it.text) + "</p><span class='price'>" + foot + '</span></' + tag + '>';
 };
 
 let catalogTab: 'daemons' | 'items' | 'bonuses' | 'ice' = 'daemons';
 
-// Dev cheats on the catalog: toggle daemons and items (a v2.0 and its v1.0 replace each other), add credits, re-deal, skip a room.
+// Dev cheats on the catalog: toggle daemons and items (versions of one item replace each other), add credits, re-deal, skip a room.
 function wireDev(ds: DaemonId[], its: ItemId[]) {
-  const needs = (x: ItemId) => (ITEMS[x] as { needs?: string }).needs;
   const refresh = () => { render(); showCatalog(); };
   $('modalBox').querySelectorAll<HTMLElement>('.dlist .dcard').forEach((b, i) => {
     const id = ds[i];
@@ -648,7 +656,7 @@ function wireDev(ds: DaemonId[], its: ItemId[]) {
   $('modalBox').querySelectorAll<HTMLElement>('.wares .ware').forEach((b, i) => {
     const id = its[i];
     b.onclick = () => {
-      R.items = R.items.includes(id) ? R.items.filter((x) => x !== id) : [...R.items.filter((x) => x !== needs(id) && needs(x) !== id), id];
+      R.items = R.items.includes(id) ? R.items.filter((x) => x !== id) : [...R.items.filter((x) => !olderVersions(id).includes(x) && !olderVersions(x).includes(id)), id];
       refresh();
     };
   });
@@ -718,7 +726,7 @@ function showCatalog(back?: (() => void) | null) {
       + (Object.keys(ICE) as IceId[]).map((id) => '<' + tag + " class='icebtn' data-ice='" + id + "'>" + iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE') + '</' + tag + '>').join('')
     : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · meeting it lets you pick 1 of 2 rewards</p>'
       + "<div class='blist'>" + (Object.keys(BOUNTIES) as BountyId[]).map((id) => '<' + tag + " class='bounty" + (dev && M.bounty === id ? ' met' : '') + "' data-bounty='" + id + "'><span class='bnt'>bonus</span><b>"
-        + BOUNTIES[id].name + '</b> ' + BOUNTIES[id].text() + (dev && M.bounty === id ? "<span class='bstate'>on this matrix</span>" : '') + '</' + tag + '>').join('') + '</div>'
+        + BOUNTIES[id].name + '</b> ' + rich(BOUNTIES[id].text()) + (dev && M.bounty === id ? "<span class='bstate'>on this matrix</span>" : '') + '</' + tag + '>').join('') + '</div>'
       + "<h3 class='catsec'>rewards</h3><p class='meta'>" + Object.keys(REWARDS).length + " rewards · a met bonus offers 2 of them, you take 1</p><div class='blist'>"
       + (Object.keys(REWARDS) as RewardId[]).map((id) => "<div class='bounty reward'><span class='bnt'>reward</span><b>" + REWARDS[id] + '</b> ' + REWARD_NOTES[id] + '</div>').join('') + '</div>'
       + (dev ? "<p class='meta'>dev · the two rewards this matrix's bonus offers</p><div class='row devbar'>" + (Object.keys(REWARDS) as RewardId[]).map((r) => "<button class='btn' data-reward='" + r + "'"
@@ -768,7 +776,7 @@ function roomSummary(bill: Score, credits: string) {
   const rows = R.scores[R.section].map((d, j) => '<tr><td>matrix ' + (j + 1) + "</td><td><span class='vd'>" + d + '</span></td></tr>').join('');
   return "<div class='roomsum'><p class='meta'>" + COMPANIES[R.company].name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + sec.name + ' breached</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
-    + "<table class='calc'>" + rows + "<tr class='sum'><td>room</td><td><b>" + R.data + '</b> / ' + goal + (R.data > goal ? ' <small>+' + (R.data - goal) + ' over</small>' : '')
+    + "<table class='calc'>" + rows + "<tr class='sum'><td>room</td><td><b>" + R.data + '</b> / ' + goal + DI + (R.data > goal ? ' <small>+' + (R.data - goal) + ' over</small>' : '')
     + '</td></tr></table>' + (overtimeNote(R.data) && "<p class='tallyline'>" + overtimeNote(R.data) + '</p>') + credits + '</div>';
 }
 
@@ -779,16 +787,16 @@ function runSummary(won: boolean, bill: Score, credits: string) {
   // ×quota per room shows where the run was loose or tight.
   const rows = (R.log ?? []).map(([loop, room, data]) => {
     const goal = Math.round(co.sections[room].quota * QUOTA_GROWTH ** loop);
-    return '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data + '</span> / ' + goal + ' <small>×' + (data / goal).toFixed(2) + '</small></td></tr>';
+    return '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data + '</span> / ' + goal + DI + ' <small>×' + (data / goal).toFixed(2) + '</small></td></tr>';
   }).join('');
   const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
   return "<div class='roomsum'><p class='meta'>" + co.name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
-    + "<table class='calc'>" + rows + "<tr class='sum'><td>total</td><td><b>" + total + '</b> data · ' + fmt(ms) + '</td></tr>'
+    + "<table class='calc'>" + rows + "<tr class='sum'><td>total</td><td><b>" + total + '</b>' + DI + ' · ' + fmt(ms) + '</td></tr>'
     + '<tr><td>best matrix</td><td>' + (R.best ?? 0) + '</td></tr></table>'
     + (build ? "<p class='meta'>build · " + build + '</p>' : '')
     + "<p class='iceRule" + (fresh ? ' unlock' : '') + "'><b>" + (fresh ? 'New record' : 'Record') + '</b> '
-    + (fresh ? (prev ? 'previous ' + prev.data + ' data · ' + fmt(prev.ms) : 'first run on this contract') : prev ? prev.data + ' data · ' + fmt(prev.ms) : '') + '</p>'
+    + (fresh ? (prev ? 'previous ' + prev.data + DI + ' · ' + fmt(prev.ms) : 'first run on this contract') : prev ? prev.data + DI + ' · ' + fmt(prev.ms) : '') + '</p>'
     + credits + '</div>';
 }
 
@@ -827,7 +835,7 @@ function renderSteps() {
   // The room's data tally, big: white until the quota is met, then green.
   const got = R.data + (live ?? 0), goal = quota(R);
   $('stepCr').textContent = 'credits $' + R.credits;
-  $('tally').innerHTML = overtimeNote(got) + "<span class='meta'>" + sections(R)[R.section].name + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + '</span>';
+  $('tally').innerHTML = overtimeNote(got) + "<span class='meta'>" + sections(R)[R.section].name + " data</span><b class='" + (got >= goal ? 'met' : '') + "'>" + got + "</b><span class='goal'>/ " + goal + DI + '</span>';
 }
 
 // Matrix bill: the uploads, each daemon that fired and what it added, then the formula.
@@ -837,7 +845,7 @@ const dmnName = (id: DaemonId) => {
   return "<span class='dfile c-" + f + "'><span class='fdir'>" + f + '/</span>' + DAEMONS[id].name.toLowerCase().replace(/ /g, '_') + "<span class='fext'>.dmn</span></span>";
 };
 
-const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><span class='vd'>" + sc.base + ' data</span></td></tr>'
+const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><span class='vd'>" + sc.base + DI_SM + '</span></td></tr>'
   + sc.fired.map(([id, e]) => '<tr><td>' + dmnName(id) + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.gear.map(([id, e]) => "<tr><td><span class='gname'>" + ITEMS[id].name + '</span></td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.ice.map(([id, e]) => "<tr><td><i class='iceTag'>" + ICE[id].name + '</i></td><td>' + fmtEffect(e) + '</td></tr>').join('')
@@ -875,7 +883,7 @@ function showOffer() {
   const poor = full && R.credits < SWAP_COST;
   showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
-    + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + DAEMONS[id].text, !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
+    + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + rich(DAEMONS[id].text), !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
     + "<div class='row'><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   $('offerCatalog').onclick = () => showCatalog(showOffer);
   $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
@@ -956,7 +964,7 @@ const firmCard = (co: Company | undefined, i: number) => {
   const won = co && breached().includes(co.id) ? "<span class='fwon'>breached</span>" : '';
   const best = co && bestRun(co.id);
   const front = co ? face('front', won + logo(co.id) + '<b>' + co.name + '</b><p>' + co.text + '</p>'
-    + (best ? "<span class='fbest'>best " + best.data + ' data · ' + fmt(best.ms) + '</span>' : '') + (isOpen(i) ? "<span class='fhint'>details ›</span>" : lock))
+    + (best ? "<span class='fbest'>best " + best.data + DI + ' · ' + fmt(best.ms) + '</span>' : '') + (isOpen(i) ? "<span class='fhint'>details ›</span>" : lock))
     : face('front', logo() + '<b>??? ????????</b><p>Classified. Breach the previous contract to unlock.</p>');
   // ICE the previous company did not have.
   const prev = COMPANIES[i - 1], fresh = co && prev ? [...co.ice, ...co.patches].filter((id) => !prev.ice.includes(id) && !prev.patches.includes(id)) : [];
@@ -1232,7 +1240,7 @@ function enterSection() {
   const route = rooms.map((s, i) => (i ? "<i class='link" + at(i) + "'></i>" : '') + "<span class='node" + at(i) + "'>" + s.name + '</span>').join('');
   showResult(true, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + ' · section ' + (R.section + 1) + '/' + rooms.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
     + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + roomSize(sec.size) + ' · ' + sec.matrices
-    + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + ' data</p>'
+    + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + DI + '</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
   $('breach').onclick = () => {
@@ -1259,7 +1267,7 @@ function bonusIntro(id: BountyId) {
   const pane = $('grid').closest('.pane')!;
   pane.querySelector('.bintro')?.remove();
   pane.insertAdjacentHTML('beforeend', "<div class='bintro' aria-live='polite'><span class='bnt'>bonus objective</span><b>" + BOUNTIES[id].name
-    + '</b><p>' + BOUNTIES[id].text(runCtx()) + "</p><small>reward: pick 1 of 2 once the matrix is over</small><button class='btn'>Got it</button></div>");
+    + '</b><p>' + rich(BOUNTIES[id].text(runCtx())) + "</p><small>reward: pick 1 of 2 once the matrix is over</small><button class='btn'>Got it</button></div>");
   const el = pane.querySelector<HTMLElement>('.bintro')!;
   el.onclick = () => el.remove();
 }
@@ -1324,7 +1332,7 @@ function applyCross() {
     const v = p.kind === 'data' ? 'vd' : 'vm', loss = p.add.startsWith('→');
     return (p.id ? "<span class='pname c-" + DAEMONS[p.id].family.toLowerCase() + "'>" + p.name + '</span>' : "<span class='gname'>" + p.name + '</span>')
       + (p.now ? ' <span class=\'' + v + (loss ? ' gone' : '') + "'>" + p.now + '</span>' : '')
-      + " <b class='" + v + (loss ? '' : ' add') + "'>" + p.add + '</b>' + (p.note ? " <span class='note'>" + p.note + '</span>' : '');
+      + " <b class='" + v + (loss ? '' : ' add') + "'>" + p.add + (p.kind === 'data' ? DI_SM : '') + '</b>' + (p.note ? " <span class='note'>" + p.note + '</span>' : '');
   }).join(' · ');
   // Echo the code under the cursor in the codes targets still need: solid for a pick open right now, dotted for a
   // free cell off the lane (planning ahead) or a code already hit in an unfinished target. Done and failed targets stay quiet.
@@ -1651,7 +1659,7 @@ function playBill(sc: Score, room: string, before: number, goal: number) {
   if (!bill) return;
   const total = sc.total, after = before + total, ratio = total / goal;
   const heat = ratio >= 2 ? 3 : ratio >= 1 ? 2 : ratio >= 0.5 ? 1 : 0;
-  bill.insertAdjacentHTML('beforebegin', "<div class='btally'><div class='tf'><span class='td'>0</span><i>×</i><span class='tm'>1</span><i>=</i><b class='tt'>0</b></div>"
+  bill.insertAdjacentHTML('beforebegin', "<div class='btally'><div class='tf'><span class='td'>0</span>" + DI_SM + "<i>×</i><span class='tm'>1</span><i>=</i><b class='tt'>0</b></div>"
     + "<div class='troom'><span>" + room + "</span> <b class='trv'>" + before + '</b> / ' + goal + "<i class='tbar'><i class='tfill'></i></i></div><div class='tstamp'></div></div>");
   const tally = box.querySelector<HTMLElement>('.btally')!, q = (s: string) => tally.querySelector<HTMLElement>(s)!;
   const [td, tm, tt, trv, fill, stamp] = ['.td', '.tm', '.tt', '.trv', '.tfill', '.tstamp'].map(q);
@@ -1888,10 +1896,12 @@ const GLYPHS = '0123456789ABCDEF#$%&';
 function scramble(el: HTMLElement, word: string, lead: number, perChar: number, ms: number) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches || el.dataset.scrambling) return;
   el.dataset.scrambling = '1';
+  // With icons inside, only the leading text scrambles; the icons stay put.
+  const node = el.childElementCount && el.firstChild?.nodeType === Node.TEXT_NODE ? el.firstChild : el;
   let frame = 0;
   const id = setInterval(() => {
     frame++;
-    el.textContent = [...word].map((ch, i) => (frame > lead + i * perChar ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)])).join('');
+    node.textContent = [...word].map((ch, i) => (frame > lead + i * perChar ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)])).join('');
     if (frame > lead + word.length * perChar) { clearInterval(id); delete el.dataset.scrambling; }
   }, ms);
 }

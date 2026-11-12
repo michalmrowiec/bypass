@@ -11,12 +11,12 @@ type Cell = [number, number];
 export type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
 export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', bridge2: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind' };
 
-// Item state of the run matrix in play: data node cell, data per target, and the before-first-move tools still unused.
+// Item state of the run matrix in play: data node cells, data per target, and the before-first-move tools still unused.
 // tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
 // rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick; charge: a ×2 data charge is spent here.
 // undone: the path index Rewind took back (it stays on the path for daemons); kept: the buffer index of the code it kept.
 export interface ItemState {
-  node?: Cell; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
+  nodes?: Cell[]; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
   stay?: number[]; // path indices of ports picked without a jump (Loopback v1.0 back through a port): you stand on the port itself
   bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free' | 'half'>; charge?: boolean; undone?: number; kept?: number;
 }
@@ -90,7 +90,7 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (hidden) cls.push('enc');
   if (code === WILD) cls.push('wild');
   if (code === BLOCK) cls.push('ice');
-  if (same(b.m.node, r, c)) tags.push('node');
+  if (b.m.nodes?.some((q) => same(q, r, c))) tags.push('node');
   if (same(b.m.trap, r, c)) { cls.push('trap'); tags.push('trap'); }
   if (same(b.m.rep, r, c)) tags.push('rep');
   const level = b.ctx.daemons.includes('painter') && code !== BLOCK ? b.ctx.paint?.[r + ',' + c] : undefined;
@@ -127,7 +127,7 @@ export function dealBoard(seed: number, s: RunState): Board {
   const rep = has('repeater') ? plantRepeat(seed, puzzle) : undefined;
   if (has('glob')) globTarget(seed, puzzle.targets);
   const m: ItemState = {
-    ...emptyItems(), node: cells.node, trap: roomIce(s).includes('honeypot') ? trapCell(seed, puzzle, [cells.wild, cells.node]) : undefined, worth, rep,
+    ...emptyItems(), nodes: cells.nodes, trap: roomIce(s).includes('honeypot') ? trapCell(seed, puzzle, [cells.wild, ...cells.nodes]) : undefined, worth, rep,
     rewind: has('rewind'), cuts: cutMarks(seed, puzzle.targets), wild: has('wildcard2'), split: has('split1') || has('split2'), jump: has('bridge') || has('bridge2'),
     loop: has('loopback1') || has('loopback2'), mux: has('mux'), bounty: bountyHere(s) ? bountyFor(seed, s.items) : undefined, rewards: rewardsFor(seed, s.daemons),
   };

@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
+  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -252,20 +252,41 @@ describe('matrix items', () => {
     let onPath = 0;
     for (let seed = 1; seed <= 200; seed++) {
       const p = generate(seed, sectionMatrix(1));
-      const { wild, node } = placeCells(seed, p, ['wildcard1', 'datanode']);
+      const { wild, nodes: [node] } = placeCells(seed, p, ['wildcard1', 'datanode']);
       const on = (c: [number, number]) => p.path!.some((q) => q[0] === c[0] && q[1] === c[1]);
       expect(on(wild!)).toBe(false);
       expect(node).not.toEqual(wild);
       if (on(node!)) onPath++;
+      // v3.0 keeps the v1.0 cell and adds a second, different one.
+      const three = placeCells(seed, p, ['wildcard1', 'datanode3']).nodes;
+      expect(three[0]).toEqual(node);
+      expect(three).toHaveLength(2);
+      expect(three[1]).not.toEqual(node);
     }
     expect(onPath).toBeGreaterThan(20);
     expect(onPath).toBeLessThan(60);
   });
 
   it('a data node on the path adds +15 data', () => {
-    const s = newRunState(1);
-    expect(scoreMatrix({ ...ctx, node: [4, 0] }, s)).toMatchObject({ flat: 15, total: 50, gear: [['datanode', { flat: 15 }]] });
-    expect(scoreMatrix({ ...ctx, node: [1, 1] }, s).flat).toBe(0);
+    const s = { ...newRunState(1), items: ['datanode'] as ItemId[] };
+    expect(scoreMatrix({ ...ctx, nodes: [[4, 0]] }, s)).toMatchObject({ flat: 15, total: 50, gear: [['datanode', { flat: 15 }]] });
+    expect(scoreMatrix({ ...ctx, nodes: [[1, 1]] }, s).flat).toBe(0);
+  });
+
+  it('Priority multiplies the data of the first uploaded target, the richer one on a tie', () => {
+    const s = (id: ItemId) => ({ ...newRunState(1), items: [id] });
+    expect(scoreMatrix(ctx, s('prio1')).gear).toEqual([['prio1', { flat: 10 }]]); // AB done before BCD: 10 more
+    expect(scoreMatrix(ctx, s('prio2')).gear).toEqual([['prio2', { flat: 20 }]]);
+    expect(firstTargetData(['B', 'C', 'D'], [['C', 'D'], ['B', 'C', 'D']])).toBe(25); // both end on D
+    expect(firstTargetData(['A', 'B'], [['A', 'B']], [4])).toBe(4); // a split target pays its own worth
+    expect(scoreMatrix({ ...ctx, buf: ['X'] }, s('prio2')).total).toBe(0);
+  });
+
+  it('a v3.0 replaces the whole line: older versions leave the shop, selling returns half of all three', () => {
+    const s = { ...newRunState(1), items: ['datanode3'] as ItemId[] };
+    expect(forSale(s).filter((id) => id.startsWith('datanode'))).toEqual([]);
+    expect(forSale({ ...s, items: ['datanode2'] }).filter((id) => id.startsWith('datanode'))).toEqual(['datanode3']);
+    expect(sellValue('datanode3')).toBe(5); // (3 + 3 + 5) / 2
   });
 
   it('Split v1.0 marks one random gap per target, stable per seed', () => {
@@ -513,7 +534,8 @@ describe('economy', () => {
     expect(scoreMatrix(ctx, s).total).toBe(41); // 2 of 3 uploaded: 35 + 2×3
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, s).total).toBe(0);
     expect(scoreMatrix(ctx, { ...s, items: ['thumb2'] }).gear).toEqual([['thumb2', { flat: 14 }]]);
-    expect(scoreMatrix({ ...ctx, node: ctx.path[0] }, { ...s, items: ['datanode2'] }).gear).toEqual([['datanode2', { flat: 30 }]]);
+    expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0]] }, { ...s, items: ['datanode2'] }).gear).toEqual([['datanode2', { flat: 30 }]]);
+    expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0], ctx.path[1]] }, { ...s, items: ['datanode3'] }).gear).toEqual([['datanode3', { flat: 60 }]]);
     const h = { ...newRunState(1), loop: 1, items: ['heatsink'] as ItemId[], patches: [{ ice: 'corruption' as const, room: 0, loop: 1 }] };
     expect(burnOf(h, 0)).toBe(0);
     h.patches.push({ ice: 'corruption', room: 0, loop: 1 }, { ice: 'corruption', room: 0, loop: 1 });

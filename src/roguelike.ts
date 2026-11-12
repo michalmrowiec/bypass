@@ -311,7 +311,7 @@ export function nextSection(s: RunState): Patch[] | undefined {
 
 // jumps: path indices of cells reached off the lane (Bridge, Loopback v2.0); those are no lane moves, so daemons skip them.
 export interface MatrixCtx {
-  buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; node?: Cell; jumps?: number[];
+  buf: string[]; path: [number, number][]; targets: string[][]; l: number; n: number; worth?: number[]; nodes?: Cell[]; jumps?: number[];
   par?: number; // length of the planted route (Surgical bonus)
   ports?: Puzzle['ports']; // port board pairs, for move lengths
   stay?: number[]; // port picks that did not jump
@@ -494,11 +494,18 @@ export interface Score { base: number; flat: number; boost: number; mult: number
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
   const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [], ice: [] };
-  const node = ctx.node;
-  if (node && ctx.path.some((p) => p[0] === node[0] && p[1] === node[1])) {
-    const v = nodeData(s.items);
+  const hit = (ctx.nodes ?? []).filter((q) => ctx.path.some((p) => p[0] === q[0] && p[1] === q[1])).length;
+  const nodeId = s.items.find((id) => id.startsWith('datanode'));
+  if (hit && nodeId) {
+    const v = nodeData(s.items) * hit;
     sc.flat += v;
-    sc.gear.push([s.items.includes('datanode2') ? 'datanode2' : 'datanode', { flat: v }]);
+    sc.gear.push([nodeId, { flat: v }]);
+  }
+  const prio = s.items.includes('prio2') ? 'prio2' : s.items.includes('prio1') ? 'prio1' : undefined;
+  if (prio && f.done.length) {
+    const v = firstTargetData(ctx.buf, ctx.targets, ctx.worth) * (PRIO_MULT[prio] - 1);
+    sc.flat += v;
+    sc.gear.push([prio, { flat: v }]);
   }
   const thumb = s.items.includes('thumb2') ? 'thumb2' : s.items.includes('thumb') ? 'thumb' : undefined;
   if (f.done.length && thumb) {
@@ -700,7 +707,7 @@ export function movePreview(path: Cell[], cell: Cell, n: number, daemons: Daemon
 }
 
 // Shop items: hardware bought with credits and kept for the run. Daemons change the scoring; items change the matrix
-// or the rules, with no family, so any of them can feed any build. A v2.0 is sold only to owners of its v1.0 and replaces it.
+// or the rules, with no family, so any of them can feed any build. An upgrade is sold only to owners of the version it needs and replaces it.
 interface Item { name: string; ver: string; kind: string; price: number; text: string; needs?: string }
 export const ITEMS = {
   buffer1: { name: 'Buffer', ver: '1.0', kind: 'memory module', price: 4, text: '+1 buffer slot in every matrix' },
@@ -712,6 +719,9 @@ export const ITEMS = {
   wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into ** (not the ×2 cell)', needs: 'wildcard1' },
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
   datanode2: { name: 'Data node', ver: '2.0', kind: 'NVMe SSD', price: 3, text: 'Upgrades v1.0: the node cell holds +30 data', needs: 'datanode' },
+  datanode3: { name: 'Data node', ver: '3.0', kind: 'NVMe RAID', price: 5, text: 'Upgrades v2.0: two node cells in every matrix, +30 data each', needs: 'datanode2' },
+  prio1: { name: 'Priority', ver: '1.0', kind: 'QoS chip', price: 4, text: 'The first target you upload pays ×2 data' },
+  prio2: { name: 'Priority', ver: '2.0', kind: 'QoS ASIC', price: 4, text: 'Upgrades v1.0: the first target you upload pays ×3 data', needs: 'prio1' },
   split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target of 3+ codes at its random cut mark; its data splits by the length of each part' },
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target of 3+ codes is cut', needs: 'split1' },
   sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
@@ -737,6 +747,17 @@ export const SHELF = 4;
 // Thumb drive data per uploaded target: v1.0, v2.0.
 export const THUMB_DATA = [3, 7] as const;
 export const thumbData = (items: ItemId[]) => (items.includes('thumb2') ? THUMB_DATA[1] : items.includes('thumb') ? THUMB_DATA[0] : 0);
+export const PRIO_MULT = { prio1: 2, prio2: 3 } as const;
+// Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
+export function firstTargetData(buf: string[], targets: string[][], worth?: number[]): number {
+  let end = Infinity, best = 0;
+  targets.forEach((t, i) => {
+    if (!contains(buf, t)) return;
+    const e = windowOf(buf, t)[t.length - 1], v = worth?.[i] ?? DATA_BY_LEN[t.length];
+    if (e < end || (e === end && v > best)) { end = e; best = v; }
+  });
+  return best;
+}
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
@@ -744,17 +765,19 @@ export const slotCost = (s: RunState) => 5 + 3 * (s.rack - RACK_BASE);
 // The Co-processor module adds one daemon slot.
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
-export const sellValue = (id: ItemId) => Math.floor((item(id).price + (item(id).needs ? item(item(id).needs as ItemId).price : 0)) / 2);
+export const sellValue = (id: ItemId) => Math.floor([id, ...olderVersions(id)].reduce((a, x) => a + item(x).price, 0) / 2);
 export const REROLL_COST = 1;
 // Each reroll on a shop visit costs $1 more than the last; free ones count as steps too.
 export const rerollCost = (s: RunState) => REROLL_COST + s.rerolls;
 export const SWAP_COST = 6;
 
 const item = (id: ItemId): Item => ITEMS[id];
+// The versions an upgrade replaced, newest first: datanode3 -> datanode2, datanode.
+export const olderVersions = (id: ItemId): ItemId[] => { const n = item(id).needs as ItemId | undefined; return n ? [n, ...olderVersions(n)] : []; };
 
-// Not owned, v1.0 not yet replaced, v2.0 only over its v1.0.
+// Not owned, not yet replaced by an upgrade, an upgrade only over the version it needs.
 export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter((id) => !s.items.includes(id)
-  && (!item(id).needs || s.items.includes(item(id).needs as ItemId)) && !s.items.some((o) => item(o).needs === id));
+  && (!item(id).needs || s.items.includes(item(id).needs as ItemId)) && !s.items.some((o) => olderVersions(o).includes(id)));
 
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
 export function stockShop(s: RunState, reroll = false): boolean {
@@ -815,21 +838,27 @@ export function swapDaemon(s: RunState, out: DaemonId, id: DaemonId): boolean {
 const allCells = (p: Puzzle) => p.grid.flatMap((row, r) => row.map((_, c): Cell => [r, c]));
 
 export const NODE_DATA = 15;
-export const nodeData = (items: ItemId[]) => (items.includes('datanode2') ? 2 * NODE_DATA : NODE_DATA);
+export const nodeData = (items: ItemId[]) => (items.includes('datanode') ? NODE_DATA : 2 * NODE_DATA);
 const NODE_ON_PATH = 0.2;
 
 // Item cells of a matrix, the same for its seed: the Wildcard v1.0 cell never lies on the planted solution path,
-// the Data node only in about one matrix in five.
-export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: Cell; node?: Cell } {
+// each Data node cell only in about one matrix in five (v3.0 has two).
+export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: Cell; nodes: Cell[] } {
   const r = rng(hashStr(seed + '/cells'));
   const cells = allCells(p);
   const onPath = (c: Cell) => !!p.path?.some((q) => q[0] === c[0] && q[1] === c[1]);
   const pickCell = (pool: Cell[]) => pool[Math.floor(r() * pool.length)];
   const open = cells.filter((c) => p.grid[c[0]][c[1]] !== BLOCK);
   const wild = items.includes('wildcard1') ? pickCell(open.filter((c) => !onPath(c))) : undefined;
-  const nodeOnPath = r() < NODE_ON_PATH;
-  const node = items.includes('datanode') || items.includes('datanode2') ? pickCell(open.filter((c) => c !== wild && onPath(c) === nodeOnPath)) : undefined;
-  return { wild, node };
+  const count = items.includes('datanode3') ? 2 : items.some((id) => id.startsWith('datanode')) ? 1 : 0;
+  const nodes: Cell[] = [];
+  // Draws in the same order as before v3.0, so the first node of a seed stays where it was.
+  for (let k = 0; k < count; k++) {
+    const on = r() < NODE_ON_PATH;
+    const c = pickCell(open.filter((c) => c !== wild && !nodes.includes(c) && onPath(c) === on));
+    if (c) nodes.push(c);
+  }
+  return { wild, nodes };
 }
 
 export const HONEYPOT_MULT = 0.5;
