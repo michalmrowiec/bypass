@@ -51,10 +51,10 @@ export const COMPANIES: Company[] = [{
   text: 'Mid-size freight forwarder. Flat office network, one SOC on day shift.',
   codes: RUN_POOL,
   sections: [
-    { name: 'Reception', quota: 25, matrices: 1, size: SIZES.easy, brief: 'Front desk terminals. Guest Wi-Fi. Nobody watching.' },
-    { name: 'Offices', quota: 90, matrices: 2, size: SIZES.normal, brief: 'Open-plan desks, unlocked workstations, passwords on sticky notes.' },
-    { name: 'Server Room', quota: 280, matrices: 3, size: SIZES.hard, brief: 'Cold air, humming racks. This is where the real data lives.' },
-    { name: 'SOC', quota: 225, matrices: 2, size: SIZES.hard, brief: 'Security Operations Center. Analysts on shift, alerts on every port.' },
+    { name: 'Reception', quota: 20, matrices: 1, size: SIZES.easy, brief: 'Front desk terminals. Guest Wi-Fi. Nobody watching.' },
+    { name: 'Offices', quota: 70, matrices: 2, size: SIZES.normal, brief: 'Open-plan desks, unlocked workstations, passwords on sticky notes.' },
+    { name: 'Server Room', quota: 190, matrices: 3, size: SIZES.hard, brief: 'Cold air, humming racks. This is where the real data lives.' },
+    { name: 'SOC', quota: 160, matrices: 2, size: SIZES.hard, brief: 'Security Operations Center. Analysts on shift, alerts on every port.' },
   ],
   ice: ['firewall', 'throttle', 'blackout'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption'],
@@ -66,10 +66,10 @@ export const COMPANIES: Company[] = [{
   rowLabel: (r) => 'W' + (r + 1), // ward
   colLabel: (c) => 'B' + String(c + 1).padStart(2, '0'), // bed
   sections: [
-    { name: 'Lobby', quota: 40, matrices: 1, size: { n: 6, lens: [2, 3, 4], links: [1], slack: 0 }, brief: 'Visitor kiosks and a nurse station login nobody ever locks.' },
+    { name: 'Lobby', quota: 35, matrices: 1, size: { n: 6, lens: [2, 3, 4], links: [1], slack: 0 }, brief: 'Visitor kiosks and a nurse station login nobody ever locks.' },
     { name: 'Wards', quota: 140, matrices: 2, size: { n: 7, lens: [3, 3, 4], links: [1, 2], slack: 0 }, brief: 'Bedside terminals on a flat network, one VLAN for everything.' },
-    { name: 'Records', quota: 215, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
-    { name: 'SOC', quota: 300, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
+    { name: 'Records', quota: 200, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
+    { name: 'SOC', quota: 270, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
@@ -83,11 +83,11 @@ export const COMPANIES: Company[] = [{
   // Many small rooms: 5×5 matrices, where every dead or locked cell hurts.
   sections: [
     { name: 'Lobby', quota: 30, matrices: 1, size: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 }, brief: 'A receptionist, a visitor log, and a kiosk that still runs the old client portal.' },
-    { name: 'Mailroom', quota: 45, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Scanners that email every document to a shared inbox.' },
-    { name: 'Paralegals', quota: 60, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Case files on network drives, passwords taped under keyboards.' },
+    { name: 'Mailroom', quota: 40, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Scanners that email every document to a shared inbox.' },
+    { name: 'Paralegals', quota: 50, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Case files on network drives, passwords taped under keyboards.' },
     { name: 'Partners', quota: 140, matrices: 2, size: { n: 5, lens: [3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Corner offices, laptops that never leave, phones that never lock.' },
-    { name: 'Archive', quota: 180, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Thirty years of settlements on paper and their digital twin, synced through two gateways.' },
-    { name: 'SOC', quota: 240, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'An outsourced SOC on a retainer. Small screens, sharp eyes.' },
+    { name: 'Archive', quota: 165, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Thirty years of settlements on paper and their digital twin, synced through two gateways.' },
+    { name: 'SOC', quota: 220, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'An outsourced SOC on a retainer. Small screens, sharp eyes.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells'],
@@ -101,10 +101,10 @@ export const COMPANIES: Company[] = [{
   // Many matrices of many short targets, always throttled: links and buffer win here, empty-slot builds starve.
   always: ['throttle'],
   sections: [
-    { name: 'Call Center', quota: 70, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
-    { name: 'Switching', quota: 95, matrices: 2, size: { n: 5, lens: [2, 2, 3, 3], links: [1, 2], slack: 0, ports: 2 }, brief: 'Two switch racks that route every call in the region, patched into each other by hand.' },
-    { name: 'Backbone', quota: 220, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
-    { name: 'SOC', quota: 280, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
+    { name: 'Call Center', quota: 80, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
+    { name: 'Switching', quota: 100, matrices: 2, size: { n: 5, lens: [2, 2, 3, 3], links: [1, 2], slack: 0, ports: 2 }, brief: 'Two switch racks that route every call in the region, patched into each other by hand.' },
+    { name: 'Backbone', quota: 260, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
+    { name: 'SOC', quota: 330, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
   ],
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
@@ -340,7 +340,6 @@ interface Facts {
   loop: boolean; // the last pick shares a row or column with the first
   travelled: number; // cells crossed by all moves
   keys: string[]; // 'r,c' of each pick
-  upKeys: string[]; // 'r,c' of the picks inside an uploaded target (buffer index = pick index)
 }
 
 type Cell = [number, number];
@@ -384,7 +383,7 @@ function facts({ buf, path, targets, l, n, jumps, ports, stay }: MatrixCtx): Fac
     start: path[0]?.[1],
     loop: path.length > 1 && (path[0][0] === path[path.length - 1][0] || path[0][1] === path[path.length - 1][1]),
     travelled: moves.reduce((a, d) => a + d, 0),
-    keys, upKeys: keys.filter((_, i) => wins.some((w) => w.includes(i))),
+    keys,
   };
 }
 
@@ -408,17 +407,17 @@ interface Daemon {
 }
 
 // Flat data per stack: Uptime (no Disconnect) pays more than the easy Rotate.
-export const CRON_DATA = 5, ROTATE_DATA = 3;
-export const LONGJUMP_DATA = 8;
-export const PAINT_DATA = 5, PAINT_LEVELS = 3, PAINT_CELLS = 6;
+export const CRON_DATA = 8, ROTATE_DATA = 5;
+export const LONGJUMP_DATA = 15;
+export const PAINT_DATA = 8, PAINT_LEVELS = 3, PAINT_CELLS = 6;
 // Painter: data a painted cell pays when picked.
 export const paintData = (level: number) => PAINT_DATA * level;
 
 export const DAEMONS = {
   chain: { name: 'Chain', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
     score: (f) => (f.shared ? { boost: 0.5 * f.shared } : null) },
-  compressor: { name: 'Compressor', family: 'Splicer', text: '+7 data per buffer slot shared by 2 uploaded targets',
-    score: (f) => (f.shared ? { flat: 7 * f.shared } : null) },
+  compressor: { name: 'Compressor', family: 'Splicer', text: '+10 data per buffer slot shared by 2 uploaded targets',
+    score: (f) => (f.shared ? { flat: 10 * f.shared } : null) },
   fullstack: { name: 'Full stack', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.4 per target) when every target is uploaded',
     score: (f) => (f.all ? { mult: Math.round((1 + 0.4 * f.done.length) * 10) / 10 } : null) },
   overflow: { name: 'Overflow', family: 'Ghost', text: '+0.25 boost per empty buffer slot',
@@ -455,11 +454,11 @@ export const DAEMONS = {
     score: (f) => (f.done.length && f.trace ? { mult: 1 + 0.25 * f.done.length } : null) },
   crawler: { name: 'Crawler', family: 'Runner', text: '+5 data per different cell on the path',
     score: (f) => (f.cells ? { flat: 5 * f.cells } : null) },
-  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Cells you upload a target through stay painted in the next matrix; picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again (up to +' + paintData(PAINT_LEVELS) + ')',
+  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Every cell on your path stays painted in the next matrix (once a target is uploaded); picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again (up to +' + paintData(PAINT_LEVELS) + ')',
     score: (f, s) => { const v = [...new Set(f.keys)].reduce((a, k) => a + (s.paint?.[k] ? paintData(s.paint[k]) : 0), 0); return v ? { flat: v } : null; },
     end: (s, f) => {
       // Repainted cells go up a level; the highest levels stay when there are too many.
-      const next = [...new Set(f.upKeys)].map((k) => [k, Math.min(PAINT_LEVELS, (s.paint?.[k] ?? 0) + 1)] as const);
+      const next = [...new Set(f.keys)].map((k) => [k, Math.min(PAINT_LEVELS, (s.paint?.[k] ?? 0) + 1)] as const);
       s.paint = Object.fromEntries(next.sort((a, b) => b[1] - a[1]).slice(0, PAINT_CELLS));
     } },
   circuit: { name: 'Circuit', family: 'Runner', rarity: 'legendary', text: '×2 when the last pick is in the row or column of the first',
@@ -718,10 +717,10 @@ export const ITEMS = {
   wildcard1: { name: 'Wildcard', ver: '1.0', kind: 'master key', price: 4, text: 'In every matrix one random cell off the solution path turns into **, which fits any code. It can be picked only once: Loopback and Rewind cannot reuse it' },
   wildcard2: { name: 'Wildcard', ver: '2.0', kind: 'tuned master key', price: 4, text: 'Upgrades v1.0: before your first move you choose the cell that turns into ** (not the ×2 cell)', needs: 'wildcard1' },
   datanode: { name: 'Data node', ver: '1.0', kind: 'SSD', price: 3, text: 'One cell in every matrix holds +15 data: route through it and upload a target to bank it' },
-  datanode2: { name: 'Data node', ver: '2.0', kind: 'NVMe SSD', price: 3, text: 'Upgrades v1.0: the node cell holds +30 data', needs: 'datanode' },
-  datanode3: { name: 'Data node', ver: '3.0', kind: 'NVMe RAID', price: 5, text: 'Upgrades v2.0: two node cells in every matrix, +30 data each', needs: 'datanode2' },
+  datanode2: { name: 'Data node', ver: '2.0', kind: 'NVMe SSD', price: 3, text: 'Upgrades v1.0: the node cell holds +40 data', needs: 'datanode' },
+  datanode3: { name: 'Data node', ver: '3.0', kind: 'NVMe RAID', price: 5, text: 'Upgrades v2.0: two node cells in every matrix, +60 data each', needs: 'datanode2' },
   prio1: { name: 'Priority', ver: '1.0', kind: 'QoS chip', price: 4, text: 'The first target you upload pays ×2 data' },
-  prio2: { name: 'Priority', ver: '2.0', kind: 'QoS ASIC', price: 4, text: 'Upgrades v1.0: the first target you upload pays ×3 data', needs: 'prio1' },
+  prio2: { name: 'Priority', ver: '2.0', kind: 'QoS ASIC', price: 4, text: 'Upgrades v1.0: the first target you upload pays ×4 data', needs: 'prio1' },
   split1: { name: 'Split', ver: '1.0', kind: 'Y-splitter', price: 4, text: 'Before your first move, cut one target of 3+ codes at its random cut mark; its data splits by the length of each part' },
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target of 3+ codes is cut', needs: 'split1' },
   sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
@@ -731,8 +730,8 @@ export const ITEMS = {
   loopback2: { name: 'Loopback', ver: '2.0', kind: 'twin loopback', price: 3, text: 'Upgrades v1.0: the used cell can be anywhere on the matrix; daemons skip that jump as a move', needs: 'loopback1' },
   // Cheap, modest modules: filler for the shelf and a use for spare credits.
   thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+3 data for every uploaded target' },
-  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +7 data for every uploaded target', needs: 'thumb' },
-  thumb3: { name: 'Thumb drive', ver: '3.0', kind: 'USB4 stick', price: 4, text: 'Upgrades v2.0: +13 data for every uploaded target', needs: 'thumb2' },
+  thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +10 data for every uploaded target', needs: 'thumb' },
+  thumb3: { name: 'Thumb drive', ver: '3.0', kind: 'USB4 stick', price: 4, text: 'Upgrades v2.0: +25 data for every uploaded target', needs: 'thumb2' },
   chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: '+$1 for every room you clear' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
@@ -746,10 +745,10 @@ export const ITEMS = {
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 4;
 // Thumb drive data per uploaded target: v1.0, v2.0, v3.0.
-export const THUMB_DATA = { thumb: 3, thumb2: 7, thumb3: 13 } as const;
+export const THUMB_DATA = { thumb: 3, thumb2: 10, thumb3: 25 } as const;
 const thumbId = (items: ItemId[]) => (['thumb3', 'thumb2', 'thumb'] as const).find((id) => items.includes(id));
 export const thumbData = (items: ItemId[]) => { const id = thumbId(items); return id ? THUMB_DATA[id] : 0; };
-export const PRIO_MULT = { prio1: 2, prio2: 3 } as const;
+export const PRIO_MULT = { prio1: 2, prio2: 4 } as const;
 // Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
 // Index of the first uploaded target (the richer one on a tie), -1 if none.
 export function firstTarget(buf: string[], targets: string[][], worth?: number[]): number {
@@ -849,7 +848,7 @@ export function swapDaemon(s: RunState, out: DaemonId, id: DaemonId): boolean {
 const allCells = (p: Puzzle) => p.grid.flatMap((row, r) => row.map((_, c): Cell => [r, c]));
 
 export const NODE_DATA = 15;
-export const nodeData = (items: ItemId[]) => (items.includes('datanode') ? NODE_DATA : 2 * NODE_DATA);
+export const nodeData = (items: ItemId[]) => (items.includes('datanode') ? NODE_DATA : items.includes('datanode2') ? 40 : 60);
 const NODE_ON_PATH = 0.2;
 
 // Item cells of a matrix, the same for its seed: the Wildcard v1.0 cell never lies on the planted solution path,

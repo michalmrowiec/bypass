@@ -32,10 +32,10 @@ Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
 
 | firma | pokoje (rozmiar, macierze, próg it1) | ICE bossa | łatki |
 |---|---|---|---|
-| **Kestrel Logistics** (spedycja) | Reception 5×5·1·25 → Offices 6×6·2·90 → Server Room 7×7·3·280 → SOC 7×7·2·225 | Firewall, Throttle, Blackout | + Corruption |
-| **Meridian Health** (szpital) | Lobby 6×6·1·40 → Wards 7×7·2·140 → Records 8×8·2·215 → SOC 8×8·2·300 | + Encryption | + Encryption |
-| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 30 · Mailroom 45 · Paralegals 100 · Partners 140 · **Archive 180 (porty)** · Vault 220 · SOC 260 | + Honeypot, Dead cells | + Honeypot, Dead cells |
-| **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·70 · **Switching 5×5⇄5×5·3·160 (porty)** · Backbone 3·250 · **Exchange 5×5⇄5×5·4·330 (porty)** · SOC 3·360. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
+| **Kestrel Logistics** (spedycja) | Reception 5×5·1·20 → Offices 6×6·2·70 → Server Room 7×7·3·190 → SOC 7×7·2·160 | Firewall, Throttle, Blackout | + Corruption |
+| **Meridian Health** (szpital) | Lobby 6×6·1·35 → Wards 7×7·2·140 → Records 8×8·2·200 → SOC 8×8·2·270 | + Encryption | + Encryption |
+| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 1·30 · Mailroom 1·40 · Paralegals 1·50 · Partners 2·140 · **Archive 2·165 (porty)** · SOC 2·220 | + Honeypot, Dead cells | + Honeypot, Dead cells |
+| **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·80 · **Switching 5×5⇄5×5·2·100 (porty)** · Backbone 3·260 · SOC 3·330. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
 
 **Nowe rodzaje plansz wchodzą stopniowo:** najpierw jeden pokój w firmie, w następnej kilka, a dany rodzaj może dominować w jakiejś firmie. Porty: 1 pokój w Ashgrove, 2 w Argusie. Firma testowa **Lab** (tylko dev server) ma same plansze z portami.
 
@@ -69,7 +69,7 @@ Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Ho
 | **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×(1 + 0,2 za slot bufora) (legendary), All-in ×2/×0,5 (rare) |
 | **Ghost** (minimalizm) | Overflow, Light footprint (legendary), Silent, Cache (rare, stack; zeruje się przy wgraniu wszystkich targetów), Echo (rare), Sandbag (rare, room) |
 | **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler |
-| **Cron** (serie) | Heartbeat (rare), Rotate (+7), Backup (rare), Uptime (+7), Overtime (rare, room), Warm-up (room) |
+| **Cron** (serie) | Heartbeat (rare), Rotate (+5), Backup (rare), Uptime (+8), Overtime (rare, room), Warm-up (room) |
 
 Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 
@@ -91,12 +91,12 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Short key | 3 | najdłuższy target −1 kod, bufor bez zmian |
 | Linker v1/v2 | 4/4 | +1 połączenie targetów; v2 jedno połączenie na 2 kody |
 | Wildcard v1/v2 | 4/4 | komórka `**` pasuje do wszystkiego; v1 losowa poza trasą, v2 wybierasz (nie na ×2); jednorazowa, Loopback ani Rewind jej nie powtórzą |
-| Data node v1/v2 | 3/3 | komórka +15 / +30 data |
+| Data node v1/v2/v3 | 3/3/5 | komórka +15 / +40 data; v3 dwie komórki po +60 |
 | Split v1/v2 | 4/3 | przed 1. ruchem tniesz target; v1 w losowym miejscu, v2 tam, gdzie chcesz |
 | Side door | 3 | pierwszy wybór z dowolnej krawędzi |
 | Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
-| Thumb drive v1/v2 | 2/3 | +3 / +7 data za każdy wgrany target |
+| Thumb drive v1/v2/v3 | 2/3/4 | +3 / +10 / +25 data za każdy wgrany target |
 | Credit chip | 2 | +$1 za zaliczony pokój |
 | Ping | 2 | zaznacza start rozwiązania |
 | Heatsink | 2 | Corruption krótsza o 1 ruch |

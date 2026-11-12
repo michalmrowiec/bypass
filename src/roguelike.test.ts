@@ -31,14 +31,14 @@ describe('roguelike run', () => {
 
   it('lets the player leave a room early once the quota is met, $1 per skipped matrix', () => {
     const s = newRunState(1);
-    s.section = 1; // two matrices, quota 90
+    s.section = 1; // two matrices, quota 70
     expect(canExitRoom(s)).toBe(false);
     endMatrix(s, 50, 0);
     expect(canExitRoom(s)).toBe(false); // under the quota
     s.data = 130;
     s.credits = 0;
     expect(exitRoom(s)).toBe('section');
-    expect(s.credits).toBe(EXIT_CREDIT + 1 + 2); // skipped matrix, section cleared, surplus 40
+    expect(s.credits).toBe(EXIT_CREDIT + 1 + 2); // skipped matrix, section cleared, surplus 60 (max $2)
     s.section = BOSS;
     s.scores[BOSS] = [999];
     s.data = 9999;
@@ -58,7 +58,7 @@ describe('roguelike run', () => {
     const s = newRunState(1);
     s.section = 1;
     endMatrix(s, 60, 0);
-    endMatrix(s, 70, 0); // 130 vs quota 90: surplus 40
+    endMatrix(s, 70, 0); // 130 vs quota 70: surplus 60 (max $2)
     expect(s.credits).toBe(1 + 2);
     nextSection(s);
     expect([s.section, s.data, played(s)]).toEqual([2, 0, 0]);
@@ -73,7 +73,7 @@ describe('roguelike run', () => {
 
   it('ends the run below the quota after the last matrix', () => {
     const s = newRunState(1);
-    expect(endMatrix(s, 20, 0)).toBe('lose');
+    expect(endMatrix(s, 19, 0)).toBe('lose');
   });
 
 });
@@ -96,13 +96,13 @@ describe('daemons', () => {
     const five = { ...ctx, buf: [...ctx.buf, 'E'] };
     expect(scoreMatrix({ ...five, l: 9 }, run('light')).fired).toEqual([['light', { mult: 2 }]]); // half of 9 rounds up to 5
     expect(scoreMatrix(five, run('light')).fired).toEqual([]);
-    expect(scoreMatrix(ctx, run('longjump')).total).toBe(51); // two moves of length 4: +8 each
+    expect(scoreMatrix(ctx, run('longjump')).total).toBe(65); // two moves of length 4: +15 each
     expect(scoreMatrix(ctx, run('zigzag')).total).toBe(52); // 4,2,4: one longer move -> +0.5
     expect(scoreMatrix(ctx, run('circuit')).total).toBe(70); // ends at (0,2), in the first pick's row
     expect(scoreMatrix({ ...ctx, path: ctx.path.slice(0, 3) }, run('circuit')).fired).toEqual([]);
     expect(scoreMatrix(ctx, run('odometer')).total).toBe(52); // 4+2+4 = 10 cells: ×1.5
-    expect(scoreMatrix(ctx, run('compressor')).total).toBe(42); // B is shared: +7 data
-    expect(scoreMatrix(ctx, run('chain', 'compressor')).total).toBe(63);
+    expect(scoreMatrix(ctx, run('compressor')).total).toBe(45); // B is shared: +10 data
+    expect(scoreMatrix(ctx, run('chain', 'compressor')).total).toBe(67);
     expect(scoreMatrix(ctx, run('fullstack')).fired).toEqual([]); // XY not uploaded
     expect(scoreMatrix({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] }, run('fullstack')).total).toBe(99); // 45 × 2.2 (3 targets)
   });
@@ -162,8 +162,8 @@ describe('daemons', () => {
     const path = ctx.path.slice(0, 2); // (0,0) -> (4,0): a length-4 move
     expect(movePreview([], [0, 4], 5, ['corner'])).toEqual([{ id: 'corner', name: 'corner start', add: '×1.5', kind: 'boost' }]);
     // corner start already counts; one long jump is banked, this one adds another
-    expect(movePreview(path, [4, 4], 5, ['corner', 'longjump', 'zigzag'])).toEqual([{ id: 'longjump', name: 'long jump', now: '8', add: '+8', kind: 'data' }]);
-    expect(movePreview(path, [4, 4], 5, ['longjump'], [1])).toEqual([{ id: 'longjump', name: 'long jump', now: undefined, add: '+8', kind: 'data' }]); // a jump is no move
+    expect(movePreview(path, [4, 4], 5, ['corner', 'longjump', 'zigzag'])).toEqual([{ id: 'longjump', name: 'long jump', now: '15', add: '+15', kind: 'data' }]);
+    expect(movePreview(path, [4, 4], 5, ['longjump'], [1])).toEqual([{ id: 'longjump', name: 'long jump', now: undefined, add: '+15', kind: 'data' }]); // a jump is no move
     expect(movePreview(path, [4, 4], 5, [])).toEqual([]);
     expect(movePreview([[0, 1], [3, 1]], [3, 0], 5, ['zigzag'])).toEqual([]);
     expect(movePreview([[0, 1], [1, 1]], [1, 4], 5, ['zigzag', 'corner'])).toEqual([{ id: 'zigzag', name: 'zigzag', now: undefined, add: '+0.5 boost', kind: 'boost' }]);
@@ -283,7 +283,7 @@ describe('matrix items', () => {
   it('Priority multiplies the data of the first uploaded target, the richer one on a tie', () => {
     const s = (id: ItemId) => ({ ...newRunState(1), items: [id] });
     expect(scoreMatrix(ctx, s('prio1')).gear).toEqual([['prio1', { flat: 10 }]]); // AB done before BCD: 10 more
-    expect(scoreMatrix(ctx, s('prio2')).gear).toEqual([['prio2', { flat: 20 }]]);
+    expect(scoreMatrix(ctx, s('prio2')).gear).toEqual([['prio2', { flat: 30 }]]);
     expect(firstTargetData(['B', 'C', 'D'], [['C', 'D'], ['B', 'C', 'D']])).toBe(25); // both end on D
     expect(firstTargetData(['A', 'B'], [['A', 'B']], [4])).toBe(4); // a split target pays its own worth
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, s('prio2')).total).toBe(0);
@@ -352,8 +352,8 @@ describe('movement items', () => {
   it('a Bridge jump is no move for daemons', () => {
     const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
     const s = { ...newRunState(1), daemons: ['longjump'] as DaemonId[] };
-    expect(scoreMatrix(ctx, s).total).toBe(51);
-    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(43);
+    expect(scoreMatrix(ctx, s).total).toBe(65);
+    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(50);
   });
 });
 
@@ -432,7 +432,7 @@ describe('iterations', () => {
     s.scores[BOSS] = [0];
     expect(endMatrix(s, 1000, 0)).toBe('loop');
     const ps = nextSection(s)!;
-    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 65]);
+    expect([s.loop, s.section, s.scores[0], quota(s, 0)]).toEqual([1, 0, [], 50]);
     for (const p of ps) expect(COMPANIES[0].patches).toContain(p.ice);
     Object.assign(s, { loop: 2, section: BOSS, data: 0 });
     s.scores[BOSS] = [0];
@@ -540,10 +540,10 @@ describe('economy', () => {
     const s = { ...newRunState(1), items: ['thumb'] as ItemId[] };
     expect(scoreMatrix(ctx, s).total).toBe(41); // 2 of 3 uploaded: 35 + 2×3
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, s).total).toBe(0);
-    expect(scoreMatrix(ctx, { ...s, items: ['thumb2'] }).gear).toEqual([['thumb2', { flat: 14 }]]);
-    expect(scoreMatrix(ctx, { ...s, items: ['thumb3'] }).gear).toEqual([['thumb3', { flat: 26 }]]);
-    expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0]] }, { ...s, items: ['datanode2'] }).gear).toEqual([['datanode2', { flat: 30 }]]);
-    expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0], ctx.path[1]] }, { ...s, items: ['datanode3'] }).gear).toEqual([['datanode3', { flat: 60 }]]);
+    expect(scoreMatrix(ctx, { ...s, items: ['thumb2'] }).gear).toEqual([['thumb2', { flat: 20 }]]);
+    expect(scoreMatrix(ctx, { ...s, items: ['thumb3'] }).gear).toEqual([['thumb3', { flat: 50 }]]);
+    expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0]] }, { ...s, items: ['datanode2'] }).gear).toEqual([['datanode2', { flat: 40 }]]);
+    expect(scoreMatrix({ ...ctx, nodes: [ctx.path[0], ctx.path[1]] }, { ...s, items: ['datanode3'] }).gear).toEqual([['datanode3', { flat: 120 }]]);
     const h = { ...newRunState(1), loop: 1, items: ['heatsink'] as ItemId[], patches: [{ ice: 'corruption' as const, room: 0, loop: 1 }] };
     expect(burnOf(h, 0)).toBe(0);
     h.patches.push({ ice: 'corruption', room: 0, loop: 1 }, { ice: 'corruption', room: 0, loop: 1 });
@@ -598,7 +598,7 @@ describe('cron daemons', () => {
     const u = run('uptime');
     daemonsAfterMatrix(ctx, u, false);
     daemonsAfterMatrix(ctx, u, false);
-    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 15 }]]);
+    expect(scoreMatrix(ctx, u).fired).toEqual([['uptime', { flat: 24 }]]);
     restartMatrix(u);
     expect(u.stacks.uptime).toBe(0);
     daemonsAfterMatrix(ctx, u, false);
@@ -624,14 +624,16 @@ describe('playtest daemons, bounties and Glob', () => {
     expect(fired({ ...ctx, buf: ['A', 'B'] }, 'notrace')).toEqual([['notrace', { mult: 1.25 }]]); // one target
   });
 
-  it('Painter paints the upload cells for the next matrix and levels up a repainted one', () => {
+  it('Painter paints the path of a matrix with an upload and levels up a repainted cell', () => {
     const s = run('painter');
     daemonsAfterMatrix(ctx, s, false); // A B C D all uploaded
     expect(s.paint).toEqual({ '0,0': 1, '4,0': 1, '4,2': 1, '0,2': 1 });
-    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 20 }]]);
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 32 }]]);
     daemonsAfterMatrix({ ...ctx, buf: ['A', 'B', 'X', 'Y'], targets: [['A', 'B']] }, s, false); // only AB
-    expect(s.paint).toEqual({ '0,0': 2, '4,0': 2 });
-    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 20 }]]); // 2 cells at +10
+    expect(s.paint).toEqual({ '0,0': 2, '4,0': 2, '4,2': 2, '0,2': 2 }); // the whole path, not only AB
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 64 }]]); // 4 cells at +16
+    daemonsAfterMatrix({ ...ctx, buf: ['X', 'Y'] }, s, false); // nothing uploaded: the paint stays
+    expect(s.paint).toEqual({ '0,0': 2, '4,0': 2, '4,2': 2, '0,2': 2 });
   });
 
   it('Sandbag stacks on a weak Disconnect for the rest of the room; Warm-up counts played matrices', () => {

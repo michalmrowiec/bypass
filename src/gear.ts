@@ -150,7 +150,7 @@ const ART: Record<ItemId, string> = {
   datanode2: ssdArt(true),
   datanode3: ssdPair,
   prio1: prio(2),
-  prio2: prio(3),
+  prio2: prio(4),
   split1: splitter(false),
   split2: splitter(true),
   sidedoor: lockpick,
@@ -160,9 +160,9 @@ const ART: Record<ItemId, string> = {
   loopback2,
   thumb: thumbArt(3).replaceAll("class='g-tongue'", "class='g-tongue g-grey'"),
   // v2.0: the same stick with a +7 label, green USB 3 strips, a pink LED and a faster copy.
-  thumb2: thumbArt(7).replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-green'"),
+  thumb2: thumbArt(10).replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-green'"),
   // v3.0: red USB4 strips, a pink LED; the wider +13 label sits a bit right to stay centred.
-  thumb3: thumbArt(13).replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-red'")
+  thumb3: thumbArt(25).replace("<circle class='g-act'", "<circle class='g-act g-pink'").replaceAll("class='g-tongue'", "class='g-tongue g-red'")
     .replace("<g class='g-idle'>", "<g class='g-idle' transform='translate(4 0)'>"),
   chip,
   ping,
