@@ -62,7 +62,7 @@ export const COMPANIES: Company[] = [{
   id: 'meridian',
   name: 'Meridian Health',
   text: 'Regional hospital group. Sprawling legacy systems, huge patient record stores.',
-  codes: ['A3', '5C', 'F0', '2E', '9B'],
+  codes: ['00', 'LL', '77', 'H3', '5K'], // character: doubled codes
   rowLabel: (r) => 'W' + (r + 1), // ward
   colLabel: (c) => 'B' + String(c + 1).padStart(2, '0'), // bed
   sections: [
@@ -77,7 +77,7 @@ export const COMPANIES: Company[] = [{
   id: 'ashgrove',
   name: 'Ashgrove & Pike',
   text: 'Boutique law firm. Small offices, a door to every room, and a partner who reads every log.',
-  codes: ['A5', '3E', 'D1', '7C', 'B8'],
+  codes: ['3s', 'r7', 'm2', 'A4', 'Xk'], // character: lower case; never one letter in both cases
   rowLabel: (r) => 'S' + (r + 1), // shelf
   colLabel: (c) => 'F-' + String.fromCharCode(65 + c), // folder
   // Many small rooms: 5×5 matrices, where every dead or locked cell hurts.

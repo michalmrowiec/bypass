@@ -425,6 +425,18 @@ const ICONS: Record<DaemonId, string> = {
 };
 
 const SCOPE_MARK = { matrix: '◇', room: '▣', run: '∞' };
+// The legendary holo frame runs at an even speed only if CSS knows the card's size: measure each new frame once it is laid out.
+// shortcut: a card resized without a window resize keeps its old size; upgrade to a ResizeObserver if cards start changing width in place.
+function sizeHolo(all = false) {
+  document.querySelectorAll<HTMLElement>(all ? '.r-legendary .foil' : '.r-legendary .foil:not([data-sized])').forEach((f) => {
+    if (!f.offsetWidth) return;
+    f.style.setProperty('--w', f.offsetWidth + 'px');
+    f.style.setProperty('--h', f.offsetHeight + 'px');
+    f.dataset.sized = '1';
+  });
+}
+new MutationObserver(() => sizeHolo()).observe(document.body, { childList: true, subtree: true });
+window.addEventListener('resize', () => sizeHolo(true));
 // Daemon card styled as a program file, in a floating slot; the shared clock (90 s, a multiple of every card animation's period) keeps the float and glitch
 // phases steady across re-renders.
 const card = (id: DaemonId, i: number, tag: string, text: string, foot: string, cls = '') => {

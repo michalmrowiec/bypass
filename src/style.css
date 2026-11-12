@@ -203,12 +203,22 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dslot{display:flex;perspective:900px} /* still at rest; the hover lifts, glitches and decrypts the name */
 .dslot.empty{display:grid;place-items:center;min-height:46px;border:1px dashed var(--line);font-size:11px;color:var(--muted);animation:none}
 /* The card carries tilt and glow (drop-shadow follows the cut corner); the body is the clipped file shape. */
-.dcard{--edge:color-mix(in srgb,var(--fc) 40%,transparent);flex:1;display:flex;padding:0;border:0;background:none;
+/* Glow comes from rarity (--gc colour, --gs size, --ga strength): common none, rare silver, legendary gold.
+   Being on or hovered only raises it, so an active common never outshines an idle legendary. */
+.dcard{--edge:color-mix(in srgb,var(--fc) 40%,transparent);--gc:var(--fc);--gs:0px;--ga:0%;--sh:0 8px 8px rgba(0,0,0,.55);flex:1;display:flex;padding:0;border:0;background:none;
   font:inherit;font-size:11px;line-height:1.4;text-align:left;color:var(--muted);
-  filter:drop-shadow(0 8px 8px rgba(0,0,0,.55)) drop-shadow(0 0 5px color-mix(in srgb,var(--fc) 35%,transparent));
+  filter:drop-shadow(var(--sh)) drop-shadow(0 0 var(--gs) color-mix(in srgb,var(--gc) var(--ga),transparent));
   transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .2s ease-out,filter .2s,opacity .2s}
-.dcard:hover,.dcard:focus-visible{--edge:var(--fc);transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateZ(12px);
-  filter:drop-shadow(0 14px 12px rgba(0,0,0,.6)) drop-shadow(0 0 8px color-mix(in srgb,var(--fc) 55%,transparent));transition:transform .08s,filter .2s}
+.dcard.r-rare{--gc:var(--rare);--gs:3px;--ga:18%}
+.dcard.r-legendary{--gc:var(--legend);--gs:5px;--ga:35%}
+.dcard.on{--edge:var(--fc);--gs:4px;--ga:40%}
+.dcard.on.r-rare{--gs:8px;--ga:60%}
+.dcard.on.r-legendary{--gs:14px;--ga:90%}
+.dcard:hover,.dcard:focus-visible{--edge:var(--fc);--sh:0 14px 12px rgba(0,0,0,.6);transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateZ(12px);transition:transform .08s,filter .2s}
+/* Hover by rarity: common barely, rare a strong silver glow, legendary a strong gold one (its holo frame races). */
+.dcard:is(:hover,:focus-visible){--gs:6px;--ga:50%}
+.dcard.r-rare:is(:hover,:focus-visible){--gs:14px;--ga:95%}
+.dcard.r-legendary:is(:hover,:focus-visible){--gs:18px;--ga:100%}
 .dcard:focus-visible{outline:1px solid var(--fc);outline-offset:3px}
 .dbody{position:relative;flex:1;display:flex;align-items:center;gap:12px;min-width:0;padding:10px 12px 10px 10px;overflow:hidden;
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);
@@ -235,14 +245,31 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .rar{letter-spacing:.08em;font-weight:600}
 .dmain small .scope{color:var(--fc)}
 .r-rare .dbody{box-shadow:inset 0 0 0 1px var(--rare),inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--rare) 55%,transparent)}
-.r-legendary .dbody{box-shadow:inset 0 0 0 1px var(--legend),inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--legend) 60%,transparent)}
-.dcard.r-legendary{filter:drop-shadow(0 8px 8px rgba(0,0,0,.55)) drop-shadow(0 0 7px color-mix(in srgb,var(--gold) 55%,transparent))}
-/* Foil: a band sweeping along the frame, rainbow on legendary, a silver glint now and then on rare. */
-.foil{position:absolute;inset:0;z-index:2;padding:2px;pointer-events:none;background-size:300% 100%;
+.r-legendary .dbody{box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px rgba(255,255,255,.55)}
+/* Foil: the outer frame. Rare: static brushed silver (--metal) under a glint sweeping along it now and then.
+   The dog-ear flap takes the same --metal. */
+.r-rare{--metal:linear-gradient(115deg,#7d868c,#f4f8fa 18%,#98a1a7 36%,#fff 52%,#7b848a 70%,#dce3e7 86%,#8f989e)}
+/* Legendary: gold metal, only for the dog-ear flap; the frame itself is the spinning holo .foil. */
+.r-legendary{--metal:linear-gradient(115deg,#7a5a0c,#ffe58a 18%,#b8870f 36%,#fff2b8 52%,#9c700c 70%,#ffd23f 86%,#7a5a0c)}
+.foil{position:absolute;inset:0;z-index:2;padding:2px;pointer-events:none;background-size:300% 100%,100% 100%;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
-.r-legendary .foil{background-image:linear-gradient(110deg,transparent 35%,#ff3d8b 42%,#ffd23f 47%,#5af2a8 52%,#3dd9ff 57%,#b9a6ff 62%,transparent 70%);animation:foil 10s ease-in-out infinite}
-.r-rare .foil{background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%);animation:foil 10s ease-in-out infinite}
-@keyframes foil{0%{background-position:100% 0}40%,100%{background-position:-200% 0}}
+/* Legendary frame: the holo colours run clockwise around the edge at an even speed, one strip per edge.
+   Each strip tiles the colour cycle over the perimeter --L and is shifted by its edge's start, so the colours meet at the corners.
+   --w/--h come from ui.ts (fallback: a typical card). Dim and slow on standby, bright when on, racing on hover. */
+@property --p{syntax:'<number>';inherits:false;initial-value:0}
+.r-legendary .foil{--dur:6s;--hc:#ff3d8b,#ffd23f,#5af2a8,#3dd9ff,#b9a6ff,#ff3d8b;--W:var(--w,400px);--H:var(--h,80px);--L:calc(2 * var(--W) + 2 * var(--H));--s:calc(var(--p) * var(--L));
+  background:linear-gradient(90deg,var(--hc)) var(--s) 0/var(--L) 2px repeat-x,
+    linear-gradient(180deg,var(--hc)) right 0 top calc(var(--s) - var(--W))/2px var(--L) repeat-y,
+    linear-gradient(270deg,var(--hc)) calc(2 * var(--W) + var(--H) - var(--s)) 100%/var(--L) 2px repeat-x,
+    linear-gradient(0deg,var(--hc)) 0 calc(-1 * var(--s))/2px var(--L) repeat-y;
+  opacity:.55;transition:opacity .2s;animation:run var(--dur) linear var(--t,0s) infinite}
+@keyframes run{to{--p:1}}
+.on.r-legendary .foil{--dur:3s;opacity:1}
+.dcard.r-legendary:is(:hover,:focus-visible) .foil{--dur:1s;opacity:1}
+.r-rare .foil{background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%),var(--metal);animation:foil 10s ease-in-out infinite}
+.dcard.r-rare:not(.on,:hover,:focus-visible) .foil{opacity:.6}
+@keyframes foil{0%{background-position:100% 0,0 0}40%,100%{background-position:-200% 0,0 0}}
+.r-rare .fold,.r-legendary .fold{background:var(--metal);clip-path:polygon(0 0,100% 100%,0 100%);box-shadow:none}
 /* Spontaneous glitch by rarity, short bursts with long quiet gaps. Common: one tear line every 7.5 s.
    Rare: a double tear every 9 s, the text slips. Legendary: a burst of torn lines every 10 s, the text slices and the name flashes gold. */
 .r-rare .dbody::before{animation:tearR 9s steps(1) var(--t,0s) infinite}
@@ -370,7 +397,6 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
 .dbody::after{background:radial-gradient(circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.12),transparent 45%);opacity:0;transition:opacity .2s}
 .dcard:hover .dbody::after{opacity:1}
 #daemons .dcard:not(.on){opacity:.72}
-.dcard.on{--edge:var(--fc);filter:drop-shadow(0 8px 8px rgba(0,0,0,.55)) drop-shadow(0 0 9px color-mix(in srgb,var(--fc) 70%,transparent))}
 .dcard.on i::before{content:"●";color:var(--mint)}
 .dcard.carry i,.dcard.carry i::before{color:var(--fc)}
 .dcard.carry i{justify-content:flex-start}
@@ -651,7 +677,7 @@ button.unit{cursor:var(--hit)}
 .status .btn.act{border:1px solid var(--mint-dim);color:var(--mint);padding:3px 10px}
 .status .btn.act:hover{border-color:var(--mint);background:var(--mint-faint)}
 /* Disconnect: dim and dashed until there is data to bank, then a flame frame that burns faster on hover. */
-#disconnect{position:relative;border:1px solid transparent;border-radius:3px;padding:4px 12px;color:#ffc2da;background:rgba(255,61,139,.08);
+#disconnect{position:relative;border:1px solid transparent;padding:4px 12px;color:#ffc2da;background:rgba(255,61,139,.08);
   font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;transition:box-shadow .2s,color .2s,background-color .2s}
 #disconnect::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
   background:linear-gradient(90deg,#ff3d8b,#ff6a3d,#ff2a5a,#ff8a4d,#ff3d8b);background-size:300% 100%;

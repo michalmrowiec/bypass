@@ -28,6 +28,7 @@
 
 ## 4. Firmy
 Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
+- Kody firm: Kestrel `4B 7F C9 1D E5`, Meridian `00 LL 77 H3 5K` (charakter: podwójne), Ashgrove `3s r7 m2 A4 Xk` (charakter: małe litery), Argus `E1 T3 4G 7F B2`. Zasady: różne sylwetki, cyfra może być pierwsza; firma bez charakteru ma najwyżej 1 kod z powtórzonym znakiem; nigdy ta sama litera mała i wielka na jednej planszy.
 
 | firma | pokoje (rozmiar, macierze, próg it1) | ICE bossa | łatki |
 |---|---|---|---|
