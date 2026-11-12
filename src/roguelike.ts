@@ -327,7 +327,7 @@ interface Facts {
   shared: number; // buffer slots inside 2+ uploaded targets
   empty: number;
   slots: number; // buffer length
-  light: boolean; // at most half the buffer used
+  light: boolean; // at most half the buffer used, rounded up
   moves: number[]; // length of each move along its lane
   edgeJumps: number;
   corner: boolean; // path starts or ends in a corner
@@ -379,7 +379,7 @@ function facts({ buf, path, targets, l, n, jumps, ports, stay }: MatrixCtx): Fac
     codes: done.reduce((a, t) => a + t.length, 0), picks: path.length, cells: new Set(keys).size,
     wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length, trace: buf.every((_, i) => wins.some((w) => w.includes(i))),
     done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
-    empty: l - buf.length, slots: l, light: buf.length <= l / 2,
+    empty: l - buf.length, slots: l, light: buf.length <= Math.ceil(l / 2),
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
     start: path[0]?.[1],
     loop: path.length > 1 && (path[0][0] === path[path.length - 1][0] || path[0][1] === path[path.length - 1][1]),
@@ -423,7 +423,7 @@ export const DAEMONS = {
     score: (f) => (f.all ? { mult: Math.round((1 + 0.4 * f.done.length) * 10) / 10 } : null) },
   overflow: { name: 'Overflow', family: 'Ghost', text: '+0.25 boost per empty buffer slot',
     score: (f) => (f.empty ? { boost: 0.25 * f.empty } : null) },
-  light: { name: 'Light footprint', family: 'Ghost', rarity: 'legendary', text: '×2 when at most half the buffer is used',
+  light: { name: 'Light footprint', family: 'Ghost', rarity: 'legendary', text: '×2 when at most half the buffer is used, rounded up',
     score: (f) => (f.light ? { mult: 2 } : null) },
   silent: { name: 'Silent', family: 'Ghost', text: '+$2 each time you end a matrix early with Disconnect',
     end: (s, _f, disconnected) => { if (disconnected) earn(s, 'Silent daemon', 2); } },

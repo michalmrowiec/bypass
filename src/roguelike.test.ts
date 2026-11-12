@@ -93,6 +93,9 @@ describe('daemons', () => {
     expect(scoreMatrix(ctx, run('chain')).total).toBe(52); // B is shared: ×1.5
     expect(scoreMatrix(ctx, run('overflow')).total).toBe(70); // 4 empty slots -> +1
     expect(scoreMatrix(ctx, run('light', 'corner')).total).toBe(105); // ×2 ×1.5
+    const five = { ...ctx, buf: [...ctx.buf, 'E'] };
+    expect(scoreMatrix({ ...five, l: 9 }, run('light')).fired).toEqual([['light', { mult: 2 }]]); // half of 9 rounds up to 5
+    expect(scoreMatrix(five, run('light')).fired).toEqual([]);
     expect(scoreMatrix(ctx, run('longjump')).total).toBe(51); // two moves of length 4: +8 each
     expect(scoreMatrix(ctx, run('zigzag')).total).toBe(52); // 4,2,4: one longer move -> +0.5
     expect(scoreMatrix(ctx, run('circuit')).total).toBe(70); // ends at (0,2), in the first pick's row
