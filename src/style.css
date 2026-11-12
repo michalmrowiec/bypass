@@ -174,6 +174,8 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 /* Score = data (turquoise) × boost (pink). */
 .vd{color:var(--data)}
 .vm{color:var(--boost)}
+.scorerow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.scorerow .scorebar{margin:0}
 .scorebar{margin:0 0 12px;font-size:21px;font-weight:800;line-height:1.2;color:var(--muted);font-variant-numeric:tabular-nums}
 .scorebar b{color:var(--ink)}
 .scorebar small{display:block;margin-top:4px;font-size:11px;font-weight:400}
@@ -599,17 +601,17 @@ button.unit{cursor:var(--hit)}
 .status .btn.act{border:1px solid var(--mint-dim);color:var(--mint);padding:3px 10px}
 .status .btn.act:hover{border-color:var(--mint);background:var(--mint-faint)}
 /* Disconnect: dim and dashed until there is data to bank, then a flame frame that burns faster on hover. */
-.status #disconnect{position:relative;border:1px solid transparent;border-radius:3px;padding:4px 12px;color:#ffc2da;background:rgba(255,61,139,.08);
+#disconnect{position:relative;border:1px solid transparent;border-radius:3px;padding:4px 12px;color:#ffc2da;background:rgba(255,61,139,.08);
   font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;transition:box-shadow .2s,color .2s,background-color .2s}
-.status #disconnect::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
+#disconnect::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
   background:linear-gradient(90deg,#ff3d8b,#ff6a3d,#ff2a5a,#ff8a4d,#ff3d8b);background-size:300% 100%;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
-.status #disconnect:hover:not(:disabled){color:#fff;background-color:rgba(255,80,70,.16);box-shadow:0 0 14px rgba(255,90,60,.45),inset 0 0 10px rgba(255,90,60,.2)}
-.status #disconnect:disabled{cursor:not-allowed;color:var(--muted);background:transparent;border:1px dashed var(--line)}
-.status #disconnect:disabled::before{display:none}
+#disconnect:hover:not(:disabled){color:#fff;background-color:rgba(255,80,70,.16);box-shadow:0 0 14px rgba(255,90,60,.45),inset 0 0 10px rgba(255,90,60,.2)}
+#disconnect:disabled{cursor:not-allowed;color:var(--muted);background:transparent;border:1px dashed var(--line)}
+#disconnect:disabled::before{display:none}
 @media (prefers-reduced-motion:no-preference){
-  .status #disconnect:not(:disabled)::before{animation:flame 2.4s linear infinite}
-  .status #disconnect:hover:not(:disabled)::before{animation-duration:.9s}
+  #disconnect:not(:disabled)::before{animation:flame 2.4s linear infinite}
+  #disconnect:hover:not(:disabled)::before{animation-duration:.9s}
   @keyframes flame{to{background-position:300% 0}}
 }
 

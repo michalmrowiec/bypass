@@ -335,7 +335,10 @@ function render() {
   const extra = S.mode === 'daily' ? '<span>Try <b>' + S.tries + '/' + MAX_TRIES + '</b></span>'
     : (S.mode === 'sprint' ? '<span>Matrix <b>' + Math.min(S.stage + 1, stages().length) + '/' + stages().length + '</b></span>' : '')
       + (S.challenge ? '<span>Beat <b>' + fmt(S.challenge) + '</b></span>' : S.mode === 'train' ? '<span>Training</span>' : '');
-  $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? runStatus() : extra);
+  // Disconnect sits next to the score on wide screens, in the status line on phones.
+  const dc = S.mode === 'run' ? runStatus() : '', wide = matchMedia('(min-width: 761px)').matches;
+  $('status').innerHTML = "<span>Time <b id='clock'>" + clockText() + '</b></span>' + (S.mode === 'run' ? (wide ? '' : dc) : extra);
+  $('dcSlot').innerHTML = wide ? dc : '';
   document.getElementById('disconnect')?.addEventListener('click', disconnect);
   if (S.mode === 'run') { renderDaemons(); renderSteps(); }
   $('timebar').hidden = S.mode !== 'sprint' || S.over;
