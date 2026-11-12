@@ -32,8 +32,8 @@ Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
 
 | firma | pokoje (rozmiar, macierze, próg it1) | ICE bossa | łatki |
 |---|---|---|---|
-| **Kestrel Logistics** (spedycja) | Reception 5×5·1·25 → Offices 6×6·2·90 → Server Room 7×7·3·320 → SOC 7×7·2·250 | Firewall, Throttle, Blackout | + Corruption |
-| **Meridian Health** (szpital) | Lobby 6×6·1·50 → Wards 7×7·2·140 → Records 8×8·2·240 → SOC 8×8·2·330 | + Encryption | + Encryption |
+| **Kestrel Logistics** (spedycja) | Reception 5×5·1·25 → Offices 6×6·2·90 → Server Room 7×7·3·280 → SOC 7×7·2·225 | Firewall, Throttle, Blackout | + Corruption |
+| **Meridian Health** (szpital) | Lobby 6×6·1·40 → Wards 7×7·2·140 → Records 8×8·2·215 → SOC 8×8·2·300 | + Encryption | + Encryption |
 | **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 30 · Mailroom 45 · Paralegals 100 · Partners 140 · **Archive 180 (porty)** · Vault 220 · SOC 260 | + Honeypot, Dead cells | + Honeypot, Dead cells |
 | **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·70 · **Switching 5×5⇄5×5·3·160 (porty)** · Backbone 3·250 · **Exchange 5×5⇄5×5·4·330 (porty)** · SOC 3·360. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
 

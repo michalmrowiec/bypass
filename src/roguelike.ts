@@ -53,8 +53,8 @@ export const COMPANIES: Company[] = [{
   sections: [
     { name: 'Reception', quota: 25, matrices: 1, size: SIZES.easy, brief: 'Front desk terminals. Guest Wi-Fi. Nobody watching.' },
     { name: 'Offices', quota: 90, matrices: 2, size: SIZES.normal, brief: 'Open-plan desks, unlocked workstations, passwords on sticky notes.' },
-    { name: 'Server Room', quota: 320, matrices: 3, size: SIZES.hard, brief: 'Cold air, humming racks. This is where the real data lives.' },
-    { name: 'SOC', quota: 250, matrices: 2, size: SIZES.hard, brief: 'Security Operations Center. Analysts on shift, alerts on every port.' },
+    { name: 'Server Room', quota: 280, matrices: 3, size: SIZES.hard, brief: 'Cold air, humming racks. This is where the real data lives.' },
+    { name: 'SOC', quota: 225, matrices: 2, size: SIZES.hard, brief: 'Security Operations Center. Analysts on shift, alerts on every port.' },
   ],
   ice: ['firewall', 'throttle', 'blackout'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption'],
@@ -66,10 +66,10 @@ export const COMPANIES: Company[] = [{
   rowLabel: (r) => 'W' + (r + 1), // ward
   colLabel: (c) => 'B' + String(c + 1).padStart(2, '0'), // bed
   sections: [
-    { name: 'Lobby', quota: 50, matrices: 1, size: { n: 6, lens: [2, 3, 4], links: [1], slack: 0 }, brief: 'Visitor kiosks and a nurse station login nobody ever locks.' },
+    { name: 'Lobby', quota: 40, matrices: 1, size: { n: 6, lens: [2, 3, 4], links: [1], slack: 0 }, brief: 'Visitor kiosks and a nurse station login nobody ever locks.' },
     { name: 'Wards', quota: 140, matrices: 2, size: { n: 7, lens: [3, 3, 4], links: [1, 2], slack: 0 }, brief: 'Bedside terminals on a flat network, one VLAN for everything.' },
-    { name: 'Records', quota: 240, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
-    { name: 'SOC', quota: 330, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
+    { name: 'Records', quota: 215, matrices: 2, size: { n: 8, lens: [3, 4, 4], links: [2], slack: 0 }, brief: 'Decades of patient files on servers older than the interns.' },
+    { name: 'SOC', quota: 300, matrices: 2, size: { n: 8, lens: [3, 3, 4, 4], links: [2, 3], slack: 0 }, brief: 'A night-shift analyst and a wall of dashboards. Big matrices, long chains.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
