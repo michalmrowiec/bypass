@@ -578,6 +578,18 @@ function renderDaemons() {
         + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
+  const use = (tool: string) => {
+    if (tool === 'rewind') return doRewind();
+    if (tool === 'sim') return burnSim();
+    armed = armed === tool ? null : (tool as Tool);
+    render();
+  };
+  // Phones: ready tools also sit above the matrix, so the rack at the bottom needs no scrolling.
+  // Kept (empty) while any tool is owned, so the matrix does not jump under the finger.
+  $('quick').hidden = S.mode !== 'run' || !units.some((u) => u.t);
+  $('quick').innerHTML = ready.map((u) => "<button class='qtool" + (u === on ? ' armed' : '') + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '')
+    + "' data-tool='" + u.t + "' aria-pressed='" + (u === on) + "'>" + gear(u.id) + '<span>' + ITEMS[u.id].name + '</span></button>').join('');
+  $('quick').querySelectorAll<HTMLElement>('.qtool').forEach((el) => { el.onclick = () => use(el.dataset.tool!); });
   $('items').querySelectorAll<HTMLElement>('.unit.hw').forEach((el, i) => {
     // A ready Bridge lights the cells it can reach while pointed at; a Mux only the line it adds.
     const t = units[i].t;
@@ -588,12 +600,7 @@ function renderDaemons() {
     const show = () => { $('lcd').innerHTML = units[i].spec; reach(true); }, hide = () => { $('lcd').innerHTML = lcd; reach(false); };
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
-    if (el.dataset.tool) el.onclick = () => {
-      if (el.dataset.tool === 'rewind') return doRewind();
-      if (el.dataset.tool === 'sim') return burnSim();
-      armed = armed === el.dataset.tool ? null : (el.dataset.tool as Tool);
-      render();
-    };
+    if (el.dataset.tool) el.onclick = () => use(el.dataset.tool!);
   });
 }
 

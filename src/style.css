@@ -75,6 +75,13 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
   #itemPane{grid-column:1;grid-row:1/span 2}
 }
 @media (max-width:760px){.board{grid-template-columns:minmax(0,1fr)}.board>.pane:first-child,#itemPane{grid-row:auto;grid-column:auto}}
+/* Phones only: ready rack tools as a strip above the matrix. */
+.quick{display:none}
+@media (max-width:760px){.quick:not([hidden]){display:flex;gap:6px;min-height:42px;margin:0 0 10px;overflow-x:auto}}
+.qtool{flex:none;display:flex;align-items:center;gap:6px;min-height:40px;padding:0 10px 0 4px;border:1px solid var(--mint-dim);background:#171b1e;color:var(--ink);font:inherit;font-size:11px;cursor:pointer}
+.qtool .gear{flex:none;width:42px;height:24px}
+.qtool.pre{border-color:var(--led-blue)}
+.qtool.armed{border-color:var(--mint);background:var(--mint-faint);box-shadow:0 0 10px -3px var(--mint)}
 .side{display:flex;flex-direction:column;gap:22px;min-width:0}
 
 /* Hex-dump matrix */
