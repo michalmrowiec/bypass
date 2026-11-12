@@ -309,6 +309,40 @@ button.charge:hover{color:var(--ink);border-color:var(--cyan)}
   color:var(--ink);background:var(--panel);border:1px solid var(--mint-dim)}
 .dslot.drag{opacity:.6;animation:none;cursor:var(--grab)}
 .dslot.drag .dcard{outline:1px dashed var(--mint)}
+.unit.hw.drag{opacity:.6;outline:1px dashed var(--mint);cursor:var(--grab)}
+#daemons,#items{user-select:none}
+/* Catalog (mouse only): installed daemons cascade like windows, each folded to its title bar with a small icon and its state.
+   Pointing at a title bar brings that card to the front over the others, nothing moves; a click opens it and pushes the rest down.
+   The last one is always open. No tilt here. Opaque cards, dimmed by brightness instead, so covered ones do not show through. */
+@media (hover:hover){
+  /* No gap between title bars: a pointer in a gap would drop the card it just left back for a moment. */
+  #daemons{gap:0}
+  #daemons .dslot.open{margin-bottom:4px}
+  #daemons .dslot.empty{margin-top:10px}
+  /* Each window is the same width, shifted a step right (--n: installed daemons, steps capped at 4).
+     max-height animates where height:auto would not; 160px is above any card's height (a lower cap folds back sooner). */
+  #daemons .dslot:not(.empty){width:calc(100% - min(var(--n) - 1, 4) * 10px);max-height:160px;transition:max-height .25s ease-out}
+  /* Folded: not the last, not clicked open. Only its title bar takes the pointer, so moving down reaches the next one. */
+  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open){align-items:flex-start;max-height:32px;cursor:var(--hit)}
+  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open)>.dcard{pointer-events:none}
+  #daemons .dcard,#daemons .dcard:hover{transform:none;cursor:var(--hit)}
+  /* Pointed at (not while dragging): on top of the rest, lifted, full brightness. */
+  #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover{position:relative;z-index:2}
+  #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover>.dcard{transform:translateY(-3px)}
+  #daemons:not(:has(.drag)) .dslot:has(+ .dslot:not(.empty)):not(.open):hover .dbody{filter:none}
+  #daemons .ico{transition:width .2s,height .2s,padding .2s}
+  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),#daemons:has(.drag) .dslot) .ico{align-self:flex-start;width:18px;height:18px;padding:2px}
+  /* Boost, data or state on the title bar while folded; centred again once open. */
+  #daemons .dslot:has(+ .dslot:not(.empty)):not(.open):is(:not(:hover),#daemons:has(.drag) .dslot) .dcard i{align-items:flex-start;align-content:flex-start;padding-top:2px}
+  #daemons .dslot:not(.empty):nth-child(2){margin-left:10px}
+  #daemons .dslot:not(.empty):nth-child(3){margin-left:20px}
+  #daemons .dslot:not(.empty):nth-child(4){margin-left:30px}
+  #daemons .dslot:not(.empty):nth-child(n+5){margin-left:40px}
+  /* An opened program leaves the cascade: full width, flush left. */
+  #daemons .dslot.open:not(.empty){width:100%;margin-left:0}
+  #daemons .dslot .dcard:not(.on){opacity:1}
+  #daemons .dslot .dcard:not(.on) .dbody{filter:brightness(.72)}
+}
 /* Bonus intro over the matrix at the start of a bonus matrix; it stays until clicked or the first move. */
 .bintro{position:absolute;left:50%;top:42%;z-index:5;width:min(400px,90%);transform:translate(-50%,-50%);padding:20px 22px;text-align:center;cursor:var(--hit);
   background:color-mix(in srgb,var(--bg) 92%,transparent);border:1px solid var(--mint);box-shadow:0 0 0 4px color-mix(in srgb,var(--bg) 70%,transparent),0 0 24px color-mix(in srgb,var(--mint) 30%,transparent);

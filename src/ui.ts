@@ -63,6 +63,7 @@ let M: ItemState = emptyItems();
 // Run: the order the player dragged the targets into; display only. A split changes the count and resets it.
 let tOrder: number[] = [];
 let dragged = -1;
+const openDaemons = new Set<DaemonId>(); // catalog cards the player clicked open
 // One rack unit per item family: a v2.0 replaces its v1.0.
 let armed: Tool | null = null; // deck tool picked for use before the first move
 // Targets already shown as uploaded, so the upload effect plays only once.
@@ -301,11 +302,13 @@ function render() {
       el.ondrop = (e) => {
         e.preventDefault();
         if (dragged < 0 || dragged === i) return;
+        const was = [...tOrder], from = boxes([...tg.children]);
         const to = tOrder.indexOf(i);
         tOrder.splice(tOrder.indexOf(dragged), 1);
         tOrder.splice(to, 0, dragged);
         dragged = -1;
         render();
+        slide([...$('targets').children], tOrder.map((t) => from[was.indexOf(t)]));
       };
     }
     tg.appendChild(el);
@@ -483,26 +486,56 @@ function tilt(root: HTMLElement) {
   });
 }
 
-// Hold a daemon card, then drag it to a new place in the list; a tap or a scroll never moves it. Order is only cosmetic.
-function dragSort(root: HTMLElement) {
-  const slots = () => [...root.querySelectorAll<HTMLElement>('.dslot:not(.empty)')];
-  slots().forEach((slot, i) => {
-    slot.dataset.i = String(i);
+// Reorder motion (FLIP): each element glides from its old box (`from`, same index) to where it sits now.
+function slide(els: Element[], from: DOMRect[]) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  els.forEach((el, k) => {
+    // Measure without a glide still running, else the new one starts from the wrong place.
+    el.getAnimations().forEach((a) => { if (!(a instanceof CSSAnimation || a instanceof CSSTransition)) a.cancel(); });
+    const a = from[k], b = el.getBoundingClientRect();
+    if (!a || (a.left === b.left && a.top === b.top)) return;
+    el.animate([{ transform: 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px)' }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
+  });
+}
+const boxes = (els: Element[]) => els.map((el) => el.getBoundingClientRect());
+
+// Hold a daemon card or a rack module, then drag it to a new place in its list; a tap or a scroll never moves it.
+// Order is only cosmetic. `save` gets the list in the new order.
+function dragSort<T>(root: HTMLElement, sel: string, list: T[], save: (l: T[]) => void) {
+  const els = [...root.querySelectorAll<HTMLElement>(sel)];
+  els.forEach((slot) => {
     let live = false;
     slot.oncontextmenu = (e) => { if (live) e.preventDefault(); };
     slot.addEventListener('touchmove', (e) => { if (live) e.preventDefault(); }, { passive: false });
     slot.onpointerdown = (e) => {
-      if (e.button || R.daemons.length < 2) return;
-      const x0 = e.clientX, y0 = e.clientY;
-      const hold = setTimeout(() => { live = true; slot.classList.add('drag'); }, 300);
+      if (e.button || els.length < 2) return;
+      const x0 = e.clientX, y0 = e.clientY, mouse = e.pointerType === 'mouse';
+      let order = els, marks: Comment[] = [];
+      const start = () => {
+        live = true;
+        slot.classList.add('drag');
+        // Each place keeps a marker, so the rack's rail numbers stay put while the modules move between them.
+        marks = els.map((o) => { const c = new Comment(); o.before(c); return c; });
+      };
+      // A mouse drags at once (a click stays a click); touch needs the hold, so a swipe still scrolls.
+      const hold = mouse ? 0 : setTimeout(start, 300);
       const move = (ev: PointerEvent) => {
-        if (!live) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) stop(); return; }
-        for (const o of slots()) {
-          const r = o.getBoundingClientRect();
-          if (o === slot || ev.clientY < r.top || ev.clientY > r.bottom) continue;
-          root.insertBefore(slot, ev.clientY < r.top + r.height / 2 ? o : o.nextSibling);
-          break;
+        if (!live) {
+          if (Math.hypot(ev.clientX - x0, ev.clientY - y0) <= 6) return;
+          if (!mouse) return stop();
+          start();
+          getSelection()?.removeAllRanges();
         }
+        const o = order.find((o) => { const r = o.getBoundingClientRect(); return o !== slot && ev.clientY >= r.top && ev.clientY <= r.bottom; });
+        if (!o) return;
+        const r = o.getBoundingClientRect();
+        const next = order.filter((x) => x !== slot);
+        next.splice(next.indexOf(o) + (ev.clientY < r.top + r.height / 2 ? 0 : 1), 0, slot);
+        if (next.every((x, k) => x === order[k])) return;
+        order = next;
+        const from = boxes(els);
+        order.forEach((x, k) => marks[k].after(x));
+        slide(els, from);
       };
       const stop = () => {
         clearTimeout(hold);
@@ -511,8 +544,11 @@ function dragSort(root: HTMLElement) {
         removeEventListener('pointercancel', stop);
         if (!live) return;
         live = false;
-        R.daemons = slots().map((o) => R.daemons[+o.dataset.i!]);
-        if (cur) { cur.R.daemons = [...R.daemons]; saveRun(cur); } // the order survives a reload
+        // The drop must not also click (arm) a ready module.
+        const eat = (ev: Event) => ev.stopPropagation();
+        addEventListener('click', eat, true);
+        setTimeout(() => removeEventListener('click', eat, true));
+        save(order.map((x) => list[els.indexOf(x)]));
         render();
       };
       addEventListener('pointermove', move);
@@ -544,8 +580,16 @@ function renderDaemons() {
     return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : c ? c[0] : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : c ? c[1] : '');
   }).join('');
   lastFired = [...fired.keys()];
+  // Catalog (mouse): a click keeps a card open or folds it again, any number can be open (pointing unfolds it in CSS).
+  $('daemons').style.setProperty('--n', String(R.daemons.length));
+  $('daemons').querySelectorAll<HTMLElement>('.dslot:not(.empty)').forEach((el, i) => {
+    const id = R.daemons[i];
+    el.classList.toggle('open', openDaemons.has(id));
+    el.onclick = () => { if (!openDaemons.delete(id)) openDaemons.add(id); el.classList.toggle('open', openDaemons.has(id)); };
+  });
   tilt($('daemons'));
-  dragSort($('daemons'));
+  // The order survives a reload.
+  dragSort($('daemons'), '.dslot:not(.empty)', R.daemons, (l) => { R.daemons = l; if (cur) { cur.R.daemons = [...l]; saveRun(cur); } });
   // Deck as a rack of units. A ready tool pulses; clicking it arms it, clicking again puts it down.
   // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
   const start = !S.run.path.length, hosted = R.daemons[DAEMON_SLOTS];
@@ -611,6 +655,7 @@ function renderDaemons() {
     el.onpointerleave = el.onblur = hide;
     if (el.dataset.tool) el.onclick = () => use(el.dataset.tool!);
   });
+  dragSort($('items'), '.unit.hw', R.items, (l) => { R.items = l; if (cur) { cur.R.items = [...l]; saveRun(cur); } });
 }
 
 // A streak daemon that is not firing yet says what keeps its stack and what that would give.
