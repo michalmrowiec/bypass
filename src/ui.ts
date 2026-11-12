@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -265,6 +265,9 @@ function render() {
   const tg = $('targets');
   tg.innerHTML = '';
   if (S.mode !== 'run' || tOrder.length !== targets.length) tOrder = targets.map((_, i) => i);
+  // Priority pays its extra share on the first uploaded target only.
+  const prio = S.mode === 'run' ? prioId(R.items) : undefined;
+  const prioAt = prio ? firstTarget(buffer, targets, M.worth) : -1;
   tOrder.forEach((i) => {
     const t = targets[i];
     const st = targetProgress(buffer, t, l, S.over);
@@ -280,7 +283,9 @@ function render() {
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
     // Thumb drive pays per uploaded target, so each one shows its share.
     const thumb = S.mode === 'run' && st.done ? thumbData(R.items) : 0;
-    const tag = thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + DI + '</span>' : '';
+    const extra = prio && i === prioAt ? (M.worth[i] ?? DATA_BY_LEN[t.length]) * (PRIO_MULT[prio] - 1) : 0;
+    const tag = (extra ? " <span class='thumbtag' data-tip='Priority'>+" + extra + DI + '</span>' : '')
+      + (thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + DI + '</span>' : '');
     const state = st.done ? 'Uploaded' + worth + (worth && DI) : st.fail ? 'Failed' : cut ? worth.trim() + DI + ' · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
       : worth ? worth.trim() + DI : 'Target ' + (i + 1);
     const mark = cut && !gaps ? M.cuts[i] : 0;
@@ -317,9 +322,8 @@ function render() {
       el.classList.add('just');
       const label = el.querySelector<HTMLElement>('.state .stxt')!, text = label.textContent ?? '';
       scramble(label, text, 2, 1, 40);
-      // The Thumb drive tag decrypts right after the label.
-      const tagEl = el.querySelector<HTMLElement>('.thumbtag');
-      if (tagEl) scramble(tagEl, tagEl.textContent ?? '', text.length + 2, 1, 40);
+      // Gear tags decrypt right after the label.
+      el.querySelectorAll<HTMLElement>('.thumbtag').forEach((tagEl) => scramble(tagEl, tagEl.textContent ?? '', text.length + 2, 1, 40));
     }
   });
   // The matrix's bonus objective, ticked while it holds.

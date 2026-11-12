@@ -501,7 +501,7 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     sc.flat += v;
     sc.gear.push([nodeId, { flat: v }]);
   }
-  const prio = s.items.includes('prio2') ? 'prio2' : s.items.includes('prio1') ? 'prio1' : undefined;
+  const prio = prioId(s.items);
   if (prio && f.done.length) {
     const v = firstTargetData(ctx.buf, ctx.targets, ctx.worth) * (PRIO_MULT[prio] - 1);
     sc.flat += v;
@@ -751,15 +751,21 @@ const thumbId = (items: ItemId[]) => (['thumb3', 'thumb2', 'thumb'] as const).fi
 export const thumbData = (items: ItemId[]) => { const id = thumbId(items); return id ? THUMB_DATA[id] : 0; };
 export const PRIO_MULT = { prio1: 2, prio2: 3 } as const;
 // Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
-export function firstTargetData(buf: string[], targets: string[][], worth?: number[]): number {
-  let end = Infinity, best = 0;
+// Index of the first uploaded target (the richer one on a tie), -1 if none.
+export function firstTarget(buf: string[], targets: string[][], worth?: number[]): number {
+  let end = Infinity, best = 0, at = -1;
   targets.forEach((t, i) => {
     if (!contains(buf, t)) return;
     const e = windowOf(buf, t)[t.length - 1], v = worth?.[i] ?? DATA_BY_LEN[t.length];
-    if (e < end || (e === end && v > best)) { end = e; best = v; }
+    if (e < end || (e === end && v > best)) { end = e; best = v; at = i; }
   });
-  return best;
+  return at;
 }
+export function firstTargetData(buf: string[], targets: string[][], worth?: number[]): number {
+  const i = firstTarget(buf, targets, worth);
+  return i < 0 ? 0 : worth?.[i] ?? DATA_BY_LEN[targets[i].length];
+}
+export const prioId = (items: ItemId[]) => (['prio2', 'prio1'] as const).find((id) => items.includes(id));
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
