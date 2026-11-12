@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
-  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
+  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -207,10 +207,17 @@ describe('shop', () => {
     expect(buy(s, 'buffer1')).toBe(false);
     expect(stockShop(s, true)).toBe(true);
     expect(swapDaemon(s, 'chain', 'cache')).toBe(false);
-    s.credits = SWAP_COST;
+    s.credits = SWAP_COST.rare; // Chain is rare
     expect(swapDaemon(s, 'chain', 'cache')).toBe(true);
     expect([s.daemons, s.credits]).toEqual([['cache'], 0]);
     expect(stockShop(s, true)).toBe(false);
+  });
+
+  it('a swap costs by the rarity of the daemon thrown out', () => {
+    expect([swapCost('uptime'), swapCost('chain')]).toEqual([2, 4]);
+    const s = { ...rich(2), daemons: ['uptime'] as DaemonId[] };
+    expect(swapDaemon(s, 'uptime', 'cache')).toBe(true);
+    expect(s.credits).toBe(0);
   });
 
   it('rerolls cost $1 more each time on one visit, free ones included', () => {

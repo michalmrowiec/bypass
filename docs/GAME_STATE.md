@@ -59,7 +59,7 @@ Dwie macierze n×n obok siebie (A po lewej, B po prawej). Linia ruchu zostaje w 
 Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Hot breach.
 
 ## 6. Daemony (software, pliki `.dmn`)
-- **Sloty:** 4. Piąty daje item Co-processor. Wymiana daemona przy pełnych slotach kosztuje $6.
+- **Sloty:** 4. Piąty daje item Co-processor. Wymiana daemona przy pełnych slotach kosztuje wg rzadkości wyrzucanego: common $2, rare $4, legendary $6.
 - **Rzadkość w ofercie:** common 70%, rare 25%, legendary 5%. Ramka i foil zależą od rzadkości.
 - **Zasięg:** `◇ matrix`, `▣ room` (przerywana ramka), `∞ run` (stack, podwójna ramka).
 - Kolejność daemonów zmienia się przytrzymaniem i przeciągnięciem. Jest tylko kosmetyczna.
@@ -143,7 +143,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 ## 11. Narzędzia
 - **Symulator balansu v2** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt` (ok. 4 min, najwyżej 4 procesy naraz).
   - Boty grają pełne runy, które mogą przegrać. Profile to **wzorcowe buildy ponad rodzinami** (`ALL_PROFILES` w `sim.test.ts`): wagi daemonów (3 rdzeń, 2 dobry, 1 zapchajdziura), itemy w kolejności zakupu i styl trasy. Są ghost (`short`), full (`all`, komplet targetów), runner i combo (`**` + Loopback, `max`) oraz „pierwszy z oferty” jako naiwny gracz.
-  - Bot bierze z oferty daemon o najwyższej wadze, a przy pełnych slotach wymienia najsłabszy ($6), gdy oferta jest wyraźnie lepsza. Daemony „na kasę” (Silent u ghosta) są warte tylko w 1. iteracji. Credit chip kupuje w 1. iteracji i sprzedaje potem. Slot racka dokupuje, gdy jest pełny.
+  - Bot bierze z oferty daemon o najwyższej wadze, a przy pełnych slotach wymienia najsłabszy ($2/$4/$6 wg rzadkości), gdy oferta jest wyraźnie lepsza. Daemony „na kasę” (Silent u ghosta) są warte tylko w 1. iteracji. Credit chip kupuje w 1. iteracji i sprzedaje potem. Slot racka dokupuje, gdy jest pełny.
   - **Błędy gracza** (`SIM_ERR`, domyślnie 0,08): w 8% macierzy bot gra losową inną znalezioną trasę z co najmniej 60% danych najlepszej (przed daemonami), np. bez jednego targetu. Nieużyty Rewind lub Loopback naprawia błąd. Raport podaje win rate bez błędów (`clean`) i z błędami (`err`). Przebieg trwa ok. 2 min.
   - ⚠ Po dodaniu lub zmianie daemona albo itemu trzeba zaktualizować wzorce. Raport wypisuje daemony i itemy, których nie używa żaden wzorzec.
   - Ruchy idą przez reguły gry (`applyPick`, `rewind`, `canPick`), ocena przez `scoreMatrix`. Krótki DFS (400 węzłów na macierz) znajduje dobre trasy, ale nie zawsze najlepsze, jak człowiek.

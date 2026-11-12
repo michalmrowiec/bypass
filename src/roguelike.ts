@@ -777,7 +777,9 @@ export const sellValue = (id: ItemId) => Math.floor([id, ...olderVersions(id)].r
 export const REROLL_COST = 1;
 // Each reroll on a shop visit costs $1 more than the last; free ones count as steps too.
 export const rerollCost = (s: RunState) => REROLL_COST + s.rerolls;
-export const SWAP_COST = 6;
+// Swapping in an offered daemon costs by the rarity of the one thrown out.
+export const SWAP_COST: Record<Rarity, number> = { common: 2, rare: 4, legendary: 6 };
+export const swapCost = (out: DaemonId) => SWAP_COST[rarityOf(out)];
 
 const item = (id: ItemId): Item => ITEMS[id];
 // The versions an upgrade replaced, newest first: datanode3 -> datanode2, datanode.
@@ -836,10 +838,11 @@ export function sell(s: RunState, id: ItemId, drop?: DaemonId): boolean {
 // With every slot full, taking an offered daemon swaps an installed one out, at a steep price.
 export function swapDaemon(s: RunState, out: DaemonId, id: DaemonId): boolean {
   const i = s.daemons.indexOf(out);
-  if (s.credits < SWAP_COST || i < 0) return false;
-  s.credits -= SWAP_COST;
+  const cost = swapCost(out);
+  if (s.credits < cost || i < 0) return false;
+  s.credits -= cost;
   s.daemons[i] = id;
-  logEvent(s, 'offer · swapped ' + dmnFile(out) + ' for ' + dmnFile(id) + ' −$' + SWAP_COST);
+  logEvent(s, 'offer · swapped ' + dmnFile(out) + ' for ' + dmnFile(id) + ' −$' + cost);
   return true;
 }
 

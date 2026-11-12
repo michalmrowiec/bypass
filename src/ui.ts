@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -953,10 +953,13 @@ function showOffer() {
   if (!offer.length) return showShop();
   checkpoint('offer');
   const full = R.daemons.length >= daemonSlots(R);
-  const poor = full && R.credits < SWAP_COST;
-  showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + money(SWAP_COST) + ' · credits ' + money(R.credits)
+  // The swap price depends on which installed daemon goes, so the offer shows the range.
+  const costs = R.daemons.map(swapCost), lo = Math.min(...costs), hi = Math.max(...costs);
+  const range = money(lo) + (hi > lo ? '–' + money(hi) : '');
+  const poor = full && R.credits < lo;
+  showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + range + ' by the rarity you drop · credits ' + money(R.credits)
     : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
-    + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + rich(DAEMONS[id].text), !full ? 'install ›' : poor ? 'need ' + money(SWAP_COST) : 'swap in · ' + money(SWAP_COST), ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
+    + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && R.legendOffer ? "<span class='bnt'>bonus</span> " : '') + rich(DAEMONS[id].text), !full ? 'install ›' : poor ? 'need ' + money(lo) : 'swap in · ' + range, ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
     + "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
   $('offerCatalog').onclick = () => showCatalog(showOffer);
@@ -1009,8 +1012,8 @@ function showDrop() {
 }
 
 function showSwap(id: DaemonId) {
-  showResult(true, '<h2>Swap out a daemon</h2><p class="meta">' + dmnName(id) + ' takes the freed slot · costs ' + money(SWAP_COST) + '</p>'
-    + "<div class='dlist'>" + R.daemons.map((d, i) => card(d, i, 'button', daemonText(d), 'swap out ›')).join('')
+  showResult(true, '<h2>Swap out a daemon</h2><p class="meta">' + dmnName(id) + ' takes the freed slot · the rarer the daemon you drop, the more it costs · credits ' + money(R.credits) + '</p>'
+    + "<div class='dlist'>" + R.daemons.map((d, i) => card(d, i, 'button', daemonText(d), R.credits < swapCost(d) ? 'need ' + money(swapCost(d)) : 'swap out · ' + money(swapCost(d)), R.credits < swapCost(d) ? ' poor' : '')).join('')
     + "</div><div class='row'><button class='btn' id='backOffer'>Back</button></div>");
   $('modalBox').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => { if (swapDaemon(R, R.daemons[i], id)) showShop(); }; });
   $('backOffer').onclick = showOffer;
