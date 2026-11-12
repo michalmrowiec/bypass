@@ -3,7 +3,7 @@ import { contains, isLegal, newRun, partner, pick, WILD } from './game';
 import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
-  buy, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
+  buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, type DaemonId, type ItemId,
 } from './roguelike';
@@ -27,6 +27,22 @@ describe('roguelike run', () => {
     s.section = 1;
     expect(endMatrix(s, 200, 0)).toBe('continue');
     expect(endMatrix(s, 0, 0)).toBe('section');
+  });
+
+  it('lets the player leave a room early once the quota is met, $1 per skipped matrix', () => {
+    const s = newRunState(1);
+    s.section = 1; // two matrices, quota 90
+    expect(canExitRoom(s)).toBe(false);
+    endMatrix(s, 50, 0);
+    expect(canExitRoom(s)).toBe(false); // under the quota
+    s.data = 130;
+    s.credits = 0;
+    expect(exitRoom(s)).toBe('section');
+    expect(s.credits).toBe(EXIT_CREDIT + 1 + 2); // skipped matrix, section cleared, surplus 40
+    s.section = BOSS;
+    s.scores[BOSS] = [999];
+    s.data = 9999;
+    expect(canExitRoom(s)).toBe(false); // the boss room is always played out
   });
 
   it('pays empty slots only when something was uploaded', () => {

@@ -18,12 +18,20 @@ export function initTips(): void {
     tip.style.left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8) + 'px';
     tip.style.top = (r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8) + 'px';
   };
-  const hide = () => { on = null; tip.hidden = true; };
+  const hide = () => { clearTimeout(wait); on = null; tip.hidden = true; };
+  // [data-tip-delay] (ms): the tip waits, so a quick pass over the button shows nothing.
+  let wait = 0;
+  const showSoon = (el: HTMLElement) => {
+    clearTimeout(wait);
+    on = el;
+    const d = +(el.dataset.tipDelay ?? 0);
+    if (d) { tip.hidden = true; wait = window.setTimeout(() => on === el && show(el), d); } else show(el);
+  };
   document.addEventListener('pointerdown', (e) => { touch = e.pointerType === 'touch'; });
   document.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') return;
     const el = at(e);
-    if (el && el !== on) show(el); else if (!el && on) hide();
+    if (el && el !== on) showSoon(el); else if (!el && on) hide();
   });
   document.addEventListener('pointerleave', hide);
   document.addEventListener('focusin', (e) => { const el = find(e.target); if (el) show(el); else hide(); });

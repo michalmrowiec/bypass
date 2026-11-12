@@ -179,6 +179,7 @@ export const SECTION_CREDIT = 1;
 export const SLOTS_PER_CREDIT = 2;
 export const DC_SLOTS_PER_CREDIT = 3;
 export const FULL_CREDIT = 1;
+export const EXIT_CREDIT = 1; // per matrix skipped by leaving a room early
 
 // Run buffers have no spare slots of their own; shop items add buffer, links and shorter targets.
 export function sectionMatrix(section: number, items: ItemId[] = [], company = 0): Size {
@@ -260,8 +261,27 @@ export function endMatrix(s: RunState, data: number, emptySlots: number, per = S
   s.scores[s.section].push(data);
   s.total = (s.total ?? 0) + data;
   s.best = Math.max(s.best ?? 0, data);
-  const goal = quota(s);
   if (played(s) < sections(s)[s.section].matrices) return 'continue';
+  return closeRoom(s);
+}
+
+// Quota met before the room's last matrix (not in the boss room): the player may leave now, paid per skipped matrix.
+export const canExitRoom = (s: RunState) => !isBoss(s) && played(s) > 0 && played(s) < sections(s)[s.section].matrices && s.data >= quota(s);
+
+export function exitRoom(s: RunState): MatrixOutcome {
+  if (!canExitRoom(s)) return 'continue';
+  const left = sections(s)[s.section].matrices - played(s);
+  s.earned = [];
+  logEvent(s, 'room exited early · ' + left + ' matrices skipped');
+  earn(s, left + ' matrices skipped (early exit)', left * EXIT_CREDIT);
+  const out = closeRoom(s);
+  for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
+  return out;
+}
+
+// Closes the room after its last matrix or an early exit: checks the quota and pays the section credits.
+function closeRoom(s: RunState): MatrixOutcome {
+  const goal = quota(s);
   (s.log ??= []).push([s.loop, s.section, s.data]);
   logEvent(s, 'room ' + (s.data < goal ? 'failed' : 'cleared') + ' · ' + s.data + '/' + goal + ' data');
   if (s.data < goal) return 'lose';

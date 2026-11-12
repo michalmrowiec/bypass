@@ -108,6 +108,15 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 #grid.planning .cell.x{background:rgba(232,238,242,.03)}
 #grid.planning .cell.lane.x{background:rgba(232,238,242,.11)}
 #grid.planning .cell.nx{background:rgba(232,238,242,.06);box-shadow:inset 0 0 0 1px rgba(232,238,242,.1)}
+/* Glass look: the active lane is lit glass tiles, the crosshair fades in as a ripple from the cursor (--d set in applyCross). */
+.grid{gap:5px}
+.cell{border-radius:4px;transition:background-color .06s ease-out var(--d,0s),border-color .06s ease-out var(--d,0s),box-shadow .06s ease-out var(--d,0s),color .05s}
+.cell.lane{background:linear-gradient(rgba(90,242,168,.13),rgba(90,242,168,.05));border-color:rgba(90,242,168,.22);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 3px 8px rgba(0,0,0,.35),0 0 14px rgba(90,242,168,.08)}
+.cell.lane.x{background:linear-gradient(rgba(90,242,168,.2),rgba(90,242,168,.08))}
+.cell.x:not(.lane){background-color:rgba(255,255,255,.06);border-color:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.cell:not(.lane):hover{background-color:rgba(255,255,255,.13);border-color:rgba(255,255,255,.2);color:#fff}
+.cell.ok:hover{background-color:rgba(90,242,168,.2)}
 /* Bridge reach preview while its rack unit is pointed at. */
 /* Conveyor belt row: ICE-pink chevrons crawl right along the top and bottom edges, clear of the code; codes slide in after each pick.
    #grid wins over the lane's background shorthand, so the chevrons stay in the active lane too. */
@@ -589,8 +598,85 @@ button.unit{cursor:var(--hit)}
 .status b{color:var(--mint);font-weight:600}
 .status .btn.act{border:1px solid var(--mint-dim);color:var(--mint);padding:3px 10px}
 .status .btn.act:hover{border-color:var(--mint);background:var(--mint-faint)}
+/* Disconnect: dim and dashed until there is data to bank, then a flame frame that burns faster on hover. */
+.status #disconnect{position:relative;border:1px solid transparent;border-radius:3px;padding:4px 12px;color:#ffc2da;background:rgba(255,61,139,.08);
+  font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;transition:box-shadow .2s,color .2s,background-color .2s}
+.status #disconnect::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:linear-gradient(90deg,#ff3d8b,#ff6a3d,#ff2a5a,#ff8a4d,#ff3d8b);background-size:300% 100%;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.status #disconnect:hover:not(:disabled){color:#fff;background-color:rgba(255,80,70,.16);box-shadow:0 0 14px rgba(255,90,60,.45),inset 0 0 10px rgba(255,90,60,.2)}
+.status #disconnect:disabled{cursor:not-allowed;color:var(--muted);background:transparent;border:1px dashed var(--line)}
+.status #disconnect:disabled::before{display:none}
+@media (prefers-reduced-motion:no-preference){
+  .status #disconnect:not(:disabled)::before{animation:flame 2.4s linear infinite}
+  .status #disconnect:hover:not(:disabled)::before{animation-duration:.9s}
+  @keyframes flame{to{background-position:300% 0}}
+}
 
-.result{border:1px solid var(--pink);padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--panel);animation:glitch .5s steps(1)}
+.result{border:1px solid var(--pink);padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--panel);animation:softin .26s ease-out}
+/* Dialogs settle in: a short fade and rise, with a faint colour split on the heading only. */
+@keyframes softin{from{opacity:0;transform:translateY(8px) scale(.985)}}
+.result h2{animation:softglitch .35s steps(1)}
+@keyframes softglitch{0%{text-shadow:-1px 0 var(--pink),1px 0 var(--cyan)}50%{text-shadow:1px 0 var(--pink),-1px 0 var(--cyan)}100%{text-shadow:none}}
+.overlay{animation:fadein .2s ease-out}
+@keyframes fadein{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.result,.result h2,.overlay{animation:none}}
+/* Bill playback: rows wait hidden, then slide in; the total heats up past ½, 1× and 2× the room quota. */
+.calc tr{transition:opacity .18s ease-out,transform .18s ease-out}
+.calc tr.pre{opacity:0;transform:translateX(-6px)}
+.calc tr.pre{transform:translateX(-10px)}
+/* Tally: the big running formula, the room line and its bar under it. */
+.btally{position:relative;display:grid;justify-items:center;gap:8px;padding:14px 8px 12px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+.tf{display:flex;align-items:baseline;gap:12px;font-family:"Chakra Petch",var(--mono);font-size:clamp(28px,7.5vw,44px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.tf i{font-style:normal;font-size:.6em;color:var(--muted)}
+.td{color:var(--data)}
+.tm{color:var(--boost)}
+.tt{color:var(--ink);display:inline-block}
+.troom{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.troom b{color:var(--ink);font-size:18px}
+.tbar{display:block;width:min(220px,60vw);height:4px;background:var(--line);overflow:hidden}
+.tfill{display:block;height:100%;width:0;background:var(--mint-dim)}
+.btally.over .tfill{background:var(--mint)}
+.btally.over .trv{color:var(--mint)}
+.tstamp{min-height:0;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--mint);text-shadow:0 0 10px rgba(90,242,168,.5)}
+.tstamp:empty{display:none}
+.bump{animation:bump .3s ease-out}
+@keyframes bump{30%{transform:scale(1.28);filter:brightness(1.6)}}
+.td,.tm{display:inline-block}
+.td,.tm,.tt,.trv{text-align:center;font-variant-numeric:tabular-nums}
+.trv{display:inline-block}
+/* Heat by how far the matrix alone beats the room quota: ½ glow, 1× overload (decodes), 2× critical (decodes, then random glitches). */
+.btally.heat1 .tt{text-shadow:0 0 14px rgba(90,242,168,.45)}
+/* The total turns mint only when the room is cleared; otherwise it stays white. */
+.btally.clear .tt{color:var(--mint)}
+.btally.heat2 .tt,.btally.heat3 .tt{text-shadow:0 0 12px rgba(90,242,168,.55),0 0 28px rgba(90,242,168,.25)}
+.btally.heat2{border-color:rgba(90,242,168,.5);box-shadow:0 0 18px -6px rgba(90,242,168,.5)}
+.btally.heat3{border-color:var(--mint);box-shadow:0 0 24px -6px rgba(61,217,255,.6);background:radial-gradient(60% 80% at 50% 30%,rgba(61,217,255,.12),transparent 70%),rgba(90,242,168,.04)}
+.btally.heat2 .tstamp,.btally.heat3 .tstamp{animation:stamp .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes stamp{from{transform:scale(2.2);opacity:0}}
+.tt span{display:inline-block;min-width:1ch;text-align:center}
+.tt{position:relative}
+.tt::before,.tt::after{content:attr(data-t);position:absolute;inset:0;pointer-events:none;clip-path:inset(0 0 100% 0)}
+.tt::before{color:var(--pink)}
+.tt::after{color:var(--cyan)}
+.tt.b-tear::before{animation:tearA .5s steps(1)}
+.tt.b-tear::after{animation:tearB .5s steps(1)}
+.tt.b-tear{animation:jit .5s steps(1)}
+@keyframes tearA{0%{transform:translateX(-7px);clip-path:inset(10% 0 62% 0)}20%{transform:translateX(5px);clip-path:inset(40% 0 35% 0)}40%{transform:translateX(-3px);clip-path:inset(70% 0 5% 0)}60%,100%{transform:none;clip-path:inset(0 0 100% 0)}}
+@keyframes tearB{0%{transform:translateX(6px);clip-path:inset(58% 0 12% 0)}25%{transform:translateX(-6px);clip-path:inset(20% 0 55% 0)}45%{transform:translateX(3px);clip-path:inset(85% 0 0 0)}65%,100%{transform:none;clip-path:inset(0 0 100% 0)}}
+@keyframes jit{0%{transform:translate(1px,0)}15%{transform:translate(-2px,1px)}30%,100%{transform:none}}
+/* Data: every add floats its +N; a big one flickers. Mult: a bump; from ×4 it stays unstable. */
+.td,.tm{position:relative}
+.chip{position:absolute;left:50%;top:-6px;font-size:14px;font-style:normal;font-weight:700;color:var(--data);transform:translateX(-50%);animation:chipup .8s ease-out forwards;pointer-events:none;white-space:nowrap}
+@keyframes chipup{to{transform:translate(-50%,-34px);opacity:0}}
+.dflick{animation:dfl .35s steps(2)}
+@keyframes dfl{0%{text-shadow:0 0 18px var(--data);opacity:.6}50%{opacity:1;transform:scale(1.18)}}
+.tm.unstable{animation:unst 1.2s steps(1) infinite}
+.tt.unstable{animation:unstT 1.3s steps(1) infinite}
+/* Keeps the total's own glow between flickers (no text-shadow outside the flicker frames). */
+@keyframes unstT{0%,86%{transform:none}88%{transform:translateX(-2px);text-shadow:2px 0 var(--cyan),0 0 16px rgba(90,242,168,.6)}92%{transform:translateX(2px);text-shadow:-2px 0 var(--cyan),0 0 16px rgba(90,242,168,.6)}}
+@keyframes unst{0%,86%{transform:none;text-shadow:none}88%{transform:translateX(-2px);text-shadow:2px 0 var(--cyan)}92%{transform:translateX(2px);text-shadow:-2px 0 var(--cyan)}}
+@media (prefers-reduced-motion:reduce){.bump,.tstamp,.tt,.tt::before,.tt::after,.tt span,.chip,.dflick,.tm.unstable{animation:none}.chip{display:none}}
 .result h2{font-size:20px;font-weight:700;line-height:1.2;margin:0;color:var(--pink);text-transform:uppercase;letter-spacing:.06em}
 .result.win{border-color:var(--mint)}
 .result.win h2{color:var(--mint)}

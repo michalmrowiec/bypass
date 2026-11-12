@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, coverage, ROTATE_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, SWAP_COST, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -351,9 +351,12 @@ const runCtx = (): MatrixCtx =>
 function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
   // Ending early keeps the empty slots, which pay credits.
-  const pay = Math.floor((S.puzzle.l - S.run.buffer.length) / DC_SLOTS_PER_CREDIT) + (R.daemons.includes('silent') ? 2 : 0);
-  const disconnect = live ? "<button class='btn act' id='disconnect'>Disconnect" + (pay ? ' · ' + money(pay, '+') : '') + '</button>' : '';
-  return disconnect;
+  const empty = S.puzzle.l - S.run.buffer.length, silent = R.daemons.includes('silent');
+  const pay = Math.floor(empty / DC_SLOTS_PER_CREDIT) + (silent ? 2 : 0);
+  if (S.over) return '';
+  const tip = live ? 'Ends the matrix now and banks ' + live + ' data. ' + empty + ' empty buffer slots: +$1 per ' + DC_SLOTS_PER_CREDIT + ' = +$' + Math.floor(empty / DC_SLOTS_PER_CREDIT)
+    + (silent ? '; Silent +$2' : '') + '.' : 'Upload a target first: nothing to bank yet.';
+  return "<button class='btn act' id='disconnect' data-tip-delay='350' data-tip='" + tip + "'" + (live ? '' : ' disabled') + '>Disconnect' + (live && pay ? ' · ' + money(pay, '+') : '') + '</button>';
 }
 
 // Score reads as data × boost: data = target data + flat bonuses, boost = (1 + additive boosts) × multipliers.
@@ -741,14 +744,12 @@ function showCatalog(back?: (() => void) | null) {
 
 // After a matrix: the room goes on. Its progress dots, the bill and the matrix's small print.
 const why = () => (endWhy ? "<p class='meta'>auto-disconnect · " + endWhy + '</p>' : '');
-const small = (sc: Score) => "<p class='meta fine'>time " + fmt(S.elapsed) + ' · buffer ' + S.run.buffer.length + '/' + S.puzzle.l
-  + ' · ×' + num((1 + sc.boost) * sc.mult) + '</p>';
+const small = () => "<p class='meta fine'>time " + fmt(S.elapsed) + ' · buffer ' + S.run.buffer.length + '/' + S.puzzle.l + '</p>';
 function matrixSummary(bill: Score, credits: string) {
   const sec = sections(R)[R.section], n = played(R);
   const dots = Array.from({ length: sec.matrices }, (_, j) => (j < n ? '●' : '○')).join('');
   return "<p class='meta'>" + sec.name + ' · matrix ' + n + '/' + sec.matrices + " <span class='dots'>" + dots + '</span> · still in this room</p>'
-    + '<h2>+' + bill.total + ' data</h2>' + why() + billHtml(bill) + small(bill)
-    + "<p class='tallyline'>" + sec.name + ' <b>' + R.data + '</b> / ' + quota(R) + '</p>' + credits;
+    + '<h2>Matrix closed</h2>' + why() + billHtml(bill) + small() + credits;
 }
 
 // After a room's last matrix: every matrix it banked, the sum against the quota, then the way out.
@@ -756,7 +757,7 @@ function roomSummary(bill: Score, credits: string) {
   const sec = sections(R)[R.section], goal = quota(R);
   const rows = R.scores[R.section].map((d, j) => '<tr><td>matrix ' + (j + 1) + "</td><td><span class='vd'>" + d + '</span></td></tr>').join('');
   return "<div class='roomsum'><p class='meta'>" + COMPANIES[R.company].name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + sec.name + ' breached</h2>' + why()
-    + "<p class='meta'>last matrix</p>" + billHtml(bill) + small(bill)
+    + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
     + "<table class='calc'>" + rows + "<tr class='sum'><td>room</td><td><b>" + R.data + '</b> / ' + goal + (R.data > goal ? ' <small>+' + (R.data - goal) + ' over</small>' : '')
     + '</td></tr></table>' + (overtimeNote(R.data) && "<p class='tallyline'>" + overtimeNote(R.data) + '</p>') + credits + '</div>';
 }
@@ -772,7 +773,7 @@ function runSummary(won: boolean, bill: Score, credits: string) {
   }).join('');
   const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
   return "<div class='roomsum'><p class='meta'>" + co.name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
-    + "<p class='meta'>last matrix</p>" + billHtml(bill) + small(bill)
+    + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
     + "<table class='calc'>" + rows + "<tr class='sum'><td>total</td><td><b>" + total + '</b> data · ' + fmt(ms) + '</td></tr>'
     + '<tr><td>best matrix</td><td>' + (R.best ?? 0) + '</td></tr></table>'
     + (build ? "<p class='meta'>build · " + build + '</p>' : '')
@@ -830,8 +831,7 @@ const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><sp
   + sc.fired.map(([id, e]) => '<tr><td>' + dmnName(id) + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.gear.map(([id, e]) => "<tr><td><span class='gname'>" + ITEMS[id].name + '</span></td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.ice.map(([id, e]) => "<tr><td><i class='iceTag'>" + ICE[id].name + '</i></td><td>' + fmtEffect(e) + '</td></tr>').join('')
-  + (sc.charge ? '<tr><td>×2 data charge</td><td>' + fmtEffect({ mult: 2 }) + '</td></tr>' : '')
-  + "<tr class='sum'><td>matrix</td><td>" + scoreHtml(sc) + '</td></tr></table>';
+  + (sc.charge ? '<tr><td>×2 data charge</td><td>' + fmtEffect({ mult: 2 }) + '</td></tr>' : '') + '</table>';
 
 
 // Between iterations: what the company patched; the room it went to shows once you get there.
@@ -1293,7 +1293,9 @@ function applyCross() {
   const next = cursor && !armed && !S.over && !S.dealing && !offer.length && (planning ? planOk : canPick)(pb, cursor[0], cursor[1]) ? nextLane(pb.run, cursor[0], cursor[1], S.puzzle) : undefined;
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
     const r = +el.id[1], c = +el.id[2];
-    el.classList.toggle('x', !!cursor && (r === cursor[0] || c === cursor[1]));
+    const x = !!cursor && (r === cursor[0] || c === cursor[1]);
+    el.style.setProperty('--d', x ? (Math.abs(r - cursor![0]) + Math.abs(c - cursor![1])) * 3 + 'ms' : '0ms');
+    el.classList.toggle('x', x);
     el.classList.toggle('nx', !!next && inLane(next, r, c, S.puzzle));
   });
   // Daemon lines read "name now +add": what it gives so far, then what this pick adds (highlighted); a loss shows "now → 0".
@@ -1333,7 +1335,7 @@ function markCode(code?: string) {
   const bd = B(), dark = isBlackout(bd);
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
     const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
-    const on = !!code && S.mode === 'run' && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
+    const on = !!code && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
     el.classList.toggle('tpeek', on);
     el.classList.toggle('near', on && inLane(S.run, r, c, S.puzzle));
   });
@@ -1453,7 +1455,7 @@ function nearestPickable(r: number, c: number): HTMLElement | null {
 
 // Burner SIM: a spent ×2 charge goes back, the matrix is dealt again.
 function burnSim() {
-  if (M.charge) R.charges = (R.charges ?? 0) + 1;
+  if (M.charge) { R.charges = (R.charges ?? 0) + 1; logEvent(R, '×2 data charge returned (Burner SIM)'); }
   note('Burner SIM · matrix dealt again');
   restartMatrix(R);
   newMatrix();
@@ -1464,6 +1466,7 @@ function useCharge() {
   R.charges--;
   M.charge = true;
   logAct({ x: 1 });
+  logEvent(R, '×2 data charge spent');
   note('×2 data charge spent');
   render();
 }
@@ -1490,6 +1493,7 @@ function finish(sc: number, disconnected = false) {
     }
   } else if (S.mode === 'run') {
     R.ms = (R.ms ?? 0) + S.elapsed;
+    const goal = quota(R), before = R.data, room = sections(R)[R.section].name;
     const { score: bill, met, out } = finishMatrix(R, runCtx(), disconnected);
     lastBill = bill;
     if (out === 'win' || out === 'lose') endSave();
@@ -1505,11 +1509,14 @@ function finish(sc: number, disconnected = false) {
       + (out === 'win' && recordBreach(co.id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
     const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
-      ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›')
+      ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›').replace("<button class='btn go'", (canExitRoom(R)
+        ? "<button class='btn' id='runExit' data-tip='Quota met: leave now and skip the rest of this room. +$" + EXIT_CREDIT + " per skipped matrix.'"
+          + (claim ? ' disabled' : '') + '>Exit room · ' + money(EXIT_CREDIT * (sections(R)[R.section].matrices - played(R)), '+') + ' ›</button>' : '') + "<button class='btn go'")
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
         : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run').replace('</div>', "<button class='btn' id='exportLog'>Export log</button></div>"));
     if (out === 'win' || out === 'lose') $('exportLog').onclick = () => exportRun(out, bill);
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
+    playBill(bill, room, before, goal);
     return;
   } else {
     const c = settle(win);
@@ -1626,6 +1633,138 @@ function wireCopy(id: string, text: () => string) {
   };
 }
 
+// The matrix bill plays out step by step: a big tally (data × mult = total) starts at zero and each bill row, as it
+// slides in, adds its part; then the room line under it fills. The finish heats up with how far the matrix alone goes
+// past the room quota (½, 1×, 2×). A click anywhere in the dialog skips to the end.
+function playBill(sc: Score, room: string, before: number, goal: number) {
+  const box = $('modalBox'), bill = box.querySelector<HTMLTableElement>('table.calc');
+  if (!bill) return;
+  const total = sc.total, after = before + total, ratio = total / goal;
+  const heat = ratio >= 2 ? 3 : ratio >= 1 ? 2 : ratio >= 0.5 ? 1 : 0;
+  bill.insertAdjacentHTML('beforebegin', "<div class='btally'><div class='tf'><span class='td'>0</span><i>×</i><span class='tm'>1</span><i>=</i><b class='tt'>0</b></div>"
+    + "<div class='troom'><span>" + room + "</span> <b class='trv'>" + before + '</b> / ' + goal + "<i class='tbar'><i class='tfill'></i></i></div><div class='tstamp'></div></div>");
+  const tally = box.querySelector<HTMLElement>('.btally')!, q = (s: string) => tally.querySelector<HTMLElement>(s)!;
+  const [td, tm, tt, trv, fill, stamp] = ['.td', '.tm', '.tt', '.trv', '.tfill', '.tstamp'].map(q);
+  const rows = [...bill.rows];
+  // One step per bill row, in billHtml's order: targets, daemons, items, ICE, charge, then the sum.
+  const fx: Effect[] = [{ flat: sc.base }, ...sc.fired.map((f) => f[1]), ...sc.gear.map((g) => g[1]), ...sc.ice.map((i) => i[1]), ...(sc.charge ? [{ mult: 2 }] : [])];
+  let data = 0, boost = 0, mult = 1, done = false;
+  // Each number keeps the width of its widest step, so counting up never shifts the line.
+  const w = [0, 0, 0];
+  fx.forEach((e) => { data += e.flat ?? 0; boost += e.boost ?? 0; mult *= e.mult ?? 1; [data, num((1 + boost) * mult), Math.floor(data * (1 + boost) * mult)].forEach((v, i) => { w[i] = Math.max(w[i], String(v).length); }); });
+  [td, tm, tt].forEach((el, i) => { el.style.minWidth = w[i] + 'ch'; });
+  trv.style.minWidth = String(after).length + 'ch';
+  data = 0; boost = 0; mult = 1;
+  const timers: number[] = [];
+  const fmtM = (m: number) => num(m);
+  const bump = (el: HTMLElement) => { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); };
+  const roll = (el: HTMLElement, from: number, to: number, ms: number, show = (n: number) => String(Math.round(n))) => {
+    const t0 = performance.now();
+    const f = (t: number) => {
+      if (done) return;
+      const p = Math.min(1, (t - t0) / ms);
+      el.textContent = show(from + (to - from) * (1 - (1 - p) ** 3));
+      if (p < 1) requestAnimationFrame(f);
+    };
+    requestAnimationFrame(f);
+  };
+  const restart = (el: HTMLElement, c: string) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
+  const glyph = () => '0123456789ABCDEF'[Math.floor(Math.random() * 16)];
+  const setRoom = (v: number) => {
+    trv.textContent = String(Math.round(v));
+    fill.style.width = Math.min(100, (v / goal) * 100) + '%';
+    tally.classList.toggle('over', v >= goal);
+  };
+  // The total decodes like a cracked code: digits scramble and settle left to right (slow), or the whole number
+  // scrambles and settles at once (quick, for the idle bursts). No flash on settling.
+  const decode = (v: string, quick: boolean, then: () => void) => {
+    tt.innerHTML = [...v].map(() => '<span>0</span>').join('');
+    const sp = [...tt.children] as HTMLElement[];
+    const at = (i: number) => (quick ? 7 : 6 + i * 4);
+    let t = 0;
+    const iv = window.setInterval(() => {
+      t++;
+      sp.forEach((s, i) => { s.textContent = t >= at(i) ? v[i] : glyph(); });
+      if (t >= at(v.length - 1)) { clearInterval(iv); tt.textContent = v; then(); }
+    }, 40);
+  };
+  // Overload: on top of the steady subtle glitch, a tear every 1.5–4 s for as long as the dialog is open.
+  const idle = (v: string) => window.setTimeout(() => {
+    if (!tally.isConnected) return;
+    restart(tt, 'b-tear');
+    idle(v);
+  }, 1500 + Math.random() * 2500);
+  const finish = () => {
+    if (heat) tally.classList.add('heat' + heat);
+    tally.classList.toggle('clear', after >= goal);
+    tt.dataset.t = String(total);
+    if (heat < 2) return;
+    stamp.textContent = heat === 3 ? 'critical overload ×' + ratio.toFixed(1) : 'overload';
+    // The final decode ends on a tear instead of a flash.
+    decode(String(total), false, () => { restart(tt, 'b-tear'); tt.classList.add('unstable'); idle(String(total)); });
+  };
+  const end = () => {
+    if (done) return;
+    done = true;
+    timers.forEach(clearTimeout);
+    rows.forEach((r) => r.classList.remove('pre'));
+    td.textContent = String(sc.base + sc.flat);
+    tm.textContent = fmtM((1 + sc.boost) * sc.mult);
+    tt.textContent = String(total);
+    setRoom(after);
+    finish();
+  };
+  rows.forEach((r) => r.classList.add('pre'));
+  setRoom(before);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return end();
+  const STEP = 420;
+  fx.forEach((e, i) => timers.push(window.setTimeout(() => {
+    rows[i]?.classList.remove('pre');
+    const d0 = data, m0 = (1 + boost) * mult, t0 = Math.floor(d0 * m0);
+    data += e.flat ?? 0;
+    boost += e.boost ?? 0;
+    mult *= e.mult ?? 1;
+    const m1 = (1 + boost) * mult, t1 = Math.floor(data * m1);
+    if (data !== d0) {
+      roll(td, d0, data, 260);
+      // A big add (20+) flickers the number; every add floats its +N above it.
+      restart(td, Math.abs(data - d0) >= 20 ? 'dflick' : 'bump');
+      td.insertAdjacentHTML('beforeend', "<i class='chip'>" + (data > d0 ? '+' : '') + (data - d0) + '</i>');
+    }
+    if (m1 !== m0) {
+      tm.textContent = fmtM(m1);
+      tm.classList.remove('unstable');
+      restart(tm, 'bump');
+      if (m1 >= 4) timers.push(window.setTimeout(() => tm.classList.add('unstable'), 500));
+    }
+    roll(tt, t0, t1, 300);
+    restart(tt, 'bump');
+  }, 200 + i * STEP)));
+  const sumAt = 200 + fx.length * STEP;
+  timers.push(window.setTimeout(() => {
+    rows.forEach((r) => r.classList.remove('pre'));
+    tt.textContent = String(total);
+    restart(tt, 'bump');
+    const t0 = performance.now();
+    const f = (t: number) => {
+      if (done) return;
+      const p = Math.min(1, (t - t0) / 600);
+      setRoom(before + total * (1 - (1 - p) ** 3));
+      if (p < 1) requestAnimationFrame(f); else { done = true; finish(); }
+    };
+    requestAnimationFrame(f);
+  }, sumAt));
+  box.addEventListener('pointerdown', end, { once: true });
+}
+
+// Quota met early: close the room now and show its summary, the way its last matrix would.
+function exitEarly() {
+  exitRoom(R);
+  const credits = R.earned.map(([why, n]) => "<p class='meta'>" + (n ? money(n, '+') + ' · ' : '') + why + '</p>').join('');
+  showResult(true, roomSummary(lastBill!, credits)
+    + "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn go exit' id='runSection'>Exit room ›</button></div>");
+}
+
 // Run mode shows its screens as a centered dialog over the locked board; the other modes keep the inline panel.
 function showResult(win: boolean, html: string) {
   const run = S.mode === 'run';
@@ -1648,6 +1787,7 @@ function showResult(win: boolean, html: string) {
   on('again', () => resetRun());
   on('next', () => setMode('train'));
   on('runNext', newMatrix);
+  on('runExit', exitEarly);
   on('runSection', () => { nextSection(R); showOffer(); });
   on('runLoop', () => { nextSection(R); showPatch(); });
   on('runNew', () => setMode('run'));
