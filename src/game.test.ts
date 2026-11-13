@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generate, SIZES } from './generator';
-import { SPRINTS, challengeQuery, parseChallenge } from './game';
+import { SPRINTS, challengeCode, parseChallenge, parseCode } from './game';
 
 describe('generate sizes', () => {
   const stages = SPRINTS[5].map((s, i) => ['sprint ' + (i + 1), s] as const);
@@ -28,9 +28,15 @@ describe('generate sizes', () => {
 
 describe('challenge links', () => {
   it('round-trips', () => {
-    expect(parseChallenge(challengeQuery('hard', 123, 42000))).toEqual({ kind: 'hard', seed: 123, time: 42000 });
-    expect(parseChallenge(challengeQuery('easy', 7, null))).toEqual({ kind: 'easy', seed: 7, time: null });
-    expect(parseChallenge(challengeQuery('sprint5', 9, 61000))).toEqual({ kind: 'sprint5', seed: 9, time: 61000 });
+    expect(parseCode(challengeCode('hard', 123, 42000))).toEqual({ kind: 'hard', seed: 123, time: 42000 });
+    expect(parseCode(challengeCode('easy', 7, null))).toEqual({ kind: 'easy', seed: 7, time: null });
+    expect(parseCode(' Sprint5.9.61000 ')).toEqual({ kind: 'sprint5', seed: 9, time: 61000 });
+  });
+
+  it('still reads old links, pasted or opened', () => {
+    expect(parseCode('https://x.io/bypass/?c=hard.123&t=42000')).toEqual({ kind: 'hard', seed: 123, time: 42000 });
+    expect(parseChallenge('?c=easy.7')).toEqual({ kind: 'easy', seed: 7, time: null });
+    expect(parseCode('hard.123.x')).toBeNull();
   });
 
   it('rejects malformed input', () => {

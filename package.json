@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:itch": "tsc --noEmit && vite build --mode itch --base=./ --outDir dist-itch --emptyOutDir && cd dist-itch && %SystemRoot%\\System32\\tar.exe -a -cf ..\\bypass-itch.zip *",
     "preview": "vite preview",
     "test": "vitest run"
   },

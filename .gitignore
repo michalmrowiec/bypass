@@ -1,3 +1,6 @@
 node_modules
 dist
+dist-itch
+bypass-itch.zip
 .notes/
+.env.itch

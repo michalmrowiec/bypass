@@ -1,6 +1,6 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
-  MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, challengeQuery, isFinished, newRun, parseChallenge, score,
+  MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, type Challenge, challengeCode, isFinished, newRun, parseChallenge, parseCode, score,
   stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner,
 } from './game';
 import { gear, DATA_PATHS } from './gear';
@@ -1678,8 +1678,8 @@ const CHALLENGE_BTN ="<button class='btn' id='challenge'>Challenge a friend</but
 
 function wireChallenge(first: number | null) {
   const what = S.mode === 'sprint' ? 'this ' + S.sprintLen + '-matrix sprint' : 'this matrix';
-  const link = location.origin + location.pathname + challengeQuery(challengeKind(), S.seed, first);
-  wireCopy('challenge', () => 'Can you bypass ' + what + (first !== null ? ' in under ' + fmt(first) : '') + '?\n' + link);
+  const code = challengeCode(challengeKind(), S.seed, first);
+  wireCopy('challenge', () => 'Can you bypass ' + what + (first !== null ? ' in under ' + fmt(first) : '') + '?\nPaste code ' + code + ' in Rootrun ' + (S.mode === 'sprint' ? 'sprint' : 'training') + siteLine());
 }
 
 // failure: null when all matrices were cleared, otherwise the reason the run ended.
@@ -1708,17 +1708,17 @@ const sprintMeta = () => {
   return 'Sprint · ' + stages().length + ' matrices · best ' + (best ? fmt(best) : '—');
 };
 
-// Public game page for shared results; empty until the itch page exists (the page's own URL would be itch's iframe).
-const SITE = '';
+// Public game page for shared results, set only in the itch build (.env.itch, kept out of git); the page's own URL would be itch's iframe.
+const SITE: string = import.meta.env.VITE_SITE ?? '';
 const siteLine = () => (SITE ? '\n' + SITE : '');
 
 function shareText(rec: DailyRecord) {
   const bars = '🟩'.repeat(rec.score) + '⬛'.repeat(3 - rec.score);
-  return 'BYPASS #' + String(dayNumber()).padStart(3, '0') + '\n'
+  return 'ROOTRUN #' + String(dayNumber()).padStart(3, '0') + '\n'
     + bars + ' ' + rec.score + '/3 · try ' + rec.tries + '/' + MAX_TRIES + ' · ' + fmt(rec.time) + siteLine();
 }
 
-const runShareText = (won: boolean) => 'BYPASS · ' + COMPANIES[R.company].name + (won ? ' ✅' : ' ❌') + '\n' + shareSquares(R).join('\n')
+const runShareText = (won: boolean) => 'ROOTRUN · ' + COMPANIES[R.company].name + (won ? ' ✅' : ' ❌') + '\n' + shareSquares(R).join('\n')
   + '\n' + (R.total ?? 0) + ' data · ' + fmt(R.ms ?? 0) + ' · best ' + (R.best ?? 0) + siteLine();
 
 const resultHtml = (rec: DailyRecord) =>
@@ -1738,6 +1738,8 @@ function wireCopy(id: string, text: () => string) {
       if (!ta) { ta = document.createElement('textarea'); ta.id = 'copyFallback'; (btn.closest('.result') ?? $('result')).appendChild(ta); }
       ta.value = txt;
       ta.select();
+      // Clipboard API is blocked in itch's iframe; the old copy command still works there. On failure the text stays selected.
+      if (document.execCommand('copy')) { btn.textContent = 'Copied'; ta.remove(); }
     }
   };
 }
@@ -1954,6 +1956,7 @@ function setMode(m: Mode, seed = randomSeed(), challenge: number | null = null) 
   $('modeRun').setAttribute('aria-pressed', String(m === 'run'));
   $('sizes').hidden = m !== 'train';
   $('sprintLen').hidden = m !== 'sprint';
+  $('codeForm').hidden = m !== 'train' && m !== 'sprint';
   $('daemonPane').hidden = $('itemPane').hidden = m !== 'run';
   $('steps').hidden = m !== 'run';
   document.querySelectorAll<HTMLElement>('[data-size]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.size === S.size)));
@@ -2056,7 +2059,7 @@ export function init() {
     input.value = '';
     if (!f) return;
     const data = parseBackup(await f.text());
-    if (!data) return alert('This is not a Bypass save file.');
+    if (!data) return alert('This is not a Rootrun save file.');
     if (!confirm('Replace your current progress with this save?')) return;
     if (restoreBackup(data)) location.reload(); else alert('Could not write the save.');
   };
@@ -2066,18 +2069,30 @@ export function init() {
   document.querySelectorAll<HTMLElement>('[data-len]').forEach((b) => {
     b.onclick = () => { S.sprintLen = +b.dataset.len! as SprintLen; setMode('sprint'); };
   });
+  const codeIn = $('codeIn') as HTMLInputElement;
+  $('codeForm').onsubmit = (e) => {
+    e.preventDefault();
+    const c = parseCode(codeIn.value);
+    codeIn.value = '';
+    if (c) playChallenge(c);
+    else codeIn.placeholder = 'invalid code';
+  };
   const ch = parseChallenge(location.search);
   if (ch) {
     history.replaceState(null, '', location.pathname);
-    if (ch.kind === 'sprint3' || ch.kind === 'sprint5') {
-      S.sprintLen = ch.kind === 'sprint3' ? 3 : 5;
-      setMode('sprint', ch.seed, ch.time);
-    } else {
-      S.size = ch.kind;
-      setMode('train', ch.seed, ch.time);
-    }
-    // Already cleared this matrix/sprint: show that result instead of letting it be replayed.
-    const first = firstResult(ch.kind + '.' + ch.seed);
-    if (typeof first === 'number') showPlayed(first);
+    playChallenge(ch);
   } else setMode('daily');
+}
+
+function playChallenge(ch: Challenge) {
+  if (ch.kind === 'sprint3' || ch.kind === 'sprint5') {
+    S.sprintLen = ch.kind === 'sprint3' ? 3 : 5;
+    setMode('sprint', ch.seed, ch.time);
+  } else {
+    S.size = ch.kind;
+    setMode('train', ch.seed, ch.time);
+  }
+  // Already cleared this matrix/sprint: show that result instead of letting it be replayed.
+  const first = firstResult(ch.kind + '.' + ch.seed);
+  if (typeof first === 'number') showPlayed(first);
 }

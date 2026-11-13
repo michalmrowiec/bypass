@@ -134,5 +134,12 @@ export function parseChallenge(search: string): Challenge | null {
   return { kind: m[1] as ChallengeKind, seed: Number(m[2]), time: Number.isInteger(t) && t > 0 && t < 36e5 ? t : null };
 }
 
-export const challengeQuery = (kind: ChallengeKind, seed: number, time: number | null) =>
-  '?c=' + kind + '.' + seed + (time ? '&t=' + time : '');
+// Shared challenge code <kind>.<seed>[.<ms>]: pasted into the game, since links can't reach it inside itch's iframe.
+export const challengeCode = (kind: ChallengeKind, seed: number, time: number | null) =>
+  kind + '.' + seed + (time ? '.' + time : '');
+
+// A pasted code, or a whole old link with ?c=…; anything malformed gives null.
+export function parseCode(text: string): Challenge | null {
+  const s = text.trim().toLowerCase(), m = /^([a-z0-9]+\.\d+)(?:\.(\d+))?$/.exec(s);
+  return parseChallenge(s.includes('?') ? s.slice(s.indexOf('?')) : m ? '?c=' + m[1] + (m[2] ? '&t=' + m[2] : '') : '');
+}

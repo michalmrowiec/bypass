@@ -62,6 +62,8 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .label::after{content:" ─"}
 .hint{margin:0 0 10px;font-size:12px;color:var(--muted)}
 .sizes{margin-bottom:12px}
+.codeform{margin-top:-6px}
+#codeIn{flex:1;min-width:0;max-width:240px;background:var(--bg);color:var(--ink);border:1px solid var(--line);font:inherit;font-size:13px;padding:4px 8px}
 .board{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);grid-template-rows:auto 1fr;gap:22px;align-items:start}
 /* The matrix spans both rows so the deck sits right under the side column. */
 .board>.pane:first-child{grid-row:span 2}

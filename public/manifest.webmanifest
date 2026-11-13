@@ -1,6 +1,6 @@
 {
-  "name": "Bypass",
-  "short_name": "Bypass",
+  "name": "Rootrun",
+  "short_name": "Rootrun",
   "description": "A daily breach puzzle: pick codes in a matrix, row then column, and upload every target.",
   "start_url": "./",
   "scope": "./",

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Bypass Daily</title>
+<title>Rootrun</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -15,7 +15,7 @@
 <div class="wrap" id="app">
   <header class="bar">
     <div class="brand">
-      <h1>BYPASS</h1>
+      <h1>ROOTRUN</h1>
       <div class="meta" id="meta">Daily #001</div>
     </div>
     <div class="modes" role="group" aria-label="Mode">
@@ -46,6 +46,10 @@
         <button class="btn" data-len="3">3 matrices</button>
         <button class="btn" data-len="5">5 matrices</button>
       </div>
+      <form class="modes sizes codeform" id="codeForm" hidden>
+        <input id="codeIn" placeholder="friend's challenge code" aria-label="Challenge code" autocomplete="off" spellcheck="false">
+        <button class="btn">play code</button>
+      </form>
       <div class="timebar" id="timebar" hidden><i></i></div>
       <div class="quick" id="quick" role="group" aria-label="Ready tools" hidden></div>
       <p class="hint" id="laneLabel">Pick a code in the top row</p>
