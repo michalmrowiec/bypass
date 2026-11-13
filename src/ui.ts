@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
@@ -849,7 +849,7 @@ function runSummary(won: boolean, bill: Score, credits: string) {
   const prev = bestRun(co.id), fresh = recordBest(co.id, { data: total, ms, won });
   // ×quota per room shows where the run was loose or tight.
   const rows = (R.log ?? []).map(([loop, room, data]) => {
-    const goal = Math.round(co.sections[room].quota * QUOTA_GROWTH ** loop);
+    const goal = quota({ ...R, loop }, room);
     return '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data + '</span> / ' + goal + DI + ' <small>×' + (data / goal).toFixed(2) + '</small></td></tr>';
   }).join('');
   const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
@@ -1611,8 +1611,12 @@ function finish(sc: number, disconnected = false) {
         ? "<button class='btn' id='runExit' data-tip='Quota met: leave now and skip the rest of this room. +$" + EXIT_CREDIT + " per skipped matrix.'"
           + (claim ? ' disabled' : '') + '>Exit room · ' + money(EXIT_CREDIT * (sections(R)[R.section].matrices - played(R)), '+') + ' ›</button>' : '') + "<button class='btn go'")
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
-        : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run').replace('</div>', "<button class='btn' id='exportLog'>Export log</button></div>"));
-    if (out === 'win' || out === 'lose') $('exportLog').onclick = () => exportRun(out, bill);
+        : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run').replace('</div>', "<button class='btn' id='shareRun'>Copy result</button><button class='btn' id='exportLog'>Export log</button></div>"));
+    if (out === 'win' || out === 'lose') {
+      $('exportLog').onclick = () => exportRun(out, bill);
+      const txt = runShareText(out === 'win');
+      wireCopy('shareRun', () => txt);
+    }
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
     playBill(bill, room, before, goal);
     return;
@@ -1704,12 +1708,18 @@ const sprintMeta = () => {
   return 'Sprint · ' + stages().length + ' matrices · best ' + (best ? fmt(best) : '—');
 };
 
+// Public game page for shared results; empty until the itch page exists (the page's own URL would be itch's iframe).
+const SITE = '';
+const siteLine = () => (SITE ? '\n' + SITE : '');
+
 function shareText(rec: DailyRecord) {
-  const bars = '▮'.repeat(rec.score) + '▯'.repeat(3 - rec.score);
+  const bars = '🟩'.repeat(rec.score) + '⬛'.repeat(3 - rec.score);
   return 'BYPASS #' + String(dayNumber()).padStart(3, '0') + '\n'
-    + bars + ' ' + rec.score + '/3 · try ' + rec.tries + '/' + MAX_TRIES + ' · ' + fmt(rec.time) + '\n'
-    + location.origin + location.pathname;
+    + bars + ' ' + rec.score + '/3 · try ' + rec.tries + '/' + MAX_TRIES + ' · ' + fmt(rec.time) + siteLine();
 }
+
+const runShareText = (won: boolean) => 'BYPASS · ' + COMPANIES[R.company].name + (won ? ' ✅' : ' ❌') + '\n' + shareSquares(R).join('\n')
+  + '\n' + (R.total ?? 0) + ' data · ' + fmt(R.ms ?? 0) + ' · best ' + (R.best ?? 0) + siteLine();
 
 const resultHtml = (rec: DailyRecord) =>
   '<h2>' + (rec.score === 3 ? 'Access granted' : 'Locked out') + "</h2><pre id='shareTxt'>" + shareText(rec)
@@ -1725,7 +1735,7 @@ function wireCopy(id: string, text: () => string) {
       btn.textContent = 'Copied';
     } catch {
       let ta = document.getElementById('copyFallback') as HTMLTextAreaElement | null;
-      if (!ta) { ta = document.createElement('textarea'); ta.id = 'copyFallback'; $('result').appendChild(ta); }
+      if (!ta) { ta = document.createElement('textarea'); ta.id = 'copyFallback'; (btn.closest('.result') ?? $('result')).appendChild(ta); }
       ta.value = txt;
       ta.select();
     }

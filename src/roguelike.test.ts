@@ -3,7 +3,7 @@ import { contains, isLegal, newRun, partner, pick, WILD } from './game';
 import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
-  buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played,
+  buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, type DaemonId, type ItemId,
 } from './roguelike';
@@ -14,6 +14,13 @@ const BOSS = SECTIONS.length - 1;
 describe('roguelike run', () => {
   it('scores uploaded targets by length', () => {
     expect(matrixData(['A', 'B', 'C', 'D'], [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']])).toBe(35);
+  });
+
+  it('share squares: a line per iteration, coloured by data over the quota', () => {
+    const s = newRunState(1);
+    const q = (loop: number, room: number) => quota({ ...s, loop }, room);
+    s.log = [[0, 0, q(0, 0)], [0, 1, q(0, 1) * 2], [0, 2, q(0, 2) * 3], [1, 0, q(1, 0) - 1]];
+    expect(shareSquares(s)).toEqual(['🟨🟩🟪', '🟥']);
   });
 
   it('sections grow 5x5 -> 7x7 with no spare buffer and max data 45/60/95/95', () => {

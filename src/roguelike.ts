@@ -120,6 +120,16 @@ export const QUOTA_GROWTH = 2.5;
 // Rounded to 5 so later iterations read as clean numbers.
 export const quota = (s: RunState, i = s.section) => Math.round((sections(s)[i].quota * QUOTA_GROWTH ** s.loop) / 5) * 5;
 
+// Shared run result: a square per finished room and a line per iteration, by data over the quota.
+export function shareSquares(s: RunState): string[] {
+  const lines: string[] = [];
+  for (const [loop, room, data] of s.log ?? []) {
+    const x = data / quota({ ...s, loop }, room);
+    lines[loop] = (lines[loop] ?? '') + (x < 1 ? '🟥' : x < 1.5 ? '🟨' : x < 3 ? '🟩' : '🟪');
+  }
+  return lines.filter(Boolean);
+}
+
 // A patch adds one ICE rule to one room, live from iteration `loop` on.
 export interface Patch { ice: IceId; room: number; loop: number }
 const live = (s: RunState) => s.patches.filter((p) => p.loop <= s.loop);
