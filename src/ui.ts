@@ -762,7 +762,7 @@ let catalogBack: (() => void) | null = null;
 let catalogQuery = '';
 const REWARD_NOTES: Record<RewardId, string> = {
   cash: 'credits right away',
-  rerolls: 'shop rerolls that take the cheapest steps of a visit\'s rising price',
+  rerolls: 'shop rerolls that take the cheapest paid steps of a visit\'s rising price',
   stack: 'only offered with a streak daemon installed',
   legend: 'the next daemon offer leads with a legendary (a rare if none is left)',
   double: 'spend it by hand on a later matrix to double its data',
@@ -973,7 +973,7 @@ function showOffer() {
 
 // Shop between rooms: a seeded shelf of items, a paid reroll and paid daemon removal; Continue opens the next room.
 function showShop(restock = true) {
-  if (restock) { stockShop(R); R.legendOffer = false; } // the offer before the shop used it
+  if (restock) { stockShop(R); R.legendOffer = false; R.lastOffer = offer; } // the offer before the shop used it
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
@@ -984,7 +984,7 @@ function showShop(restock = true) {
       || "<div class='dslot empty'>sold out</div>") + '</div>' + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
-    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
+    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (!rerollCost(R) ? '>Reroll · free' : R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
   $('shopCatalog').onclick = () => showCatalog(() => showShop(false));
@@ -1605,7 +1605,7 @@ function finish(sc: number, disconnected = false) {
       : "<p class='meta'>bonus " + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[M.bounty].name + '</p>';
     const credits = R.earned.map(line).join('') + bonus
       + (out === 'win' && recordBreach(co.id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
-    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
+    const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button>" + SUM_CATALOG + "<button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
       ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›').replace("<button class='btn go'", (canExitRoom(R)
         ? "<button class='btn' id='runExit' data-tip='Quota met: leave now and skip the rest of this room. +$" + EXIT_CREDIT + " per skipped matrix.'"
@@ -1630,7 +1630,8 @@ function finish(sc: number, disconnected = false) {
 // The reel runs through the rewards and lands on the two the matrix seed drew; the player takes one, which pays it and
 // frees the way on.
 function rollReward(bounty: BountyId, picks: RewardId[]) {
-  const btn = $('claim') as HTMLButtonElement, reel = $('reel'), names = Object.values(REWARDS);
+  // The bonus row, not the dialog: the catalog may be open over a detached summary when the reel lands.
+  const btn = $('claim') as HTMLButtonElement, reel = $('reel'), row = btn.parentElement!, names = Object.values(REWARDS);
   btn.disabled = true;
   let k = 0;
   const spin = setInterval(() => { reel.textContent = names[k++ % names.length]; }, 70);
@@ -1638,10 +1639,10 @@ function rollReward(bounty: BountyId, picks: RewardId[]) {
     clearInterval(spin);
     reel.textContent = 'pick one';
     btn.outerHTML = "<span class='bpicks'>" + picks.map((p) => "<button class='btn' data-pick='" + p + "'>" + REWARDS[p] + '</button>').join('') + '</span>';
-    $('modalBox').querySelectorAll<HTMLElement>('[data-pick]').forEach((b) => {
+    row.querySelectorAll<HTMLElement>('[data-pick]').forEach((b) => {
       b.onclick = () => {
         reel.textContent = REWARDS[claimReward(R, bounty, b.dataset.pick as RewardId)];
-        $('modalBox').querySelector('.bpicks')?.remove();
+        row.querySelector('.bpicks')?.remove();
         $('modalBox').querySelectorAll<HTMLButtonElement>('.row .btn').forEach((x) => { x.disabled = false; });
       };
     });
@@ -1860,7 +1861,14 @@ function exitEarly() {
   exitRoom(R);
   const credits = R.earned.map(([why, n]) => "<p class='meta'>" + (n ? money(n, '+') + ' · ' : '') + why + '</p>').join('');
   showResult(true, roomSummary(lastBill!, credits)
-    + "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn go exit' id='runSection'>Exit room ›</button></div>");
+    + "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button>" + SUM_CATALOG + "<button class='btn go exit' id='runSection'>Exit room ›</button></div>");
+}
+
+const SUM_CATALOG = "<button class='btn' id='sumCatalog'>Catalog</button>";
+// Catalog over a summary: Close puts the same summary nodes back, handlers and the bonus reel as they were.
+function summaryCatalog() {
+  const box = $('modalBox'), kept = [...box.childNodes], cls = box.className;
+  showCatalog(() => { box.className = cls; box.replaceChildren(...kept); $('sumCatalog').focus(); });
 }
 
 // Run mode shows its screens as a centered dialog over the locked board; the other modes keep the inline panel.
@@ -1890,6 +1898,7 @@ function showResult(win: boolean, html: string) {
   on('runLoop', () => { nextSection(R); showPatch(); });
   on('runNew', () => setMode('run'));
   on('viewMatrix', () => peek());
+  on('sumCatalog', summaryCatalog);
   on('toTrain', () => setMode('train'));
   on('sprintAgain', () => setMode('sprint'));
   on('retrySprint', () => setMode('sprint', S.seed, S.challenge));

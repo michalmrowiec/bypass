@@ -222,6 +222,7 @@ export interface RunState {
   carry?: number; // data Overtime carried into this room
   freeRerolls?: number; // bonus rewards
   legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
+  lastOffer?: DaemonId[]; // the previous daemon offer, kept out of the next one
   charges?: number; // bonus reward: ×2 data charges, spent by hand on a matrix
   bonus?: RewardId[]; // bonus rewards claimed since the last shop, marked in the offer and shop
   events?: string[]; // what happened in the run, shown to the player as a log
@@ -663,7 +664,7 @@ const visit = (s: RunState) => s.section + (s.loop ? '.' + s.loop : '');
 // With every slot full the offer still comes; taking one swaps out an installed daemon.
 export function offerDaemons(s: RunState): DaemonId[] {
   const r = rng(hashStr(s.seed + '/offer/' + visit(s)));
-  const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id)), r);
+  const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && !s.lastOffer?.includes(id)), r);
   const out: DaemonId[] = [];
   const lead = s.legendOffer && (pool.find((id) => rarityOf(id) === 'legendary') ?? pool.find((id) => rarityOf(id) === 'rare'));
   if (lead) out.push(lead);
@@ -773,8 +774,8 @@ export const slotCost = (s: RunState) => 4 + 3 * (s.rack - RACK_BASE);
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
 export const sellValue = (id: ItemId) => Math.floor([id, ...olderVersions(id)].reduce((a, x) => a + item(x).price, 0) / 2);
-export const REROLL_COST = 1;
-// Each reroll on a shop visit costs $1 more than the last; free ones count as steps too.
+export const REROLL_COST = 0;
+// The first reroll on a shop visit is free, each next one costs $1 more; bonus rerolls cover the paid steps.
 export const rerollCost = (s: RunState) => REROLL_COST + s.rerolls;
 // Swapping in an offered daemon costs by the rarity of the one thrown out.
 export const SWAP_COST: Record<Rarity, number> = { common: 2, rare: 4, legendary: 6 };
@@ -791,9 +792,10 @@ export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter(
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
 export function stockShop(s: RunState, reroll = false): boolean {
   if (reroll) {
-    if (s.freeRerolls) s.freeRerolls--;
-    else if (s.credits < rerollCost(s)) return false;
-    else s.credits -= rerollCost(s);
+    const cost = rerollCost(s);
+    if (cost && s.freeRerolls) s.freeRerolls--;
+    else if (s.credits < cost) return false;
+    else s.credits -= cost;
     s.rerolls++;
     logEvent(s, 'shop · reroll');
   } else s.rerolls = 0;

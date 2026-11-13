@@ -119,7 +119,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
   - **Wild:** 2 targety przez `**`; tylko z Wildcardem.
 - **Nagroda:** na podsumowaniu klikasz „Roll reward”, losują się **2 nagrody** i wybierasz jedną. Dalej da się przejść dopiero po odbiorze.
   - +$5;
-  - 3 darmowe rerolle (zajmują najtańsze kroki rosnącej ceny);
+  - 3 darmowe rerolle (zajmują najtańsze płatne kroki rosnącej ceny);
   - +2 stacki na każdym daemonie ze streakiem (tylko gdy masz taki daemon);
   - legendary na czele następnej oferty;
   - **ładunek ×2 data**: consumable w cyjanowej ramce, aktywowany ręcznie na dowolnej późniejszej matrycy, 1 na matrycę, ładunki się zbierają.
@@ -129,7 +129,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $3 na pokój.
 - **Inne źródła:** +$1 za pokój; +$1 za matrycę z wgranymi wszystkimi targetami.
 - **Puste sloty bufora:** $1 za każde 2, gdy matryca skończy się sama; po Disconnect $1 za każde 3. Daemon Silent dokłada do tego +$2.
-- **Koszty:** reroll w sklepie $1, potem $2, $3… w tej samej wizycie (od nowa w następnym sklepie); półka ma 4 itemy.
+- **Koszty:** pierwszy reroll w wizycie darmowy, potem $1, $2, $3… (od nowa w następnym sklepie); półka ma 4 itemy. Oferta daemonów pomija te z poprzedniej oferty.
 
 ## 10. UI (najważniejsze)
 - **Kontrakt:** pokoje, pola z wynikami macierzy, ICE i łatki, badge bonusu, licznik kredytów i danych pokoju.

@@ -220,15 +220,22 @@ describe('shop', () => {
     expect(s.credits).toBe(0);
   });
 
-  it('rerolls cost $1 more each time on one visit, free ones included', () => {
+  it('the first reroll on a visit is free, then each costs $1 more; bonus rerolls cover paid steps', () => {
     const s = { ...rich(10), freeRerolls: 1 };
     stockShop(s);
-    expect(stockShop(s, true)).toBe(true); // free, $1 step
+    expect(stockShop(s, true)).toBe(true); // free step
+    expect(s.freeRerolls).toBe(1);
+    expect(stockShop(s, true)).toBe(true); // bonus covers the $1 step
     expect(stockShop(s, true)).toBe(true); // $2
-    expect(stockShop(s, true)).toBe(true); // $3
-    expect(s.credits).toBe(5);
-    stockShop(s); // next visit starts at $1 again
-    expect(stockShop(s, true) && s.credits).toBe(4);
+    expect([s.credits, s.freeRerolls]).toEqual([8, 0]);
+    stockShop(s); // next visit starts free again
+    expect(stockShop(s, true) && s.credits).toBe(8);
+  });
+
+  it('an offer leaves out the daemons of the previous one', () => {
+    const s = newRunState(1), o = offerDaemons(s);
+    s.lastOffer = o;
+    expect(offerDaemons(s).filter((id) => o.includes(id))).toEqual([]);
   });
 
   it('items reshape the room matrix', () => {
@@ -705,7 +712,7 @@ describe('round 3: All-in, Overtime, Repeater, rewards', () => {
     expect(s.stacks.heartbeat).toBe(3);
     claimReward(s, 'clean', 'rerolls');
     expect(s.freeRerolls).toBe(3);
-    expect(stockShop(s, true)).toBe(true);
+    expect(stockShop(s, true) && stockShop(s, true)).toBe(true); // the visit's free step, then a bonus one
     expect(s.freeRerolls).toBe(2);
     expect(claimReward(run(), 'clean', 'stack')).toBe('cash'); // no streak daemon
     claimReward(s, 'clean', 'double');
