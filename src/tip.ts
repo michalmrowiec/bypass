@@ -36,7 +36,8 @@ export function initTips(): void {
     if (el && el !== on) showSoon(el); else if (!el && on) hide();
   });
   document.addEventListener('pointerleave', hide);
-  document.addEventListener('focusin', (e) => { const el = find(e.target); if (el) show(el); else hide(); });
+  // Keyboard focus only: a dialog focusing its first button on open must not pop a tip.
+  document.addEventListener('focusin', (e) => { const el = find(e.target); if (el?.matches(':focus-visible')) show(el); else hide(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
   window.addEventListener('scroll', hide, true);
   // Capture phase: a tapped tip inside a clickable card must not reach the card.

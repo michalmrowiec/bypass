@@ -2028,7 +2028,7 @@ function showResult(win: boolean, html: string) {
   if (run) {
     $('app').inert = true;
     $('modal').scrollTop = 0; // long dialogs (the catalog) open at the top
-    res.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    res.querySelector<HTMLElement>('button:not(.vmcorner)')?.focus({ preventScroll: true });
   }
   const on = (id: string, fn: () => void) => { const e = document.getElementById(id); if (e) e.onclick = fn; };
   on('retry', () => { S.tries++; resetRun(); });

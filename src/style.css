@@ -316,6 +316,9 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .catsearch:focus{outline:none;border-color:var(--cyan)}
 /* x is clipped: a hovered daemon card tilts and lifts a few px past its slot; the side padding leaves it that room. */
 .catbody{height:min(62vh,560px);overflow:hidden auto;overscroll-behavior:contain;padding:4px 14px 4px 10px;margin:0 -14px 12px -10px}
+/* Short screens (phone browser bars): the list gives up height so the dialog never scrolls the page. */
+.modal:has(>.catbody){display:flex;flex-direction:column;max-height:100%}
+.catbody{flex:0 1 auto;min-height:0}
 button.bounty{font:inherit;font-size:12px;text-align:left;cursor:var(--hit);border:0;width:100%}
 button.bounty:hover{color:var(--ink)}
 /* Contract: a grey bonus tag on rooms whose bonus matrix has come up. */
