@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, type DaemonId, type ItemId,
+  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -93,6 +93,17 @@ describe('daemons', () => {
 
   it('scores 0 without an upload, whatever the daemons', () => {
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, run('overflow', 'corner')).total).toBe(0);
+  });
+
+  it('scores the first matching payload, its level adding data and mult', () => {
+    expect(scoreMatrix(ctx, run()).pay).toEqual(['linked', 1, {}]); // B is shared; level 1 adds nothing
+    expect(scoreMatrix(ctx, { ...run(), payLevels: { linked: 3 } }).total).toBe(61); // (35 + 16) × 1.2
+    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'] })).toBe('half_buffer'); // 4 of 8 slots
+    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'], l: 4 })).toBe('two_targets');
+    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] })).toBe('all_linked');
+    expect(payloadFor({ ...ctx, buf: ['X', 'Y', 'A', 'B'], targets: [['A', 'B'], ['X', 'Y']], l: 4 })).toBe('all_targets');
+    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'Q'], l: 3 })).toBe('one_target');
+    expect(payloadFor({ ...ctx, buf: ['Q'] })).toBeUndefined();
   });
 
   it('applies (data + flat) × (1 + boost) × mult', () => {

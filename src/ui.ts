@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
@@ -234,7 +234,10 @@ function render() {
   pb.setAttribute('aria-pressed', String(planning));
   const buf = $('buffer');
   buf.innerHTML = '';
-  $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l; // l already lacks the slots Throttle takes
+  // l already lacks the slots Throttle takes; in a run the payload the buffer makes right now follows.
+  const pay = S.mode === 'run' && !S.over ? payloadFor(runCtx()) : undefined;
+  $('bufferLabel').innerHTML = 'buffer ' + buffer.length + '/' + l
+    + (pay ? " <span class='ptag' data-tip='" + PAYLOADS[pay].text + "'>" + pay + '·' + payLevel(R, pay) + '</span>' : '');
   const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
   const cover = has('chain') || has('compressor') ? coverage(buffer, targets) : [];
   // Run: slots from bought items are dashed; the ones Throttle takes away stay on show, locked.
@@ -908,7 +911,10 @@ const dmnName = (id: DaemonId) => {
   return "<span class='dfile c-" + f + "'><span class='fdir'>" + f + '/</span>' + DAEMONS[id].name.toLowerCase().replace(/ /g, '_') + "<span class='fext'>.dmn</span></span>";
 };
 
+// Payload file name with its level, like a daemon's file name.
+const payName = (id: PayloadId, lv: number) => "<span class='pfile'>" + id + "<span class='fext'>.bin</span></span> <span class='plv'>Lv" + lv + '</span>';
 const billHtml = (sc: Score) => "<table class='calc'><tr><td>targets</td><td><span class='vd'>" + sc.base + DI_SM + '</span></td></tr>'
+  + (sc.pay ? '<tr><td>' + payName(sc.pay[0], sc.pay[1]) + '</td><td>' + (fmtEffect(sc.pay[2]) || "<span class='meta'>—</span>") + '</td></tr>' : '')
   + sc.fired.map(([id, e]) => '<tr><td>' + dmnName(id) + '</td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.gear.map(([id, e]) => "<tr><td><span class='gname'>" + ITEMS[id].name + '</span></td><td>' + fmtEffect(e) + '</td></tr>').join('')
   + sc.ice.map(([id, e]) => "<tr><td><i class='iceTag'>" + ICE[id].name + '</i></td><td>' + fmtEffect(e) + '</td></tr>').join('')
@@ -1757,8 +1763,8 @@ function playBill(sc: Score, room: string, before: number, goal: number) {
   const tally = box.querySelector<HTMLElement>('.btally')!, q = (s: string) => tally.querySelector<HTMLElement>(s)!;
   const [td, tm, tt, trv, fill, stamp] = ['.td', '.tm', '.tt', '.trv', '.tfill', '.tstamp'].map(q);
   const rows = [...bill.rows];
-  // One step per bill row, in billHtml's order: targets, daemons, items, ICE, charge, then the sum.
-  const fx: Effect[] = [{ flat: sc.base }, ...sc.fired.map((f) => f[1]), ...sc.gear.map((g) => g[1]), ...sc.ice.map((i) => i[1]), ...(sc.charge ? [{ mult: 2 }] : [])];
+  // One step per bill row, in billHtml's order: targets, payload, daemons, items, ICE, charge, then the sum.
+  const fx: Effect[] = [{ flat: sc.base }, ...(sc.pay ? [sc.pay[2]] : []), ...sc.fired.map((f) => f[1]), ...sc.gear.map((g) => g[1]), ...sc.ice.map((i) => i[1]), ...(sc.charge ? [{ mult: 2 }] : [])];
   let data = 0, boost = 0, mult = 1, done = false;
   // Each number keeps the width of its widest step, so counting up never shifts the line.
   const w = [0, 0, 0];

@@ -666,6 +666,10 @@ button.unit{cursor:var(--hit)}
 .calc td{padding:2px 0;color:var(--muted)}
 .calc td+td{text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
 .calc .dfile,.calc .gname{color:var(--ink);font-weight:600}
+/* Payloads: file-like names in the data colour, apart from daemons' family colours. */
+.pfile{color:var(--data);font-weight:600}
+.plv{color:var(--muted);font-size:.9em}
+.ptag{margin-left:6px;padding:0 5px;border:1px solid color-mix(in srgb,var(--data) 60%,transparent);color:var(--data);font-size:11px;letter-spacing:.04em}
 .calc .sum td{border-top:1px solid var(--line);padding-top:6px;color:var(--mint)}
 .target{display:flex;align-items:center;gap:12px;padding:7px 10px;border-left:2px solid var(--line);background:var(--panel)}
 .target .codes{display:flex;gap:10px;font-weight:500;font-size:15px;color:var(--muted)}

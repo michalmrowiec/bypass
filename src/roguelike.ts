@@ -237,6 +237,8 @@ export interface RunState {
   bonus?: RewardId[]; // bonus rewards claimed since the last shop, marked in the offer and shop
   events?: string[]; // what happened in the run, shown to the player as a log
   bonusHits?: string[]; // bonus matrices met, as 'loop.room.matrix'; missing on saves from before it, where outcomes are unknown
+  payLevels?: Partial<Record<string, number>>; // by payload id; missing means level 1
+  payPlays?: Partial<Record<string, number>>; // matrices each payload scored this run
 }
 
 export const bonusKey = (loop: number, room: number, matrix: number) => loop + '.' + room + '.' + matrix;
@@ -492,6 +494,28 @@ export const streakOf = (id: DaemonId) => (DAEMONS[id] as Daemon).streak;
 // How long a daemon's effect lasts: one matrix, or a stack kept for the whole run.
 export const scopeOf = (id: DaemonId): 'matrix' | 'room' | 'run' => (DAEMONS[id] as Daemon).scope ?? (streakOf(id) ? 'run' : 'matrix');
 
+// --- Payloads: what a matrix uploaded. Only the first that matches scores; its level, kept for the run, adds data and mult.
+interface Payload { text: string; data: number; mult: number; met: (f: Facts) => boolean }
+export const PAYLOADS = {
+  all_linked: { text: 'every target, 2+ of them sharing codes', data: 12, mult: 0.15, met: (f) => f.all && f.shared > 0 },
+  all_targets: { text: 'every target', data: 10, mult: 0.1, met: (f) => f.all },
+  linked: { text: '2+ targets sharing codes', data: 8, mult: 0.1, met: (f) => f.shared > 0 },
+  half_buffer: { text: 'an upload using at most half the buffer, rounded up', data: 5, mult: 0.1, met: (f) => f.light },
+  two_targets: { text: '2+ targets', data: 5, mult: 0.05, met: (f) => f.done.length >= 2 },
+  one_target: { text: '1 target', data: 3, mult: 0.05, met: () => true },
+} satisfies Record<string, Payload>;
+export type PayloadId = keyof typeof PAYLOADS;
+export const payFile = (id: PayloadId) => id + '.bin';
+export const payLevel = (s: RunState, id: PayloadId) => s.payLevels?.[id] ?? 1;
+// Level 1 adds nothing; each level above it adds the payload's data and mult step.
+export const payEffect = (id: PayloadId, lv: number): Effect | null => {
+  const p = PAYLOADS[id];
+  return lv > 1 ? { flat: p.data * (lv - 1), mult: Math.round((1 + p.mult * (lv - 1)) * 100) / 100 } : null;
+};
+const payOf = (f: Facts): PayloadId | undefined =>
+  f.done.length ? (Object.keys(PAYLOADS) as PayloadId[]).find((id) => (PAYLOADS[id] as Payload).met(f)) : undefined;
+export const payloadFor = (ctx: MatrixCtx) => payOf(facts(ctx));
+
 // Restarting a matrix breaks an Uptime streak.
 export function restartMatrix(s: RunState): void {
   s.restarts--;
@@ -499,11 +523,19 @@ export function restartMatrix(s: RunState): void {
 }
 
 // gear: shop items that added something to this matrix, like daemons in fired.
-export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean }
+// pay: the payload this matrix scores, its level and what that level adds (nothing at level 1).
+export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean; pay?: [PayloadId, number, Effect] }
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
   const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [], ice: [] };
+  const pay = payOf(f);
+  if (pay) {
+    const lv = payLevel(s, pay), e = payEffect(pay, lv) ?? {};
+    sc.flat += e.flat ?? 0;
+    sc.mult *= e.mult ?? 1;
+    sc.pay = [pay, lv, e];
+  }
   const hit = (ctx.nodes ?? []).filter((q) => ctx.path.some((p) => p[0] === q[0] && p[1] === q[1])).length;
   const nodeId = s.items.find((id) => id.startsWith('datanode'));
   if (hit && nodeId) {
@@ -564,6 +596,7 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
   daemonsAfterMatrix(ctx, s, disconnected);
   const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
   if (facts(ctx).all) earn(s, 'every target uploaded', FULL_CREDIT);
+  if (score.pay) { const id = score.pay[0]; (s.payPlays ??= {})[id] = (s.payPlays[id] ?? 0) + 1; }
   logEvent(s, 'matrix over' + (disconnected ? ' (disconnect)' : '') + ' · ' + facts(ctx).done.length + '/' + ctx.targets.length + ' uploaded · ' + score.total + ' data');
   if (ctx.bounty) {
     if (met) s.bonusHits?.push(bonusKey(s.loop, s.section, played(s)));
