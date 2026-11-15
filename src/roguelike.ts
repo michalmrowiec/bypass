@@ -239,6 +239,8 @@ export interface RunState {
   bonusHits?: string[]; // bonus matrices met, as 'loop.room.matrix'; missing on saves from before it, where outcomes are unknown
   payLevels?: Partial<Record<string, number>>; // by payload id; missing means level 1
   payPlays?: Partial<Record<string, number>>; // matrices each payload scored this run
+  zipVisit?: string; // shop visit where patch.zip was bought (one per visit)
+  zipOpen?: [string, number][]; // the opened patch.zip waiting for a pick: payload id, levels it adds
 }
 
 export const bonusKey = (loop: number, room: number, matrix: number) => loop + '.' + room + '.' + matrix;
@@ -495,14 +497,23 @@ export const streakOf = (id: DaemonId) => (DAEMONS[id] as Daemon).streak;
 export const scopeOf = (id: DaemonId): 'matrix' | 'room' | 'run' => (DAEMONS[id] as Daemon).scope ?? (streakOf(id) ? 'run' : 'matrix');
 
 // --- Payloads: what a matrix uploaded. Only the first that matches scores; its level, kept for the run, adds data and mult.
-interface Payload { text: string; data: number; mult: number; met: (f: Facts) => boolean }
+// ex: a small buffer that makes this payload and no higher one, shown as its example (a test checks each).
+interface PayEx { buf: string[]; l: number; targets: string[][] }
+interface Payload { text: string; data: number; mult: number; met: (f: Facts) => boolean; ex: PayEx }
+const EX3 = [['7A', '1C'], ['E9', '55'], ['BD', '4F']];
 export const PAYLOADS = {
-  all_linked: { text: 'every target, 2+ of them sharing codes', data: 12, mult: 0.15, met: (f) => f.all && f.shared > 0 },
-  all_targets: { text: 'every target', data: 10, mult: 0.1, met: (f) => f.all },
-  linked: { text: '2+ targets sharing codes', data: 8, mult: 0.1, met: (f) => f.shared > 0 },
-  half_buffer: { text: 'an upload using at most half the buffer, rounded up', data: 5, mult: 0.1, met: (f) => f.light },
-  two_targets: { text: '2+ targets', data: 5, mult: 0.05, met: (f) => f.done.length >= 2 },
-  one_target: { text: '1 target', data: 3, mult: 0.05, met: () => true },
+  all_linked: { text: 'every target, 2+ of them sharing codes', data: 12, mult: 0.15, met: (f) => f.all && f.shared > 0,
+    ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9', '55']] } },
+  all_targets: { text: 'every target', data: 10, mult: 0.1, met: (f) => f.all,
+    ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['E9', '55']] } },
+  linked: { text: '2+ targets sharing codes', data: 8, mult: 0.1, met: (f) => f.shared > 0,
+    ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9'], ['BD', '4F']] } },
+  half_buffer: { text: 'an upload using at most half the buffer, rounded up', data: 5, mult: 0.1, met: (f) => f.light,
+    ex: { buf: ['7A', '1C', 'E9'], l: 6, targets: EX3 } },
+  two_targets: { text: '2+ targets', data: 5, mult: 0.05, met: (f) => f.done.length >= 2,
+    ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: EX3 } },
+  one_target: { text: '1 target', data: 3, mult: 0.05, met: () => true,
+    ex: { buf: ['55', '7A', '1C', 'E9'], l: 6, targets: EX3 } },
 } satisfies Record<string, Payload>;
 export type PayloadId = keyof typeof PAYLOADS;
 export const payFile = (id: PayloadId) => id + '.bin';
@@ -843,6 +854,28 @@ export function stockShop(s: RunState, reroll = false): boolean {
     logEvent(s, 'shop · reroll');
   } else s.rerolls = 0;
   s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls))).slice(0, SHELF);
+  return true;
+}
+
+// patch.zip: one per shop visit; opening it shows ZIP_PICKS random payloads (seeded per visit), the player keeps one.
+export const ZIP_PRICE = 1, ZIP_PICKS = 3, ZIP_DOUBLE_ODDS = 0.15;
+export const zipSold = (s: RunState) => s.zipVisit === visit(s);
+export function buyZip(s: RunState): boolean {
+  if (zipSold(s) || s.credits < ZIP_PRICE) return false;
+  s.credits -= ZIP_PRICE;
+  s.zipVisit = visit(s);
+  const r = rng(hashStr(s.seed + '/zip/' + visit(s)));
+  s.zipOpen = shuffled(Object.keys(PAYLOADS), r).slice(0, ZIP_PICKS).map((id) => [id, r() < ZIP_DOUBLE_ODDS ? 2 : 1]);
+  logEvent(s, 'shop · patch.zip −$' + ZIP_PRICE);
+  return true;
+}
+export function pickZip(s: RunState, i: number): boolean {
+  const p = s.zipOpen?.[i];
+  if (!p) return false;
+  const id = p[0] as PayloadId;
+  (s.payLevels ??= {})[id] = payLevel(s, id) + p[1];
+  s.zipOpen = undefined;
+  logEvent(s, 'shop · ' + id + '.patch installed · ' + payFile(id) + ' Lv' + payLevel(s, id));
   return true;
 }
 

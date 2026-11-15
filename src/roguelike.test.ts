@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, type DaemonId, type ItemId,
+  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -104,6 +104,23 @@ describe('daemons', () => {
     expect(payloadFor({ ...ctx, buf: ['X', 'Y', 'A', 'B'], targets: [['A', 'B'], ['X', 'Y']], l: 4 })).toBe('all_targets');
     expect(payloadFor({ ...ctx, buf: ['A', 'B', 'Q'], l: 3 })).toBe('one_target');
     expect(payloadFor({ ...ctx, buf: ['Q'] })).toBeUndefined();
+    // Every shown example makes its own payload.
+    for (const [id, p] of Object.entries(PAYLOADS)) expect(payloadFor({ ...ctx, ...p.ex })).toBe(id);
+  });
+
+  it('sells one patch.zip per shop visit and installs the patch kept', () => {
+    const s = { ...newRunState(5), credits: 10 };
+    expect(buyZip(s)).toBe(true);
+    expect(s.credits).toBe(10 - ZIP_PRICE);
+    expect(zipSold(s) && s.zipOpen?.length).toBe(3);
+    expect(buyZip(s)).toBe(false); // one per visit
+    const [id, n] = s.zipOpen![1];
+    expect(pickZip(s, 1)).toBe(true);
+    expect(s.payLevels?.[id]).toBe(1 + n);
+    expect(s.zipOpen).toBeUndefined();
+    expect(pickZip(s, 0)).toBe(false);
+    s.section++; // next visit
+    expect(buyZip(s)).toBe(true);
   });
 
   it('applies (data + flat) × (1 + boost) × mult', () => {

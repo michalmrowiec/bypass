@@ -669,7 +669,77 @@ button.unit{cursor:var(--hit)}
 /* Payloads: file-like names in the data colour, apart from daemons' family colours. */
 .pfile{color:var(--data);font-weight:600}
 .plv{color:var(--muted);font-size:.9em}
-.ptag{margin-left:6px;padding:0 5px;border:1px solid color-mix(in srgb,var(--data) 60%,transparent);color:var(--data);font-size:11px;letter-spacing:.04em}
+/* Payloads: the live one under the buffer, a folded list, the catalog table. */
+.paynow{margin:8px 0 0;font-size:12px}
+/* Example mini buffer: lit = inside an uploaded target, s = shared by 2, e = empty. */
+.pex{display:flex;flex-direction:column;gap:3px;margin-top:5px}
+.pbuf{display:flex;gap:2px}
+.pbuf i{width:22px;height:18px;display:grid;place-items:center;font:normal 10px var(--mono);border:1px solid var(--line);color:var(--muted)}
+.pbuf i.u{border-color:color-mix(in srgb,var(--data) 60%,transparent);color:var(--ink)}
+.pbuf i.s{border-color:var(--data);background:color-mix(in srgb,var(--data) 22%,transparent);color:var(--ink)}
+.pbuf i.e{border-style:dashed;opacity:.6}
+.ptg{display:flex;flex-wrap:wrap;gap:4px}
+.ptg i{font:normal 10px var(--mono);color:var(--muted);padding:0 4px;border:1px solid var(--line)}
+.ptg i.ok{color:var(--data);border-color:color-mix(in srgb,var(--data) 50%,transparent)}
+.paypanel{margin-top:8px;font-size:12px}
+.paypanel summary{color:var(--muted);cursor:var(--hit)}
+/* One grid for all rows, so the columns line up; the name column takes what is left. */
+.paylist{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;margin-top:4px;font-variant-numeric:tabular-nums}
+.paylist>div{display:contents}
+.paylist>div>span{padding:1px 4px;white-space:nowrap}
+.paylist>div>span:first-child{overflow:hidden;text-overflow:ellipsis}
+.paylist>div>span:not(:first-child){text-align:right}
+.paylist .phd>span{color:var(--muted);font-size:11px}
+.paylist .now>span,.paytable tr.now td{background:color-mix(in srgb,var(--data) 12%,transparent)}
+.paytable{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.paytable th{color:var(--muted);font-weight:400;text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+.paytable td{padding:5px 6px;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent);vertical-align:top}
+.paytable .meta{font-size:11px}
+/* patch.zip in the shop: data-colour archive, never gold (gold is money). */
+.zipzone{position:relative;margin:12px 0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--data) 40%,transparent);background:color-mix(in srgb,var(--data) 4%,transparent)}
+.zipzone .zhead{margin:0 0 8px;color:var(--data)}
+.zstage{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.zstage>.meta{flex:1;min-width:180px;margin:0}
+.zipbtn{background:none;border:0;padding:0;color:var(--ink);font:inherit;font-size:12px;cursor:var(--hit);display:flex;flex-direction:column;align-items:center;gap:4px}
+.zipbtn b{color:var(--data)}
+.zipbtn:disabled{cursor:default;opacity:.45}
+.zipbtn:hover:not(:disabled) .zip{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--data) 55%,transparent))}
+.zip{width:52px;height:62px;overflow:visible;flex:none}
+.zip .zbody{fill:color-mix(in srgb,var(--data) 10%,var(--bg));stroke:var(--data);stroke-width:1.6}
+.zip .zfold{fill:color-mix(in srgb,var(--data) 30%,var(--bg));stroke:var(--data);stroke-width:1.6}
+.zip .zteeth rect,.zip .zdot{fill:var(--data)}
+.zip .zteeth rect{transition:transform .5s ease}
+.zip .zpull{fill:var(--bg);stroke:var(--data);stroke-width:1.6;transition:transform .55s cubic-bezier(.5,0,.3,1)}
+.zip .zext{fill:var(--data);font:700 9px var(--mono)}
+.zip.open .zpull{transform:translateY(36px)}
+.zip.open .zteeth .l{transform:translateX(-3px)}
+.zip.open .zteeth .r{transform:translateX(3px)}
+.zip.shake{animation:zshake .3s ease}
+@keyframes zshake{25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+.zskip{margin-left:auto}
+.zpicks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
+.pcard{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12px;text-align:left;cursor:var(--hit)}
+.pcard:hover{border-color:var(--data)}
+.pcard.big{border-color:var(--data)}
+.pcard .bnt{align-self:flex-start;background:var(--data)}
+.pcard .pname{color:var(--data)}
+.pcard .pto{color:var(--data)}
+.pcard .meta{font-size:11px}
+.pcard .pbody{display:flex;flex-direction:column;gap:3px}
+.pcard.zhide{visibility:hidden}
+/* While encrypted: a veil of scrolling hex over the card (which keeps its size) and a bar filling to its turn. */
+.pcard .pveil{display:none}
+.pcard.enc .pname,.pcard.enc .pbody{visibility:hidden}
+.pcard.enc .pveil{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:8px 10px}
+.phex{font:10px/1.5 var(--mono);color:color-mix(in srgb,var(--data) 50%,transparent);white-space:pre;overflow:hidden;text-align:center}
+.pbar{display:block;height:3px;background:var(--line)}
+.pbar>i{display:block;height:100%;width:0;background:var(--data)}
+.pcard.enc:not(.zhide) .pbar>i{animation:pfill var(--fill,1s) linear forwards}
+@keyframes pfill{to{width:100%}}
+/* A +2 card flares once when it decrypts. */
+.pcard.flare{animation:pflare 1s ease-out}
+@keyframes pflare{35%{box-shadow:0 0 22px 4px color-mix(in srgb,var(--data) 55%,transparent)}}
+@media (prefers-reduced-motion:reduce){.zip .zpull,.zip .zteeth rect{transition:none}.zip.shake{animation:none}}
 .calc .sum td{border-top:1px solid var(--line);padding-top:6px;color:var(--mint)}
 .target{display:flex;align-items:center;gap:12px;padding:7px 10px;border-left:2px solid var(--line);background:var(--panel)}
 .target .codes{display:flex;gap:10px;font-weight:500;font-size:15px;color:var(--muted)}

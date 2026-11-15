@@ -1,6 +1,6 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
-  MAX_TRIES, SPRINTS, type ChallengeKind, type SprintLen, type Challenge, challengeCode, isFinished, newRun, parseChallenge, parseCode, score,
+  MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, type Challenge, challengeCode, isFinished, newRun, parseChallenge, parseCode, score,
   stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner,
 } from './game';
 import { gear, DATA_PATHS } from './gear';
@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, buyZip, pickZip, zipSold, ZIP_PRICE, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
@@ -236,8 +236,17 @@ function render() {
   buf.innerHTML = '';
   // l already lacks the slots Throttle takes; in a run the payload the buffer makes right now follows.
   const pay = S.mode === 'run' && !S.over ? payloadFor(runCtx()) : undefined;
-  $('bufferLabel').innerHTML = 'buffer ' + buffer.length + '/' + l
-    + (pay ? " <span class='ptag' data-tip='" + PAYLOADS[pay].text + "'>" + pay + '·' + payLevel(R, pay) + '</span>' : '');
+  $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l;
+  $('payNow').hidden = S.mode !== 'run' || S.over;
+  $('payNow').innerHTML = pay ? 'payload ' + payName(pay, payLevel(R, pay)) + ' ' + (fmtEffect(payEffect(pay, payLevel(R, pay)) ?? {}) || "<span class='meta'>· Lv1 adds nothing yet</span>")
+    : "<span class='meta'>payload · upload a target to make one</span>";
+  // Folded list of payloads under the buffer (run only): level, plays this run, bonus; the live one is lit.
+  $('payPanel').hidden = S.mode !== 'run';
+  if (S.mode === 'run') {
+    $('payList').innerHTML = "<div class='phd'><span>payload</span><span>lv</span><span>played</span><span>bonus</span></div>"
+      + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => "<div class='prow" + (id === pay ? ' now' : '') + "' data-tip='" + PAYLOADS[id].text + "'><span class='pfile'>" + id + '</span><span>'
+        + payLevel(R, id) + '</span><span>' + (R.payPlays?.[id] ?? 0) + '</span><span>' + (fmtEffect(payEffect(id, payLevel(R, id)) ?? {}) || '—') + '</span></div>').join('');
+  }
   const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
   const cover = has('chain') || has('compressor') ? coverage(buffer, targets) : [];
   // Run: slots from bought items are dashed; the ones Throttle takes away stay on show, locked.
@@ -706,7 +715,7 @@ const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
     + '</small><p>' + rich(it.text) + "</p><span class='price'>" + foot + '</span></' + tag + '>';
 };
 
-let catalogTab: 'daemons' | 'items' | 'bonuses' | 'ice' = 'daemons';
+let catalogTab: 'daemons' | 'items' | 'payloads' | 'bonuses' | 'ice' = 'daemons';
 
 // Dev cheats on the catalog: toggle daemons and items (versions of one item replace each other), add credits, re-deal, skip a room.
 function wireDev(ds: DaemonId[], its: ItemId[]) {
@@ -770,6 +779,22 @@ const REWARD_NOTES: Record<RewardId, string> = {
   legend: 'the next daemon offer leads with a legendary (a rare if none is left)',
   double: 'spend it by hand on a later matrix to double its data',
 };
+// A payload's example: a mini buffer (codes inside uploaded targets lit, shared ones brighter, empty slots dashed)
+// and its targets, ticked when uploaded.
+const payEx = (id: PayloadId) => {
+  const { buf, l, targets } = PAYLOADS[id].ex, done = targets.filter((t) => contains(buf, t)), cov = coverage(buf, done);
+  return "<span class='pex'><span class='pbuf'>" + Array.from({ length: l }, (_, i) => "<i class='" + (buf[i] === undefined ? 'e' : cov[i] >= 2 ? 's' : cov[i] ? 'u' : '') + "'>" + (buf[i] ?? '') + '</i>').join('')
+    + "</span><span class='ptg'>" + targets.map((t) => "<i class='" + (done.includes(t) ? 'ok' : '') + "'>" + (done.includes(t) ? '✓ ' : '') + t.join(' ') + '</i>').join('') + '</span></span>';
+};
+// Payloads with their level, plays and bonus this run; the one the current buffer makes is lit.
+const payTable = (now: Score) => '<p class="meta">' + Object.keys(PAYLOADS).length + ' payloads · the first that matches scores · patch.zip in the shop raises one</p>'
+  + "<table class='paytable'><thead><tr><th>payload</th><th>lv</th><th>played</th><th>per level</th><th>now</th></tr></thead><tbody>"
+  + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => {
+    const lv = payLevel(R, id), step = payEffect(id, 2)!;
+    return '<tr' + (now.pay?.[0] === id ? " class='now'" : '') + "><td><span class='pfile'>" + id + "<span class='fext'>.bin</span></span><br><span class='meta'>" + PAYLOADS[id].text + '</span>' + payEx(id) + '</td><td>' + lv + '</td><td>'
+      + (R.payPlays?.[id] ?? 0) + '</td><td>' + fmtEffect(step) + '</td><td>' + (fmtEffect(payEffect(id, lv) ?? {}) || '—') + '</td></tr>';
+  }).join('') + '</tbody></table>';
+
 function showCatalog(back?: (() => void) | null) {
   if (back !== undefined) catalogBack = back;
   const now = scoreMatrix(runCtx(), R), fired = new Map(now.fired);
@@ -788,6 +813,7 @@ function showCatalog(back?: (() => void) | null) {
     }).join('') + '</div>'
     : catalogTab === 'items' ? '<p class="meta">' + its.length + ' items · in your deck ' + R.items.length + "</p><div class='wares'>"
       + its.map((id) => ware(id, tag, R.items.includes(id) ? 'in deck' : money(ITEMS[id].price))).join('') + '</div>'
+    : catalogTab === 'payloads' ? payTable(now)
     : catalogTab === 'ice' ? '<p class="meta">' + Object.keys(ICE).length + " ICE rules · the SOC runs one from the company's pool; patches deploy more between iterations, into any room</p>"
       + (Object.keys(ICE) as IceId[]).map((id) => '<' + tag + " class='icebtn' data-ice='" + id + "'>" + iceRule(id, roomIce(R).includes(id) ? 'ICE · in this room' : 'ICE') + '</' + tag + '>').join('')
     : '<p class="meta">' + Object.keys(BOUNTIES).length + ' bonus objectives · one matrix per iteration carries one · meeting it lets you pick 1 of 2 rewards</p>'
@@ -800,16 +826,16 @@ function showCatalog(back?: (() => void) | null) {
   const devBar = !dev ? '' : "<div class='row devbar'><span>dev · click a card to install or remove it; items apply on the next deal; a bonus goes on this matrix</span>"
     + "<button class='btn' id='devCr'>+$10</button><button class='btn' id='devDeal'>Restart room</button>"
     + (!isBoss(R) || R.loop < LOOPS - 1 ? "<button class='btn' id='devRoom'>" + (isBoss(R) ? 'Next iteration' : 'Next room') + '</button>' : '') + '</div>';
-  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('bonuses') + tab('ice') + '</div>'
+  showResult(true, "<h2>Catalog</h2><div class='tabs'>" + tab('daemons') + tab('items') + tab('payloads') + tab('bonuses') + tab('ice') + '</div>'
     + "<input id='catSearch' class='catsearch' type='search' autocomplete='off' placeholder='search " + catalogTab + "' aria-label='Search " + catalogTab + "'>"
     + "<div class='catbody'>" + devBar + body + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
-  for (const t of ['daemons', 'items', 'bonuses', 'ice'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
+  for (const t of ['daemons', 'items', 'payloads', 'bonuses', 'ice'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
   // Search hides the entries whose text misses the query; the query stays across tabs and re-renders.
   const search = $('catSearch') as HTMLInputElement;
   const filter = () => {
     const q = catalogQuery.trim().toLowerCase();
-    $('modalBox').querySelectorAll<HTMLElement>('.dlist .dslot, .wares .ware, .catbody .icebtn, .blist .bounty')
+    $('modalBox').querySelectorAll<HTMLElement>('.dlist .dslot, .wares .ware, .catbody .icebtn, .blist .bounty, .paytable tbody tr')
       .forEach((el) => { el.style.display = q && !(el.textContent ?? '').toLowerCase().includes(q) ? 'none' : ''; });
   };
   search.value = catalogQuery;
@@ -987,7 +1013,7 @@ function showShop(restock = true) {
     + (R.charges ? "<span class='bnt'>bonus</span> ×2 data charge ×" + R.charges + ' · ' : '') + 'items stay for the whole run</p>' + owned(true)
     + "<div class='wares shelf'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
-      || "<div class='dslot empty'>sold out</div>") + '</div>' + "<div class='row'>"
+      || "<div class='dslot empty'>sold out</div>") + '</div>' + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
     + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (!rerollCost(R) ? '>Reroll · free' : R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
@@ -1004,7 +1030,93 @@ function showShop(restock = true) {
     b.onclick = () => { const id = b.dataset.sell as ItemId; if (id === 'socket' && R.daemons.length > DAEMON_SLOTS) showDrop(); else if (sell(R, id)) showShop(false); };
   });
   $('leaveShop').onclick = () => { R.bonus = []; enterSection(); };
+  wireZip();
   tilt($('modalBox'));
+}
+
+// patch.zip in the shop: a sealed archive; bought, it unzips and its payload patches decrypt, then one is kept.
+const ZIP_SVG = "<svg class='zip' viewBox='0 0 64 76' aria-hidden='true'><path class='zbody' d='M6 2h38l14 14v56a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/><path class='zfold' d='M44 2v14h14z'/><g class='zteeth'>"
+  + Array.from({ length: 9 }, (_, i) => "<rect class='" + (i % 2 ? 'r' : 'l') + "' x='" + (i % 2 ? 31 : 26) + "' y='" + (6 + i * 5) + "' width='7' height='3'/>").join('')
+  + "</g><g class='zpull'><rect x='27' y='8' width='10' height='14' rx='2'/><rect class='zdot' x='30' y='16' width='4' height='4' rx='1'/></g><text class='zext' x='32' y='68' text-anchor='middle'>.ZIP</text></svg>";
+let zipAnim = false, zipLast = '', zipFrom = 0; // zipFrom: the zone's height before the archive opened
+let zipTimers: number[] = [];
+// A patch card: the payload, its level jump, the bonus it reaches and an example. pveil covers it while it decrypts.
+const zipCard = ([id, n]: [string, number], i: number) => {
+  const p = id as PayloadId, lv = payLevel(R, p);
+  return "<button class='pcard" + (n > 1 ? ' big' : '') + "' data-zip='" + i + "'><b class='pname'>" + id + "<span class='fext'>.bin</span></b>"
+    + "<span class='pbody'>" + (n > 1 ? "<span class='bnt'>+2 levels</span>" : '') + '<span>Lv' + lv + ' → <b class="pto">Lv' + (lv + n) + '</b></span>'
+    + "<span class='meta'>" + fmtEffect(payEffect(p, lv + n) ?? {}) + "</span><span class='meta'>" + PAYLOADS[p].text + '</span>' + payEx(p) + '</span>'
+    + "<span class='pveil' aria-hidden='true'><span class='phex'></span><i class='pbar'><i></i></i></span></button>";
+};
+function zipZone() {
+  const head = "<p class='meta zhead'>patch.zip · 1 per shop · raises one payload for the rest of the run</p>";
+  if (R.zipOpen) return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'>" + ZIP_SVG.replace("class='zip'", "class='zip open'")
+    + "<p class='meta' id='zipNote'>" + R.zipOpen.length + ' payload patches · keep one</p></div><div class="zpicks">'
+    + R.zipOpen.map(zipCard).join('') + '</div></div>';
+  if (zipSold(R)) return "<div class='zipzone' id='zipZone'>" + head + "<p class='meta'>" + (zipLast || 'patch installed') + ' · the next patch.zip waits in the next shop</p></div>';
+  return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'><button class='zipbtn' id='buyZip'" + (R.credits < ZIP_PRICE ? ' disabled' : '') + '>' + ZIP_SVG
+    + "<span><b>patch.zip</b> · " + money(ZIP_PRICE) + "</span></button><p class='meta'>An encrypted archive with " + ZIP_PICKS + ' payload patches. Open it and keep one; some archives hold a +2 patch.</p></div></div>';
+}
+function wireZip() {
+  zipTimers.forEach(clearTimeout);
+  zipTimers = [];
+  document.getElementById('buyZip')?.addEventListener('click', () => { const h = $('zipZone').offsetHeight; if (buyZip(R)) { zipAnim = true; zipFrom = h; showShop(false); } });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-zip]').forEach((b) => {
+    b.onclick = () => {
+      const [id, n] = R.zipOpen![+b.dataset.zip!];
+      if (!pickZip(R, +b.dataset.zip!)) return;
+      zipLast = 'patched ' + payFile(id as PayloadId) + ' → Lv' + payLevel(R, id as PayloadId) + (n > 1 ? ' (+2)' : '');
+      showShop(false);
+    };
+  });
+  if (!zipAnim || !R.zipOpen) return;
+  zipAnim = false;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // Unzip: the zipper slides, the cards come out veiled in scrolling hex while their bars fill, then each one decrypts
+  // in turn (its name from hex, then its details); a +2 card flares. The cards keep their size throughout. Skip ends it at once.
+  const zone = $('zipZone'), zip = zone.querySelector('.zip')!, note = $('zipNote'), cards = [...zone.querySelectorAll<HTMLElement>('.pcard')];
+  const final = note.textContent;
+  const at = (ms: number, f: () => void) => zipTimers.push(window.setTimeout(f, ms));
+  // The zone grows from the sealed archive's height to the opened one's, instead of jumping.
+  const to = zone.offsetHeight;
+  zone.style.height = zipFrom + 'px';
+  zone.style.overflow = 'hidden';
+  void zone.offsetHeight;
+  zone.style.transition = 'height .45s ease';
+  zone.style.height = to + 'px';
+  const grown = (e: TransitionEvent) => {
+    if (e.target !== zone || e.propertyName !== 'height') return; // the zipper's own transitions bubble up here too
+    zone.style.height = zone.style.overflow = zone.style.transition = '';
+    zone.removeEventListener('transitionend', grown);
+  };
+  zone.addEventListener('transitionend', grown);
+  const HEX = '0123456789ABCDEF', hexRow = () => Array.from({ length: 16 }, () => HEX[Math.floor(Math.random() * 16)]).join('');
+  const reveal = (c: HTMLElement) => { c.classList.remove('enc', 'zhide'); c.querySelector('.phex')!.textContent = ''; };
+  let noise = 0;
+  const finish = () => {
+    zipTimers.forEach(clearTimeout); zipTimers = []; clearInterval(noise);
+    zip.classList.add('open'); note.textContent = final; cards.forEach(reveal); zone.querySelector('.zskip')?.remove();
+  };
+  zip.classList.remove('open');
+  zip.classList.add('shake');
+  note.textContent = 'decrypting patch.zip…';
+  cards.forEach((c) => c.classList.add('zhide', 'enc'));
+  zone.querySelector('.zstage')!.insertAdjacentHTML('beforeend', "<button class='btn zskip'>Skip ›</button>");
+  const skip = zone.querySelector<HTMLElement>('.zskip')!;
+  skip.onclick = (e) => { e.stopPropagation(); finish(); };
+  skip.focus();
+  zone.addEventListener('click', (e) => { if (zipTimers.length && !(e.target as HTMLElement).closest('[data-zip]')) finish(); });
+  noise = window.setInterval(() => cards.forEach((c) => { if (c.classList.contains('enc')) c.querySelector('.phex')!.textContent = [hexRow(), hexRow(), hexRow()].join('\n'); }), 70);
+  zipTimers.push(noise);
+  at(320, () => zip.classList.add('open'));
+  // Each bar fills from the card's entrance until its turn to decrypt.
+  cards.forEach((c, i) => at(500 + i * 120, () => { c.style.setProperty('--fill', 1000 + i * 330 + 'ms'); c.classList.remove('zhide'); }));
+  cards.forEach((c, i) => at(1500 + i * 450, () => {
+    reveal(c);
+    decrypt(c.querySelector<HTMLElement>('.pname'));
+    if (c.classList.contains('big')) c.classList.add('flare');
+  }));
+  at(1500 + cards.length * 450 + 300, finish);
 }
 
 // Selling the Co-processor with every slot full: pick the daemon that goes with it.
