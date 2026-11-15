@@ -1883,6 +1883,9 @@ function playBill(sc: Score, room: string, before: number, goal: number) {
   const w = [0, 0, 0];
   fx.forEach((e) => { data += e.flat ?? 0; boost += e.boost ?? 0; mult *= e.mult ?? 1; [data, num((1 + boost) * mult), Math.floor(data * (1 + boost) * mult)].forEach((v, i) => { w[i] = Math.max(w[i], String(v).length); }); });
   [td, tm, tt].forEach((el, i) => { el.style.minWidth = w[i] + 'ch'; });
+  // Big scores on phones: shrink the formula until its widest state fits the box.
+  const tf = q('.tf');
+  for (let fs = parseFloat(getComputedStyle(tf).fontSize); tf.scrollWidth > tf.clientWidth && fs > 14;) tf.style.fontSize = --fs + 'px';
   trv.style.minWidth = String(after).length + 'ch';
   data = 0; boost = 0; mult = 1;
   const timers: number[] = [];

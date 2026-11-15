@@ -795,7 +795,7 @@ button.unit{cursor:var(--hit)}
 .calc tr.pre{transform:translateX(-10px)}
 /* Tally: the big running formula, the room line and its bar under it. */
 .btally{position:relative;display:grid;justify-items:center;gap:8px;padding:14px 8px 12px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
-.tf{display:flex;align-items:baseline;gap:12px;font-family:"Chakra Petch",var(--mono);font-size:clamp(28px,7.5vw,44px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.tf{display:flex;min-width:0;max-width:100%;align-items:baseline;gap:.28em;font-family:"Chakra Petch",var(--mono);font-size:clamp(28px,7.5vw,44px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .tf i{font-style:normal;font-size:.6em;color:var(--muted)}
 .td{color:var(--data)}
 .tm{color:var(--boost)}
