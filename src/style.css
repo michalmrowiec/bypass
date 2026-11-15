@@ -875,6 +875,12 @@ button.unit{cursor:var(--hit)}
 /* Run dialogs: centered over the dimmed, locked board. */
 .overlay{position:fixed;inset:0;z-index:10;display:flex;padding:16px;overflow-y:auto;background:rgba(8,10,12,.74);backdrop-filter:blur(2px)}
 .modal{margin:auto;width:min(620px,100%);box-shadow:0 24px 80px rgba(0,0,0,.65)}
+/* View matrix: a minimize button in the dialog's top-right corner; the title keeps clear of it. */
+.result:has(>.vmcorner){position:relative}
+.result>.vmcorner{position:absolute;top:12px;right:12px;width:30px;height:26px;padding:0;display:grid;place-items:center;border:1px solid var(--line)}
+.result>.vmcorner:hover{border-color:var(--mint);color:var(--mint)}
+.vmcorner .mini{width:12px;height:2px;margin-top:8px;background:currentColor}
+.result:has(>.vmcorner) :is(h2,.vmcorner+p,.roomsum>p:first-child){padding-right:44px}
 .modal.win{box-shadow:0 24px 80px rgba(0,0,0,.65),0 0 48px -16px var(--mint)}
 .modal .row{justify-content:flex-end}
 /* Section intro route: rooms behind, the one being entered, rooms ahead; the link into the new room fills, then the room lights up. */

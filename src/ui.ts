@@ -2017,6 +2017,9 @@ function showResult(win: boolean, html: string) {
   $(run ? 'modal' : 'result').hidden = false;
   res.className = 'result' + (run ? ' modal' : '') + (win ? ' win' : '');
   res.innerHTML = html;
+  const vm = res.querySelector('#viewMatrix');
+  // View matrix: a minimize button in the dialog's top-right corner, like a window's.
+  if (vm) { vm.classList.add('vmcorner'); vm.innerHTML = "<i class='mini'></i>"; vm.setAttribute('aria-label', 'Minimize · view the matrix'); (vm as HTMLElement).dataset.tip = 'Minimize · view the matrix'; res.prepend(vm); }
   const h2 = res.querySelector('h2');
   if (h2) {
     if (run) h2.id = 'modalTitle';
