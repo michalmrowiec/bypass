@@ -428,13 +428,20 @@ button.ware{cursor:var(--hit)}
 .shelf .ware p{max-width:160px}
 .shelf .ware .price{margin-top:auto}
 .ware.poor{opacity:.42;cursor:not-allowed}
+/* Shop: reroll above the shelf on the right; the rack slot button ends your rack, filled mint when affordable. */
+.shelfbar{display:flex;justify-content:flex-end;margin:4px 0 -2px}
+.shelfbar .btn{display:inline-flex;align-items:center;gap:6px}
+.rrico{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.result .btn.go.slotbtn{align-self:stretch;border:1px solid var(--mint);background:var(--mint);color:var(--bg);font-weight:700;box-shadow:0 0 12px -3px var(--mint)}
+.result .btn.go.slotbtn:hover:not(:disabled){background:var(--mint);filter:brightness(1.12)}
+.result .btn.go.slotbtn:disabled{background:transparent;color:var(--muted);border-color:var(--line);box-shadow:none}
+.result .btn.go.slotbtn .cr{color:inherit}
 /* Phones: two wares per row, patch cards stacked. */
 @media (max-width:560px){
   .wares{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 8px}
   .ware .stage,.shelf .ware .stage{width:100%;height:76px}
   .ware .gear{width:min(124px,100%);height:auto}
   .ware p,.shelf .ware p{max-width:none}
-  .zpicks{grid-template-columns:minmax(0,1fr)}
   .dcard .vm{white-space:normal} /* long formulas (deflate) would push the card off screen */
 }
 /* Deck: a rack of hardware units, one U per item family; blanks show the free ones. */
@@ -728,6 +735,16 @@ button.unit{cursor:var(--hit)}
 @keyframes zshake{25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
 .zskip{margin-left:auto}
 .zpicks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
+/* Phones: patches stacked, full width; text on the left, the example on the right. */
+@media (max-width:720px){
+  .zpicks{grid-template-columns:minmax(0,1fr)}
+  .zpicks .pcard{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:start}
+  .zpicks .pcard .pbody{display:contents}
+  .zpicks .pcard>*,.zpicks .pcard .pbody>*{grid-column:1}
+  .zpicks .pcard .bnt{justify-self:start}
+  .zpicks .pcard .pex{grid-column:2;grid-row:1/span 6;align-self:center;margin:0}
+  .zpicks .pcard>.pveil{grid-column:1/-1;grid-row:1/-1} /* the veil still covers the whole card */
+}
 .pcard{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12px;text-align:left;cursor:var(--hit)}
 .pcard:hover{border-color:var(--data)}
 .pcard.big{border-color:var(--data)}

@@ -978,7 +978,8 @@ const owned = (shop = false) => {
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
   return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist dfold'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
-    + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>") + '</div></div>';
+    + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>")
+    + (shop && R.rack < RACK_MAX ? "<button class='btn go slotbtn' id='buySlot'" + (R.credits < slotCost(R) ? ' disabled' : '') + '>Rack slot +1 · ' + money(slotCost(R)) + '</button>' : '') + '</div></div>';
 };
 
 function showOffer() {
@@ -1010,19 +1011,20 @@ function showShop(restock = true) {
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
+  // Reroll sits above the shelf, on the right; the rack slot is the last chip of your rack (owned).
   showResult(true, "<h2>Black market</h2><p class='meta'>"
     + (R.charges ? "<span class='bnt'>bonus</span> ×2 data charge ×" + R.charges + ' · ' : '') + 'items stay for the whole run</p>' + owned(true)
-    + "<div class='wares shelf'>" + (R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
+    + (forSale(R).length > R.shelf.length ? "<div class='shelfbar'><button class='btn' id='reroll'" + (!rerollCost(R) ? '>' + REROLL_ICO + 'Reroll · free'
+      : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
+    + "<div class='wares shelf'>" + R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
-      || "<div class='dslot empty'>sold out</div>") + '</div>' + zipZone() + "<div class='row'>"
+    + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
-    + (R.rack < RACK_MAX ? "<button class='btn' id='buySlot'" + off(slotCost(R)) + '>Rack slot +1 · ' + cr(slotCost(R)) + '</button>' : '')
-    + (forSale(R).length > R.shelf.length ? "<button class='btn' id='reroll'" + (!rerollCost(R) ? '>Reroll · free' : R.freeRerolls ? "><span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>Reroll · ' + cr(rerollCost(R))) + '</button>' : '')
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
   $('shopCatalog').onclick = () => showCatalog(() => showShop(false));
   $('viewMatrix').onclick = () => peek(true);
-  $('modalBox').querySelectorAll<HTMLElement>('.ware').forEach((b, i) => {
+  $('modalBox').querySelectorAll<HTMLElement>('.shelf .ware').forEach((b, i) => {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
   document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
@@ -1035,6 +1037,7 @@ function showShop(restock = true) {
   tilt($('modalBox'));
 }
 
+const REROLL_ICO = "<svg class='rrico' viewBox='0 0 24 24' aria-hidden='true'><path d='M20 12a8 8 0 1 1-2.3-5.6'/><path d='M20 4v5h-5'/></svg>";
 // patch.zip in the shop: a sealed archive; bought, it unzips and its payload patches decrypt, then one is kept.
 const ZIP_SVG = "<svg class='zip' viewBox='0 0 64 76' aria-hidden='true'><path class='zbody' d='M6 2h38l14 14v56a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/><path class='zfold' d='M44 2v14h14z'/><g class='zteeth'>"
   + Array.from({ length: 9 }, (_, i) => "<rect class='" + (i % 2 ? 'r' : 'l') + "' x='" + (i % 2 ? 31 : 26) + "' y='" + (6 + i * 5) + "' width='7' height='3'/>").join('')
