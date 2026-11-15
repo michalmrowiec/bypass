@@ -34,8 +34,8 @@ Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
 |---|---|---|---|
 | **Kestrel Logistics** (spedycja) | Reception 5×5·1·20 → Offices 6×6·2·70 → Server Room 7×7·3·190 → SOC 7×7·2·160 | Firewall, Throttle, Blackout | + Corruption |
 | **Meridian Health** (szpital) | Lobby 6×6·1·35 → Wards 7×7·2·140 → Records 8×8·2·200 → SOC 8×8·2·270 | + Encryption | + Encryption |
-| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 1·30 · Mailroom 1·40 · Paralegals 1·50 · Partners 2·140 · **Archive 2·165 (porty)** · SOC 2·220 | + Honeypot, Dead cells | + Honeypot, Dead cells |
-| **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·80 · **Switching 5×5⇄5×5·2·100 (porty)** · Backbone 3·260 · SOC 3·330. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
+| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 1·35 · Mailroom 1·45 · Paralegals 1·55 · Partners 2·155 · **Archive 2·180 (porty)** · SOC 2·240 | + Honeypot, Dead cells | + Honeypot, Dead cells |
+| **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·90 · **Switching 5×5⇄5×5·2·115 (porty)** · Backbone 3·300 · SOC 3·380. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
 
 **Nowe rodzaje plansz wchodzą stopniowo:** najpierw jeden pokój w firmie, w następnej kilka, a dany rodzaj może dominować w jakiejś firmie. Porty: 1 pokój w Ashgrove, 2 w Argusie. Firma testowa **Lab** (tylko dev server) ma same plansze z portami.
 

@@ -14,7 +14,9 @@ export function initTips(): void {
     on = el;
     tip.textContent = el.dataset.tip ?? '';
     tip.hidden = false;
-    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    let r = el.getBoundingClientRect();
+    if (!r.width) { const g = document.createRange(); g.selectNodeContents(el); r = g.getBoundingClientRect(); } // display:contents rows have no box
+    const w = tip.offsetWidth, h = tip.offsetHeight;
     tip.style.left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8) + 'px';
     tip.style.top = (r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8) + 'px';
   };

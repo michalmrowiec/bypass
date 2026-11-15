@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, buyZip, pickZip, zipSold, ZIP_PRICE, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
@@ -238,14 +238,14 @@ function render() {
   const pay = S.mode === 'run' && !S.over ? payloadFor(runCtx()) : undefined;
   $('bufferLabel').textContent = 'buffer ' + buffer.length + '/' + l;
   $('payNow').hidden = S.mode !== 'run' || S.over;
-  $('payNow').innerHTML = pay ? 'payload ' + payName(pay, payLevel(R, pay)) + ' ' + (fmtEffect(payEffect(pay, payLevel(R, pay)) ?? {}) || "<span class='meta'>· Lv1 adds nothing yet</span>")
+  $('payNow').innerHTML = pay ? 'payload ' + payName(pay, payLevel(R, pay)) + ' ' + fmtEffect(payEffect(pay, payLevel(R, pay)))
     : "<span class='meta'>payload · upload a target to make one</span>";
   // Folded list of payloads under the buffer (run only): level, plays this run, bonus; the live one is lit.
   $('payPanel').hidden = S.mode !== 'run';
   if (S.mode === 'run') {
     $('payList').innerHTML = "<div class='phd'><span>payload</span><span>lv</span><span>played</span><span>bonus</span></div>"
       + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => "<div class='prow" + (id === pay ? ' now' : '') + "' data-tip='" + PAYLOADS[id].text + "'><span class='pfile'>" + id + '</span><span>'
-        + payLevel(R, id) + '</span><span>' + (R.payPlays?.[id] ?? 0) + '</span><span>' + (fmtEffect(payEffect(id, payLevel(R, id)) ?? {}) || '—') + '</span></div>').join('');
+        + payLevel(R, id) + '</span><span>' + (R.payPlays?.[id] ?? 0) + '</span><span>' + fmtEffect(payEffect(id, payLevel(R, id))) + '</span></div>').join('');
   }
   const has = (id: DaemonId) => S.mode === 'run' && R.daemons.includes(id);
   const cover = has('chain') || has('compressor') ? coverage(buffer, targets) : [];
@@ -788,12 +788,12 @@ const payEx = (id: PayloadId) => {
     + "</span><span class='ptg'>" + targets.map((t) => "<i class='" + (done.includes(t) ? 'ok' : '') + "'>" + (done.includes(t) ? '✓ ' : '') + t.join(' ') + '</i>').join('') + '</span></span>';
 };
 // Payloads with their level, plays and bonus this run; the one the current buffer makes is lit.
-const payTable = (now: Score) => '<p class="meta">' + Object.keys(PAYLOADS).length + ' payloads · the first that matches scores · patch.zip in the shop raises one</p>'
+const payTable = (now: Score) => '<p class="meta">' + Object.keys(PAYLOADS).length + ' payloads · only the highest that matches scores · patch.zip in the shop raises one</p>'
   + "<table class='paytable'><thead><tr><th>payload</th><th>lv</th><th>played</th><th>per level</th><th>now</th></tr></thead><tbody>"
   + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => {
-    const lv = payLevel(R, id), step = payEffect(id, 2)!;
+    const lv = payLevel(R, id), step = { flat: PAYLOADS[id].data, mult: 1 + PAYLOADS[id].mult };
     return '<tr' + (now.pay?.[0] === id ? " class='now'" : '') + "><td><span class='pfile'>" + id + "<span class='fext'>.bin</span></span><br><span class='meta'>" + PAYLOADS[id].text + '</span>' + payEx(id) + '</td><td>' + lv + '</td><td>'
-      + (R.payPlays?.[id] ?? 0) + '</td><td>' + fmtEffect(step) + '</td><td>' + (fmtEffect(payEffect(id, lv) ?? {}) || '—') + '</td></tr>';
+      + (R.payPlays?.[id] ?? 0) + '</td><td>' + fmtEffect(step) + '</td><td>' + fmtEffect(payEffect(id, lv)) + '</td></tr>';
   }).join('') + '</tbody></table>';
 
 function showCatalog(back?: (() => void) | null) {
@@ -1046,7 +1046,7 @@ const zipCard = ([id, n]: [string, number], i: number) => {
   const p = id as PayloadId, lv = payLevel(R, p);
   return "<button class='pcard" + (n > 1 ? ' big' : '') + "' data-zip='" + i + "'><b class='pname'>" + id + "<span class='fext'>.bin</span></b>"
     + "<span class='pbody'>" + (n > 1 ? "<span class='bnt'>+2 levels</span>" : '') + '<span>Lv' + lv + ' → <b class="pto">Lv' + (lv + n) + '</b></span>'
-    + "<span class='meta'>" + fmtEffect(payEffect(p, lv + n) ?? {}) + "</span><span class='meta'>" + PAYLOADS[p].text + '</span>' + payEx(p) + '</span>'
+    + "<span class='meta'>" + fmtEffect(payEffect(p, lv + n)) + "</span><span class='meta'>" + PAYLOADS[p].text + '</span>' + payEx(p) + '</span>'
     + "<span class='pveil' aria-hidden='true'><span class='phex'></span><i class='pbar'><i></i></i></span></button>";
 };
 function zipZone() {
@@ -1389,6 +1389,7 @@ function hackerFx(fx: SVGGElement) {
 // Entering run mode with a saved run: resume it, or abandon it for the company carousel.
 function showResume(sv: SavedRun, seed: number, back: Mode) {
   R = structuredClone(sv.R);
+  migratePayloads(R);
   R.matrix = -1; // a throwaway board behind the dialog, not the saved one
   dealMatrix();
   const rooms = sections(R);
@@ -1408,6 +1409,7 @@ function showResume(sv: SavedRun, seed: number, back: Mode) {
 
 function resumeRun(sv: SavedRun) {
   R = structuredClone(sv.R);
+  migratePayloads(R);
   if (sv.screen === 'intro') { R.matrix--; return enterSection(); }
   if (sv.screen !== 'matrix') {
     const keep = R.matrix;

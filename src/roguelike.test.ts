@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
+  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -95,14 +95,13 @@ describe('daemons', () => {
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, run('overflow', 'corner')).total).toBe(0);
   });
 
-  it('scores the first matching payload, its level adding data and mult', () => {
-    expect(scoreMatrix(ctx, run()).pay).toEqual(['linked', 1, {}]); // B is shared; level 1 adds nothing
-    expect(scoreMatrix(ctx, { ...run(), payLevels: { linked: 3 } }).total).toBe(56); // (35 + 16) × 1.1
-    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'] })).toBe('half_buffer'); // 4 of 8 slots
-    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'], l: 4 })).toBe('two_targets');
+  it('scores the highest matching payload, its level adding data and mult', () => {
+    expect(scoreMatrix(ctx, run()).pay).toEqual(['linked', 1, { flat: 5 }]); // B is shared; level 1 adds its data
+    expect(scoreMatrix(ctx, { ...run(), payLevels: { linked: 3 } }).total).toBe(55); // (35 + 15) × 1.1
+    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'], l: 4 })).toBe('multi');
     expect(payloadFor({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] })).toBe('all_linked');
     expect(payloadFor({ ...ctx, buf: ['X', 'Y', 'A', 'B'], targets: [['A', 'B'], ['X', 'Y']], l: 4 })).toBe('all_targets');
-    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'Q'], l: 3 })).toBe('one_target');
+    expect(payloadFor({ ...ctx, buf: ['A', 'B', 'Q'], l: 3 })).toBe('single');
     expect(payloadFor({ ...ctx, buf: ['Q'] })).toBeUndefined();
     // Every shown example makes its own payload.
     for (const [id, p] of Object.entries(PAYLOADS)) expect(payloadFor({ ...ctx, ...p.ex })).toBe(id);
@@ -124,32 +123,32 @@ describe('daemons', () => {
   });
 
   it('applies (data + flat) × (1 + boost) × mult', () => {
-    expect(scoreMatrix(ctx, run()).total).toBe(35);
-    expect(scoreMatrix(ctx, run('chain')).total).toBe(52); // B is shared: ×1.5
-    expect(scoreMatrix(ctx, run('overflow')).total).toBe(70); // 4 empty slots -> +1
-    expect(scoreMatrix(ctx, run('light', 'corner')).total).toBe(105); // ×2 ×1.5
+    expect(scoreMatrix(ctx, run()).total).toBe(40); // 35 + linked Lv1 5
+    expect(scoreMatrix(ctx, run('chain')).total).toBe(60); // B is shared: ×1.5
+    expect(scoreMatrix(ctx, run('overflow')).total).toBe(80); // 4 empty slots -> +1
+    expect(scoreMatrix(ctx, run('light', 'corner')).total).toBe(120); // ×2 ×1.5
     const five = { ...ctx, buf: [...ctx.buf, 'E'] };
     expect(scoreMatrix({ ...five, l: 9 }, run('light')).fired).toEqual([['light', { mult: 2 }]]); // half of 9 rounds up to 5
     expect(scoreMatrix(five, run('light')).fired).toEqual([]);
-    expect(scoreMatrix(ctx, run('longjump')).total).toBe(65); // two moves of length 4: +15 each
-    expect(scoreMatrix(ctx, run('zigzag')).total).toBe(52); // 4,2,4: one longer move -> +0.5
-    expect(scoreMatrix(ctx, run('circuit')).total).toBe(70); // ends at (0,2), in the first pick's row
+    expect(scoreMatrix(ctx, run('longjump')).total).toBe(70); // two moves of length 4: +15 each
+    expect(scoreMatrix(ctx, run('zigzag')).total).toBe(60); // 4,2,4: one longer move -> +0.5
+    expect(scoreMatrix(ctx, run('circuit')).total).toBe(80); // ends at (0,2), in the first pick's row
     expect(scoreMatrix({ ...ctx, path: ctx.path.slice(0, 3) }, run('circuit')).fired).toEqual([]);
-    expect(scoreMatrix(ctx, run('odometer')).total).toBe(52); // 4+2+4 = 10 cells: ×1.5
-    expect(scoreMatrix(ctx, run('compressor')).total).toBe(45); // B is shared: +10 data
-    expect(scoreMatrix(ctx, run('chain', 'compressor')).total).toBe(67);
+    expect(scoreMatrix(ctx, run('odometer')).total).toBe(60); // 4+2+4 = 10 cells: ×1.5
+    expect(scoreMatrix(ctx, run('compressor')).total).toBe(50); // B is shared: +10 data
+    expect(scoreMatrix(ctx, run('chain', 'compressor')).total).toBe(75);
     expect(scoreMatrix(ctx, run('fullstack')).fired).toEqual([]); // XY not uploaded
-    expect(scoreMatrix({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] }, run('fullstack')).total).toBe(99); // 45 × 2.2 (3 targets)
+    expect(scoreMatrix({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] }, run('fullstack')).total).toBe(116); // (45 + all_linked 8) × 2.2 (3 targets)
   });
 
   it('Cache stacks on roomy matrices, this one included, and resets when every target is uploaded', () => {
     const s = run('cache');
-    expect(scoreMatrix(ctx, s).total).toBe(43); // 4 empty slots: the first matrix already counts, ×1.25
+    expect(scoreMatrix(ctx, s).total).toBe(50); // 4 empty slots: the first matrix already counts, (35 + 5) × 1.25
     daemonsAfterMatrix(ctx, s, false);
     daemonsAfterMatrix(ctx, s, false);
     daemonsAfterMatrix({ ...ctx, l: 4 }, s, false); // full buffer: no stack, no reset
     expect(s.stacks.cache).toBe(2);
-    expect(scoreMatrix(ctx, s).total).toBe(61); // ×1.75
+    expect(scoreMatrix(ctx, s).total).toBe(70); // ×1.75
     const all = { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] };
     expect(scoreMatrix(all, s).fired).toEqual([]);
     daemonsAfterMatrix(all, s, false);
@@ -167,7 +166,7 @@ describe('daemons', () => {
     const s = run('silent', 'chain');
     s.section = 1;
     const { score, out } = finishMatrix(s, ctx, true);
-    expect([score.total, out]).toEqual([52, 'continue']);
+    expect([score.total, out]).toEqual([60, 'continue']);
     expect(score.fired).toEqual([['chain', { boost: 0.5 }]]);
     expect(s.earned).toEqual([['Silent daemon', 2], ['4 empty buffer slots (1 per 3)', 1]]);
   });
@@ -318,8 +317,8 @@ describe('matrix items', () => {
 
   it('a data node on the path adds +15 data', () => {
     const s = { ...newRunState(1), items: ['datanode'] as ItemId[] };
-    expect(scoreMatrix({ ...ctx, nodes: [[4, 0]] }, s)).toMatchObject({ flat: 15, total: 50, gear: [['datanode', { flat: 15 }]] });
-    expect(scoreMatrix({ ...ctx, nodes: [[1, 1]] }, s).flat).toBe(0);
+    expect(scoreMatrix({ ...ctx, nodes: [[4, 0]] }, s)).toMatchObject({ flat: 20, total: 55, gear: [['datanode', { flat: 15 }]] });
+    expect(scoreMatrix({ ...ctx, nodes: [[1, 1]] }, s).flat).toBe(5); // only linked's data
   });
 
   it('Priority multiplies the data of the first uploaded target, the richer one on a tie', () => {
@@ -394,8 +393,8 @@ describe('movement items', () => {
   it('a Bridge jump is no move for daemons', () => {
     const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
     const s = { ...newRunState(1), daemons: ['longjump'] as DaemonId[] };
-    expect(scoreMatrix(ctx, s).total).toBe(65);
-    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(50);
+    expect(scoreMatrix(ctx, s).total).toBe(73);
+    expect(scoreMatrix({ ...ctx, jumps: [3] }, s).total).toBe(58);
   });
 });
 
@@ -580,7 +579,7 @@ describe('economy', () => {
 
   it('Thumb drive adds data per uploaded target; Heatsink shortens Corruption', () => {
     const s = { ...newRunState(1), items: ['thumb'] as ItemId[] };
-    expect(scoreMatrix(ctx, s).total).toBe(41); // 2 of 3 uploaded: 35 + 2×3
+    expect(scoreMatrix(ctx, s).total).toBe(46); // 2 of 3 uploaded: 35 + linked 5 + 2×3
     expect(scoreMatrix({ ...ctx, buf: ['X'] }, s).total).toBe(0);
     expect(scoreMatrix(ctx, { ...s, items: ['thumb2'] }).gear).toEqual([['thumb2', { flat: 20 }]]);
     expect(scoreMatrix(ctx, { ...s, items: ['thumb3'] }).gear).toEqual([['thumb3', { flat: 50 }]]);
@@ -752,11 +751,14 @@ describe('round 3: All-in, Overtime, Repeater, rewards', () => {
     expect(claimReward(run(), 'clean', 'stack')).toBe('cash'); // no streak daemon
     claimReward(s, 'clean', 'double');
     expect([s.charges, s.bonus]).toEqual([1, ['stack', 'rerolls', 'double']]);
-    s.payPlays = { one_target: 1, linked: 3 };
+    s.payPlays = { single: 1, linked: 3 };
     const [pid, n] = rewardPatch(s);
     expect([pid, n === 2 || n === 3, rewardText(s, 'patch')]).toEqual(['linked', true, '+' + n + ' Lv to your most played payload (linked.bin)']);
     claimReward(s, 'clean', 'patch');
     expect(s.payLevels?.linked).toBe(1 + n);
+    const old = { ...run(), payLevels: { two_targets: 3, half_buffer: 2 }, payPlays: { one_target: 4 }, zipOpen: [['half_buffer', 1], ['one_target', 2]] as [string, number][] };
+    migratePayloads(old);
+    expect([old.payLevels, old.payPlays, old.zipOpen]).toEqual([{ multi: 3 }, { single: 4 }, [['single', 2]]]);
     const plain = finishMatrix(run(), { ...ctx }, false).score.total;
     expect(finishMatrix(run(), { ...ctx, charge: true }, false).score.total).toBe(2 * plain);
   });

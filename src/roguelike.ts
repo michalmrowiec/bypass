@@ -82,12 +82,12 @@ export const COMPANIES: Company[] = [{
   colLabel: (c) => 'F-' + String.fromCharCode(65 + c), // folder
   // Many small rooms: 5×5 matrices, where every dead or locked cell hurts.
   sections: [
-    { name: 'Lobby', quota: 30, matrices: 1, size: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 }, brief: 'A receptionist, a visitor log, and a kiosk that still runs the old client portal.' },
-    { name: 'Mailroom', quota: 40, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Scanners that email every document to a shared inbox.' },
-    { name: 'Paralegals', quota: 50, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Case files on network drives, passwords taped under keyboards.' },
-    { name: 'Partners', quota: 140, matrices: 2, size: { n: 5, lens: [3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Corner offices, laptops that never leave, phones that never lock.' },
-    { name: 'Archive', quota: 165, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Thirty years of settlements on paper and their digital twin, synced through two gateways.' },
-    { name: 'SOC', quota: 220, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'An outsourced SOC on a retainer. Small screens, sharp eyes.' },
+    { name: 'Lobby', quota: 35, matrices: 1, size: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 }, brief: 'A receptionist, a visitor log, and a kiosk that still runs the old client portal.' },
+    { name: 'Mailroom', quota: 45, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Scanners that email every document to a shared inbox.' },
+    { name: 'Paralegals', quota: 55, matrices: 1, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0 }, brief: 'Case files on network drives, passwords taped under keyboards.' },
+    { name: 'Partners', quota: 155, matrices: 2, size: { n: 5, lens: [3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Corner offices, laptops that never leave, phones that never lock.' },
+    { name: 'Archive', quota: 180, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Thirty years of settlements on paper and their digital twin, synced through two gateways.' },
+    { name: 'SOC', quota: 240, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [2], slack: 0 }, brief: 'An outsourced SOC on a retainer. Small screens, sharp eyes.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells'],
@@ -101,10 +101,10 @@ export const COMPANIES: Company[] = [{
   // Many matrices of many short targets, always throttled: links and buffer win here, empty-slot builds starve.
   always: ['throttle'],
   sections: [
-    { name: 'Call Center', quota: 80, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
-    { name: 'Switching', quota: 100, matrices: 2, size: { n: 5, lens: [2, 2, 3, 3], links: [1, 2], slack: 0, ports: 2 }, brief: 'Two switch racks that route every call in the region, patched into each other by hand.' },
-    { name: 'Backbone', quota: 260, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
-    { name: 'SOC', quota: 330, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
+    { name: 'Call Center', quota: 90, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
+    { name: 'Switching', quota: 115, matrices: 2, size: { n: 5, lens: [2, 2, 3, 3], links: [1, 2], slack: 0, ports: 2 }, brief: 'Two switch racks that route every call in the region, patched into each other by hand.' },
+    { name: 'Backbone', quota: 300, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
+    { name: 'SOC', quota: 380, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
   ],
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
@@ -496,36 +496,44 @@ export const streakOf = (id: DaemonId) => (DAEMONS[id] as Daemon).streak;
 // How long a daemon's effect lasts: one matrix, or a stack kept for the whole run.
 export const scopeOf = (id: DaemonId): 'matrix' | 'room' | 'run' => (DAEMONS[id] as Daemon).scope ?? (streakOf(id) ? 'run' : 'matrix');
 
-// --- Payloads: what a matrix uploaded. Only the first that matches scores; its level, kept for the run, adds data and mult.
+// --- Payloads: what a matrix uploaded. Only the highest that matches scores; its level, kept for the run, adds data and mult.
 // ex: a small buffer that makes this payload and no higher one, shown as its example (a test checks each).
 interface PayEx { buf: string[]; l: number; targets: string[][] }
 interface Payload { text: string; data: number; mult: number; met: (f: Facts) => boolean; ex: PayEx }
 const EX3 = [['7A', '1C'], ['E9', '55'], ['BD', '4F']];
 export const PAYLOADS = {
-  all_linked: { text: 'every target, 2+ of them sharing codes', data: 12, mult: 0.05, met: (f) => f.all && f.shared > 0,
+  all_linked: { text: 'every target, 2+ of them sharing codes', data: 8, mult: 0.05, met: (f) => f.all && f.shared > 0,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9', '55']] } },
-  all_targets: { text: 'every target', data: 10, mult: 0.05, met: (f) => f.all,
+  all_targets: { text: 'every target', data: 7, mult: 0.05, met: (f) => f.all,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['E9', '55']] } },
-  linked: { text: '2+ targets sharing codes', data: 8, mult: 0.05, met: (f) => f.shared > 0,
+  linked: { text: '2+ targets sharing codes', data: 5, mult: 0.05, met: (f) => f.shared > 0,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9'], ['BD', '4F']] } },
-  half_buffer: { text: 'an upload using at most half the buffer, rounded up', data: 5, mult: 0.05, met: (f) => f.light,
-    ex: { buf: ['7A', '1C', 'E9'], l: 6, targets: EX3 } },
-  two_targets: { text: '2+ targets', data: 5, mult: 0.05, met: (f) => f.done.length >= 2,
+  multi: { text: '2+ targets', data: 3, mult: 0.05, met: (f) => f.done.length >= 2,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: EX3 } },
-  one_target: { text: '1 target', data: 3, mult: 0.05, met: () => true,
+  single: { text: '1 target', data: 2, mult: 0.05, met: () => true,
     ex: { buf: ['55', '7A', '1C', 'E9'], l: 6, targets: EX3 } },
 } satisfies Record<string, Payload>;
 export type PayloadId = keyof typeof PAYLOADS;
 export const payFile = (id: PayloadId) => id + '.bin';
 export const payLevel = (s: RunState, id: PayloadId) => s.payLevels?.[id] ?? 1;
-// Level 1 adds nothing; each level above it adds the payload's data and mult step.
-export const payEffect = (id: PayloadId, lv: number): Effect | null => {
+// Like poker hands: level 1 already adds the payload's data; each level above it adds that data again and a mult step.
+export const payEffect = (id: PayloadId, lv: number): Effect => {
   const p = PAYLOADS[id];
-  return lv > 1 ? { flat: p.data * (lv - 1), mult: Math.round((1 + p.mult * (lv - 1)) * 100) / 100 } : null;
+  return { flat: p.data * lv, ...(lv > 1 && { mult: Math.round((1 + p.mult * (lv - 1)) * 100) / 100 }) };
 };
 const payOf = (f: Facts): PayloadId | undefined =>
   f.done.length ? (Object.keys(PAYLOADS) as PayloadId[]).find((id) => (PAYLOADS[id] as Payload).met(f)) : undefined;
 export const payloadFor = (ctx: MatrixCtx) => payOf(facts(ctx));
+// Saves from before multi/single: renamed payloads keep their levels and plays, half_buffer is dropped.
+const PAY_RENAME: Record<string, string> = { two_targets: 'multi', one_target: 'single' };
+export function migratePayloads(s: RunState): void {
+  for (const m of [s.payLevels, s.payPlays]) for (const k of Object.keys(m ?? {})) if (!(k in PAYLOADS)) {
+    if (PAY_RENAME[k]) m![PAY_RENAME[k]] = m![k];
+    delete m![k];
+  }
+  s.zipOpen = s.zipOpen?.map(([id, n]): [string, number] => [PAY_RENAME[id] ?? id, n]).filter(([id]) => id in PAYLOADS);
+  if (!s.zipOpen?.length) s.zipOpen = undefined;
+}
 
 // Restarting a matrix breaks an Uptime streak.
 export function restartMatrix(s: RunState): void {
@@ -534,7 +542,7 @@ export function restartMatrix(s: RunState): void {
 }
 
 // gear: shop items that added something to this matrix, like daemons in fired.
-// pay: the payload this matrix scores, its level and what that level adds (nothing at level 1).
+// pay: the payload this matrix scores, its level and what that level adds.
 export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean; pay?: [PayloadId, number, Effect] }
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
@@ -542,7 +550,7 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const sc: Score = { base: matrixData(ctx.buf, ctx.targets, ctx.worth), flat: 0, boost: 0, mult: 1, total: 0, fired: [], gear: [], ice: [] };
   const pay = payOf(f);
   if (pay) {
-    const lv = payLevel(s, pay), e = payEffect(pay, lv) ?? {};
+    const lv = payLevel(s, pay), e = payEffect(pay, lv);
     sc.flat += e.flat ?? 0;
     sc.mult *= e.mult ?? 1;
     sc.pay = [pay, lv, e];
