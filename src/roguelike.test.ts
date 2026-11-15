@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
+  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -97,7 +97,7 @@ describe('daemons', () => {
 
   it('scores the first matching payload, its level adding data and mult', () => {
     expect(scoreMatrix(ctx, run()).pay).toEqual(['linked', 1, {}]); // B is shared; level 1 adds nothing
-    expect(scoreMatrix(ctx, { ...run(), payLevels: { linked: 3 } }).total).toBe(61); // (35 + 16) × 1.2
+    expect(scoreMatrix(ctx, { ...run(), payLevels: { linked: 3 } }).total).toBe(56); // (35 + 16) × 1.1
     expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'] })).toBe('half_buffer'); // 4 of 8 slots
     expect(payloadFor({ ...ctx, buf: ['A', 'B', 'X', 'Y'], l: 4 })).toBe('two_targets');
     expect(payloadFor({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X', 'Y'] })).toBe('all_linked');
@@ -752,6 +752,11 @@ describe('round 3: All-in, Overtime, Repeater, rewards', () => {
     expect(claimReward(run(), 'clean', 'stack')).toBe('cash'); // no streak daemon
     claimReward(s, 'clean', 'double');
     expect([s.charges, s.bonus]).toEqual([1, ['stack', 'rerolls', 'double']]);
+    s.payPlays = { one_target: 1, linked: 3 };
+    const [pid, n] = rewardPatch(s);
+    expect([pid, n === 2 || n === 3, rewardText(s, 'patch')]).toEqual(['linked', true, '+' + n + ' Lv to your most played payload (linked.bin)']);
+    claimReward(s, 'clean', 'patch');
+    expect(s.payLevels?.linked).toBe(1 + n);
     const plain = finishMatrix(run(), { ...ctx }, false).score.total;
     expect(finishMatrix(run(), { ...ctx, charge: true }, false).score.total).toBe(2 * plain);
   });

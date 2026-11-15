@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, buyZip, pickZip, zipSold, ZIP_PRICE, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -778,6 +778,7 @@ const REWARD_NOTES: Record<RewardId, string> = {
   stack: 'only offered with a streak daemon installed',
   legend: 'the next daemon offer leads with a legendary (a rare if none is left)',
   double: 'spend it by hand on a later matrix to double its data',
+  patch: 'levels the payload you played most this run, named on the button; usually +2, 1 in 4 times +3',
 };
 // A payload's example: a mini buffer (codes inside uploaded targets lit, shared ones brighter, empty slots dashed)
 // and its targets, ticked when uploaded.
@@ -1760,10 +1761,10 @@ function rollReward(bounty: BountyId, picks: RewardId[]) {
   setTimeout(() => {
     clearInterval(spin);
     reel.textContent = 'pick one';
-    btn.outerHTML = "<span class='bpicks'>" + picks.map((p) => "<button class='btn' data-pick='" + p + "'>" + REWARDS[p] + '</button>').join('') + '</span>';
+    btn.outerHTML = "<span class='bpicks'>" + picks.map((p) => "<button class='btn' data-pick='" + p + "'>" + rewardText(R, p) + '</button>').join('') + '</span>';
     row.querySelectorAll<HTMLElement>('[data-pick]').forEach((b) => {
       b.onclick = () => {
-        reel.textContent = REWARDS[claimReward(R, bounty, b.dataset.pick as RewardId)];
+        reel.textContent = rewardText(R, claimReward(R, bounty, b.dataset.pick as RewardId));
         row.querySelector('.bpicks')?.remove();
         $('modalBox').querySelectorAll<HTMLButtonElement>('.row .btn').forEach((x) => { x.disabled = false; });
       };

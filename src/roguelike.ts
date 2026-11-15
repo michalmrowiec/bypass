@@ -502,13 +502,13 @@ interface PayEx { buf: string[]; l: number; targets: string[][] }
 interface Payload { text: string; data: number; mult: number; met: (f: Facts) => boolean; ex: PayEx }
 const EX3 = [['7A', '1C'], ['E9', '55'], ['BD', '4F']];
 export const PAYLOADS = {
-  all_linked: { text: 'every target, 2+ of them sharing codes', data: 12, mult: 0.15, met: (f) => f.all && f.shared > 0,
+  all_linked: { text: 'every target, 2+ of them sharing codes', data: 12, mult: 0.05, met: (f) => f.all && f.shared > 0,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9', '55']] } },
-  all_targets: { text: 'every target', data: 10, mult: 0.1, met: (f) => f.all,
+  all_targets: { text: 'every target', data: 10, mult: 0.05, met: (f) => f.all,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['E9', '55']] } },
-  linked: { text: '2+ targets sharing codes', data: 8, mult: 0.1, met: (f) => f.shared > 0,
+  linked: { text: '2+ targets sharing codes', data: 8, mult: 0.05, met: (f) => f.shared > 0,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9'], ['BD', '4F']] } },
-  half_buffer: { text: 'an upload using at most half the buffer, rounded up', data: 5, mult: 0.1, met: (f) => f.light,
+  half_buffer: { text: 'an upload using at most half the buffer, rounded up', data: 5, mult: 0.05, met: (f) => f.light,
     ex: { buf: ['7A', '1C', 'E9'], l: 6, targets: EX3 } },
   two_targets: { text: '2+ targets', data: 5, mult: 0.05, met: (f) => f.done.length >= 2,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: EX3 } },
@@ -666,8 +666,20 @@ export const REWARDS = {
   stack: '+' + BOUNTY_STACKS + ' stacks on every streak daemon',
   legend: 'a legendary daemon in the next offer',
   double: 'a ×2 data charge for a later matrix',
+  patch: '+2 or +3 Lv to your most played payload',
 };
 export type RewardId = keyof typeof REWARDS;
+export const BOUNTY_PATCH_ODDS = 0.25; // chance the patch reward adds 3 levels instead of 2
+// The patch reward: the payload played most this run (ties: the stronger one) and its levels, fixed per matrix.
+export const rewardPatch = (s: RunState): [PayloadId, number] => {
+  const id = (Object.keys(PAYLOADS) as PayloadId[]).reduce((a, b) => ((s.payPlays?.[b] ?? 0) > (s.payPlays?.[a] ?? 0) ? b : a));
+  return [id, rng(hashStr(s.seed + '/patch/' + s.matrix))() < BOUNTY_PATCH_ODDS ? 3 : 2];
+};
+export const rewardText = (s: RunState, id: RewardId) => {
+  if (id !== 'patch') return REWARDS[id];
+  const [p, n] = rewardPatch(s);
+  return '+' + n + ' Lv to your most played payload (' + payFile(p) + ')';
+};
 // The two rewards a met bonus offers, drawn per matrix; stacks only come up with a streak daemon installed.
 export const rewardsFor = (seed: number, daemons: DaemonId[] = []): RewardId[] => {
   const ids = (Object.keys(REWARDS) as RewardId[]).filter((id) => id !== 'stack' || daemons.some((d) => streakOf(d)));
@@ -682,6 +694,7 @@ function payReward(s: RunState, why: string, id: RewardId): RewardId {
   else if (id === 'legend') { s.legendOffer = true; note(REWARDS.legend); }
   else if (id === 'double') { s.charges = (s.charges ?? 0) + 1; note(REWARDS.double); }
   else if (id === 'stack') { for (const d of streaks) s.stacks[d] = (s.stacks[d] ?? 0) + BOUNTY_STACKS; note(REWARDS.stack); }
+  else if (id === 'patch') { const [p, n] = rewardPatch(s); note(rewardText(s, id)); (s.payLevels ??= {})[p] = payLevel(s, p) + n; }
   else earn(s, why, BOUNTY_CREDITS);
   (s.bonus ??= []).push(id);
   return id;
