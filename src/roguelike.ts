@@ -68,7 +68,7 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'throttle', 'blackout'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption'],
-  entries: [standard('wifi', 'Guest Wi-Fi'),
+  entries: [standard('wifi', 'Guest Wi‑Fi'),
     { id: 'courier', name: 'Courier tablet', plus: 'Start with a random v1 tool: Rewind, Loopback, Bridge or Mux.', minus: 'The shop shelf holds 3 modules instead of 4.',
       startTool: ['rewind', 'loopback1', 'bridge', 'mux'], shelf: 3 },
     { id: 'dock', name: 'Dock scanner', plus: 'single.bin and multi.bin start at Lv3.', minus: 'Quotas +15%.', payLevels: { single: 3, multi: 3 }, quotaMult: 1.15 }],

@@ -11,10 +11,10 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, type Family, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
-  bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
+  bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
 } from './storage';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
@@ -867,7 +867,7 @@ function matrixSummary(bill: Score, credits: string) {
 function roomSummary(bill: Score, credits: string) {
   const sec = sections(R)[R.section], goal = quota(R);
   const rows = R.scores[R.section].map((d, j) => '<tr><td>matrix ' + (j + 1) + "</td><td><span class='vd'>" + d + '</span></td></tr>').join('');
-  return "<div class='roomsum'><p class='meta'>" + COMPANIES[R.company].name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + sec.name + ' breached</h2>' + why()
+  return "<div class='roomsum'><p class='meta'>" + runName() + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + sec.name + ' breached</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
     + "<table class='calc'>" + rows + "<tr class='sum'><td>room</td><td><b>" + R.data + '</b> / ' + goal + DI + (R.data > goal ? ' <small>+' + (R.data - goal) + ' over</small>' : '')
     + '</td></tr></table>' + (overtimeNote(R.data) && "<p class='tallyline'>" + overtimeNote(R.data) + '</p>') + credits + '</div>';
@@ -876,14 +876,14 @@ function roomSummary(bill: Score, credits: string) {
 // End of the run, won or lost: rooms by iteration, totals, the build, and the company record.
 function runSummary(won: boolean, bill: Score, credits: string) {
   const co = COMPANIES[R.company], total = R.total ?? 0, ms = R.ms ?? 0;
-  const prev = bestRun(co.id), fresh = recordBest(co.id, { data: total, ms, won });
+  const key = entryKey(co, entryOf(R).id), prev = bestRun(key), fresh = recordBest(key, { data: total, ms, won });
   // ×quota per room shows where the run was loose or tight.
   const rows = (R.log ?? []).map(([loop, room, data]) => {
     const goal = quota({ ...R, loop }, room);
     return '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data + '</span> / ' + goal + DI + ' <small>×' + (data / goal).toFixed(2) + '</small></td></tr>';
   }).join('');
   const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
-  return "<div class='roomsum'><p class='meta'>" + co.name + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
+  return "<div class='roomsum'><p class='meta'>" + runName() + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
     + "<table class='calc'>" + rows + "<tr class='sum'><td>total</td><td><b>" + total + '</b>' + DI + ' · ' + fmt(ms) + '</td></tr>'
     + '<tr><td>best matrix</td><td>' + (R.best ?? 0) + '</td></tr></table>'
@@ -953,7 +953,7 @@ function showPatch() {
   checkpoint('patch');
   const fresh = R.patches.filter((p) => p.loop === R.loop), ids = [...new Set(fresh.map((p) => p.ice))];
   const hardened = (id: IceId) => id === 'corruption' && R.patches.filter((x) => x.ice === id).length > 1;
-  showResult(false, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + "</p><h2>Patch notes</h2><ul class='patch'>"
+  showResult(false, "<p class='meta'>" + runName() + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + "</p><h2>Patch notes</h2><ul class='patch'>"
     + '<li>Quotas ×' + QUOTA_GROWTH + ': ' + sections(R).map((_, i) => quota(R, i)).join(' / ') + '</li>'
     + ids.map((id) => "<li>" + (hardened(id) ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[id].name + '</b>: ' + ICE[id].text
       + (id === 'corruption' ? '; it now ' + burnText(burnOf(R, fresh.find((p) => p.ice === id)!.room)) : '') + '</li>').join('')
@@ -1157,6 +1157,48 @@ const iceTags = (ids: IceId[], fresh: IceId[] = []) => ids.map((id) => "<i class
 // Contract carousel: one 3D card per company (logo front, rooms and ICE on the back). The next locked company shows in full,
 // the slots after it stay classified.
 const FIRM_SLOTS = 5;
+const runName = () => COMPANIES[R.company].name + ' · ' + entryOf(R).name;
+const attr = (t: string) => t.replace(/'/g, '&#39;');
+// Entry tiles under the carousel: open ones pick the run's entry, the next locked one shows in full, the one after stays classified.
+const ENTRY_PICK = 'bypass:entry';
+function pickedEntry(co: Company) {
+  const open = entriesOpen(wins(co.id)), i = co.entries.findIndex((e) => e.id === load<Record<string, string>>(ENTRY_PICK)?.[co.id]);
+  return co.entries[i > 0 && i < open ? i : 0];
+}
+function entryTiles(co: Company | undefined, i: number) {
+  if (!co || !isOpen(i) || co.entries.length < 2) return '';
+  const open = entriesOpen(wins(co.id)), pick = pickedEntry(co);
+  return co.entries.map((e, k) => {
+    if (k > open) return "<span class='btn etile locked'><b>???</b><small>classified</small></span>";
+    const best = k < open ? bestRun(entryKey(co, e.id)) : undefined;
+    const state = k >= open ? 'breach once more to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
+    const tag = k < open ? 'button' : 'span';
+    return '<' + tag + (k < open ? " data-entry='" + e.id + "'" : '') + " class='btn etile" + (k >= open ? ' locked' : e === pick ? ' sel' : '')
+      + "' data-tip='" + attr('+ ' + e.plus + ' − ' + e.minus) + "'><b>" + e.name + '</b><small>' + state + '</small></' + tag + '>';
+  }).join('');
+}
+// A win counts toward the company's entries; the first one also opens the next company.
+function winUnlocks(co: Company, next: Company | undefined) {
+  const first = !breached().includes(co.id), was = entriesOpen(wins(co.id)), now = entriesOpen(recordWin(co.id));
+  const fresh = now > was ? co.entries[now - 1] : undefined;
+  return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + fresh.name + '</b> + ' + fresh.plus + ' − ' + fresh.minus + '</p>' : '')
+    + (first && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
+}
+// Entries that ask for a choice before the first room (boss ICE or daemon family) get one dialog per choice.
+const RARITY_ORDER = ['common', 'rare', 'legendary'];
+function startChoice() {
+  const need = needsStartChoice(R);
+  if (!need) return enterSection();
+  const ids = Object.keys(DAEMONS) as DaemonId[];
+  const families = [...new Set(ids.map((id) => DAEMONS[id].family))] as Family[];
+  const names = (f: Family) => ids.filter((id) => DAEMONS[id].family === f)
+    .sort((a, b) => RARITY_ORDER.indexOf(rarityOf(a)) - RARITY_ORDER.indexOf(rarityOf(b))).map((id) => DAEMONS[id].name).join(', ');
+  const opts = need === 'ice' ? COMPANIES[R.company].ice.map((id) => [id, ICE[id].name, ICE[id].text]) : families.map((f) => [f, f, names(f)]);
+  showResult(true, "<p class='meta'>" + runName() + '</p><h2>' + (need === 'ice' ? 'Pick the boss ICE' : 'Pick a daemon family') + "</h2><div class='choice'>"
+    + opts.map(([id, name, text]) => "<button class='btn' data-pick='" + id + "'><b>" + name + "</b><span class='meta'>" + text + '</span></button>').join('') + '</div>');
+  for (const b of $('modalBox').querySelectorAll<HTMLElement>('[data-pick]'))
+    b.onclick = () => { if (need === 'ice' ? setBossIce(R, b.dataset.pick as IceId) : setFamily(R, b.dataset.pick as Family)) startChoice(); };
+}
 const isOpen = (i: number) => companyOpen(breached(), i);
 let firmAt = 0;
 const firmCard = (co: Company | undefined, i: number) => {
@@ -1206,11 +1248,13 @@ function showCompanies(seed: number, back: Mode) {
   const shown = (i: number) => (i <= COMPANIES.findIndex((_, j) => !isOpen(j)) || isOpen(i) ? COMPANIES[i] : undefined);
   showResult(true, "<h2>Choose a target</h2><p class='meta'>one company per run · click a card for its rooms and ICE</p><div class='carousel'>"
     + Array.from({ length: n }, (_, i) => firmCard(shown(i), i)).join('')
-    + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div>"
+    + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div><div class='entries' id='entries'></div>"
     + "<div class='row'>" + (import.meta.env.DEV ? "<button class='btn devbtn' id='devUnlock'>dev · " + (breached().length ? 'lock all' : 'unlock all') + '</button>' : '')
     + "<button class='btn' id='briefing'><span class='ibadge' aria-hidden='true'>i</span>Briefing</button><button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
   document.getElementById('devUnlock')?.addEventListener('click', () => {
-    setBreached(breached().length ? [] : COMPANIES.map((c) => c.id));
+    const lock = breached().length > 0;
+    setBreached(lock ? [] : COMPANIES.map((c) => c.id));
+    setWins(lock ? {} : Object.fromEntries(COMPANIES.map((c) => [c.id, 2])));
     showCompanies(seed, back);
   });
   const close = () => setMode(back === 'run' ? 'daily' : back);
@@ -1231,6 +1275,7 @@ function showCompanies(seed: number, back: Mode) {
     const start = $('startFirm') as HTMLButtonElement;
     start.disabled = !COMPANIES[firmAt] || !isOpen(firmAt);
     start.textContent = start.disabled ? 'Locked' : 'Start ' + COMPANIES[firmAt].name + ' ›';
+    $('entries').innerHTML = entryTiles(COMPANIES[firmAt], firmAt);
   };
   const go = (i: number) => { firmAt = Math.max(0, Math.min(n - 1, i)); place(); };
   // Drag or swipe sideways to turn the carousel; a drag never counts as a click.
@@ -1280,7 +1325,13 @@ function showCompanies(seed: number, back: Mode) {
     };
     c.onpointerleave = () => { t.style.transform = ''; c.querySelector('.fmap')?.classList.remove('hot'); };
   });
-  $('startFirm').onclick = () => { R = newRunState(seed, firmAt); enterSection(); };
+  $('startFirm').onclick = () => { R = newRunState(seed, firmAt, pickedEntry(COMPANIES[firmAt]).id); startChoice(); };
+  $('entries').onclick = (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('.etile[data-entry]');
+    if (!t) return;
+    save(ENTRY_PICK, { ...load<Record<string, string>>(ENTRY_PICK), [COMPANIES[firmAt].id]: t.dataset.entry });
+    place();
+  };
   $('cPrev').onclick = () => go(firmAt - 1);
   $('cNext').onclick = () => go(firmAt + 1);
   $('modal').onkeydown = (e) => {
@@ -1396,7 +1447,7 @@ function showResume(sv: SavedRun, seed: number, back: Mode) {
   R.matrix = -1; // a throwaway board behind the dialog, not the saved one
   dealMatrix();
   const rooms = sections(R);
-  showResult(true, "<p class='meta'>saved run</p><h2>Resume contract</h2><p>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS
+  showResult(true, "<p class='meta'>saved run</p><h2>Resume contract</h2><p>" + runName() + ' · iteration ' + (R.loop + 1) + '/' + LOOPS
     + ' · ' + rooms[R.section].name + ' ' + (R.section + 1) + '/' + rooms.length + "</p><p class='meta'>credits " + money(R.credits) + '</p>' + owned()
     + "<div class='row'><button class='btn' id='closeResume'>Close</button><button class='btn' id='abandonRun'>Abandon</button>"
     + "<button class='btn go' id='resumeRun'>Resume ›</button></div>");
@@ -1442,10 +1493,11 @@ function enterSection() {
   const sec = rooms[R.section];
   const at = (i: number) => (i < R.section ? ' done' : i === R.section ? ' now' : '');
   const route = rooms.map((s, i) => (i ? "<i class='link" + at(i) + "'></i>" : '') + "<span class='node" + at(i) + "'>" + s.name + '</span>').join('');
-  showResult(true, "<p class='meta'>" + COMPANIES[R.company].name + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + ' · section ' + (R.section + 1) + '/' + rooms.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
+  showResult(true, "<p class='meta'>" + runName() + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + ' · section ' + (R.section + 1) + '/' + rooms.length + '</p><h2>' + sec.name + "</h2><div class='route'>"
     + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + roomSize(sec.size) + ' · ' + sec.matrices
     + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + DI + '</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
+    + "<p class='meta'>entry · <b>" + entryOf(R).name + '</b>: + ' + entryOf(R).plus + ' − ' + entryOf(R).minus + '</p>'
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
   $('breach').onclick = () => {
     if (cur) { cur.screen = 'matrix'; saveRun(cur); }
@@ -1730,7 +1782,7 @@ function finish(sc: number, disconnected = false) {
         + "<button class='btn' id='claim'>Roll reward</button></div>"
       : "<p class='meta'>bonus " + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[M.bounty].name + '</p>';
     const credits = R.earned.map(line).join('') + bonus
-      + (out === 'win' && recordBreach(co.id) && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
+      + (out === 'win' ? winUnlocks(co, next) : '');
     const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button>" + SUM_CATALOG + "<button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
       ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›').replace("<button class='btn go'", (canExitRoom(R)
@@ -1844,7 +1896,7 @@ function shareText(rec: DailyRecord) {
     + bars + ' ' + rec.score + '/3 · try ' + rec.tries + '/' + MAX_TRIES + ' · ' + fmt(rec.time) + siteLine();
 }
 
-const runShareText = (won: boolean) => 'ROOTRUN · ' + COMPANIES[R.company].name + (won ? ' ✅' : ' ❌') + '\n' + shareSquares(R).join('\n')
+const runShareText = (won: boolean) => 'ROOTRUN · ' + runName() + (won ? ' ✅' : ' ❌') + '\n' + shareSquares(R).join('\n')
   + '\n' + (R.total ?? 0) + ' data · ' + fmt(R.ms ?? 0) + ' · best ' + (R.best ?? 0) + siteLine();
 
 const resultHtml = (rec: DailyRecord) =>
