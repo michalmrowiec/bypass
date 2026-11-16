@@ -28,7 +28,16 @@ export interface Company {
   id: string; name: string; text: string; codes: string[]; sections: Section[]; ice: IceId[]; patches: IceId[]; always?: IceId[];
   rowLabel?: (r: number) => string; colLabel?: (c: number) => string;
   dev?: boolean; // test company: dev server only, open from the start
+  entries: Entry[]; // [0] is the default; each win in the company opens the next one
 }
+// Entry vector: how the run breaks in, one plus and one minus. startTool: one of these, drawn from the run seed.
+export interface Entry {
+  id: string; name: string; plus: string; minus: string;
+  startItems?: ItemId[]; startTool?: ItemId[]; payLevels?: Partial<Record<PayloadId, number>>; quotaMult?: number;
+  shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
+  noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean; familyLock?: boolean;
+}
+const standard = (id: string, name: string): Entry => ({ id, name, plus: 'The standard contract.', minus: 'No credits for empty buffer slots (use a Miner).' });
 // Test bench for new board shapes, with no ICE; becomes a real company once the shape works.
 const LAB: Company = {
   id: 'lab',
@@ -43,6 +52,7 @@ const LAB: Company = {
   ],
   ice: [],
   patches: [],
+  entries: [standard('bench', 'Bench')],
 };
 
 export const COMPANIES: Company[] = [{
@@ -58,6 +68,10 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'throttle', 'blackout'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption'],
+  entries: [standard('wifi', 'Guest Wi-Fi'),
+    { id: 'courier', name: 'Courier tablet', plus: 'Start with a random v1 tool: Rewind, Loopback, Bridge or Mux.', minus: 'The shop shelf holds 3 modules instead of 4.',
+      startTool: ['rewind', 'loopback1', 'bridge', 'mux'], shelf: 3 },
+    { id: 'dock', name: 'Dock scanner', plus: 'single.bin and multi.bin start at Lv3.', minus: 'Quotas +15%.', payLevels: { single: 3, multi: 3 }, quotaMult: 1.15 }],
 }, {
   id: 'meridian',
   name: 'Meridian Health',
@@ -73,6 +87,10 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
+  entries: [standard('nurse', 'Nurse station'),
+    { id: 'nightshift', name: 'Night shift', plus: 'Daemon offers show 4 cards instead of 3.', minus: 'Modules, patch.zip and rack slots cost $1 more.', offer: 4, priceDelta: 1 },
+    { id: 'phishing', name: 'Phishing', plus: 'linked.bin and all_linked.bin start at Lv3.', minus: 'No Disconnect: a matrix runs until no target is left in reach.',
+      payLevels: { linked: 3, all_linked: 3 }, noDisconnect: true }],
 }, {
   id: 'ashgrove',
   name: 'Ashgrove & Pike',
@@ -91,6 +109,10 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells'],
+  entries: [standard('portal', 'Client portal'),
+    { id: 'phone', name: "Partner's phone", plus: 'Start with a Burner SIM.', minus: 'Dead cells in every room.', startItems: ['sim'], always: ['deadcells'] },
+    { id: 'papertrail', name: 'Paper trail', plus: 'You pick the boss ICE from the company pool at the start.', minus: 'Every patch between iterations adds 2 ICE rules instead of 1.',
+      pickBossIce: true, doublePatch: true }],
 }, {
   id: 'argus',
   name: 'Argus Telecom',
@@ -108,17 +130,26 @@ export const COMPANIES: Company[] = [{
   ],
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
-}, ...(import.meta.env.DEV ? [LAB] : [])];
+  entries: [standard('shared', 'Shared login'),
+    { id: 'signal', name: 'Signal flaw', plus: 'Every payload starts at Lv2.', minus: 'Daemon offers come from one family, picked at the start.',
+      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, familyLock: true },
+    { id: 'fibre', name: 'Fibre tap', plus: 'Start with Linker v1.', minus: 'Quotas +15%.', startItems: ['linker1'], quotaMult: 1.15 }],
+},...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || !!COMPANIES[i]?.dev || breached.includes(COMPANIES[i - 1]?.id);
 export const sections = (s: RunState) => COMPANIES[s.company].sections;
+// An unknown or missing id (saves from before entries) plays the default entry.
+export const entryOf = (s: { company: number; entry?: string }): Entry => {
+  const all = COMPANIES[s.company].entries;
+  return all.find((e) => e.id === s.entry) ?? all[0];
+};
 export const isBoss = (s: RunState) => s.section === sections(s).length - 1;
 
 // Iterations: after the boss the company patches itself and the rooms come round again, quotas doubled; the last one wins.
 export const LOOPS = 3;
 export const QUOTA_GROWTH = 2.5;
 // Rounded to 5 so later iterations read as clean numbers.
-export const quota = (s: RunState, i = s.section) => Math.round((sections(s)[i].quota * QUOTA_GROWTH ** s.loop) / 5) * 5;
+export const quota = (s: RunState, i = s.section) => Math.round((sections(s)[i].quota * QUOTA_GROWTH ** s.loop * (entryOf(s).quotaMult ?? 1)) / 5) * 5;
 
 // Shared run result: a square per finished room and a line per iteration, by data over the quota.
 export function shareSquares(s: RunState): string[] {
@@ -138,7 +169,7 @@ export const revealed = (s: RunState, p: Patch) => s.loop > p.loop || s.section 
 
 // The ICE rules in a room: the boss rule plus the patches deployed there.
 export const roomIce = (s: RunState, i = s.section): IceId[] =>
-  [...new Set([...(COMPANIES[s.company].always ?? []), ...(sections(s)[i].ice ?? []),
+  [...new Set([...(COMPANIES[s.company].always ?? []), ...(entryOf(s).always ?? []), ...(sections(s)[i].ice ?? []),
     ...(i === sections(s).length - 1 && s.ice ? [s.ice] : []), ...live(s).filter((p) => p.room === i).map((p) => p.ice)])];
 
 // Corruption lasts one move per Corruption patch (at least 1), for good from the third.
@@ -208,6 +239,7 @@ export function sectionMatrix(section: number, items: ItemId[] = [], company = 0
 export interface RunState {
   seed: number;
   company: number; // index into COMPANIES
+  entry?: string; // entry vector id; missing = the company's default
   loop: number; // iteration, 0-based
   patches: Patch[];
   matrix: number; // matrices dealt so far (restarts included), feeds the per-matrix seed
@@ -252,10 +284,12 @@ export const logEvent = (s: RunState, text: string) => { (s.events ??= []).push(
 export const dmnFile = (id: DaemonId) => DAEMONS[id].family.toLowerCase() + '/' + DAEMONS[id].name.toLowerCase().replace(/ /g, '_') + '.dmn';
 const itemName = (id: ItemId) => ITEMS[id].name + ' v' + ITEMS[id].ver;
 
-export function newRunState(seed: number, company = 0): RunState {
+export function newRunState(seed: number, company = 0, entry?: string): RunState {
   const { ice, sections: rooms } = COMPANIES[company];
+  const e = entryOf({ company, entry }), tools = e.startTool ?? [];
+  const items = [...(e.startItems ?? []), ...(tools.length ? [tools[Math.floor(rng(hashStr(seed + '/entry'))() * tools.length)]] : [])];
   return {
-    seed, company, loop: 0, patches: [], matrix: 0, section: 0, data: 0, scores: rooms.map(() => []), restarts: 0, credits: 0, earned: [], daemons: [], stacks: {}, rack: RACK_BASE, items: [], shelf: [], rerolls: 0, bonusHits: [],
+    seed, company, entry: e.id, items, restarts: restartsFor({ items }), payLevels: { ...e.payLevels }, loop: 0, patches: [], matrix: 0, section: 0, data: 0, scores: rooms.map(() => []), credits: 0, earned: [], daemons: [], stacks: {}, rack: RACK_BASE, shelf: [], rerolls: 0, bonusHits: [],
     ice: ice[Math.floor(rng(hashStr(seed + '/ice'))() * ice.length)],
   };
 }

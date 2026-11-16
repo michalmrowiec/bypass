@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
+  entryOf, payLevel, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -909,5 +909,62 @@ describe('port rooms', () => {
         }
       }
     });
+  });
+});
+
+describe('entries', () => {
+  const real = COMPANIES.filter((c) => !c.dev);
+  const co = (id: string) => COMPANIES.findIndex((c) => c.id === id);
+
+  it('every real company has 3 entries with unique ids, plus and minus text', () => {
+    for (const c of real) {
+      expect(c.entries.length).toBe(3);
+      expect(new Set(c.entries.map((e) => e.id)).size).toBe(3);
+      for (const e of c.entries) expect(e.name && e.plus && e.minus).toBeTruthy();
+    }
+  });
+
+  it('a save without entry plays the default', () => {
+    expect(entryOf({ ...newRunState(1, 0), entry: undefined }).id).toBe(COMPANIES[0].entries[0].id);
+    expect(entryOf({ company: 0, entry: 'nope' }).id).toBe(COMPANIES[0].entries[0].id);
+  });
+
+  it('Courier tablet starts with one v1 tool, the same for the same seed', () => {
+    const s = newRunState(7, co('kestrel'), 'courier');
+    expect(s.items.length).toBe(1);
+    expect(['rewind', 'loopback1', 'bridge', 'mux']).toContain(s.items[0]);
+    expect(newRunState(7, co('kestrel'), 'courier').items).toEqual(s.items);
+    expect(sell(s, s.items[0])).toBe(true);
+  });
+
+  it("Partner's phone starts with a Burner SIM that works in the first room", () => {
+    const s = newRunState(1, co('ashgrove'), 'phone');
+    expect(s.items).toContain('sim');
+    expect(s.restarts).toBe(1);
+  });
+
+  it('Fibre tap starts with Linker v1; payload entries start levelled', () => {
+    expect(newRunState(1, co('argus'), 'fibre').items).toEqual(['linker1']);
+    const dock = newRunState(1, co('kestrel'), 'dock');
+    expect([payLevel(dock, 'single'), payLevel(dock, 'multi'), payLevel(dock, 'linked')]).toEqual([3, 3, 1]);
+    const phish = newRunState(1, co('meridian'), 'phishing');
+    expect([payLevel(phish, 'linked'), payLevel(phish, 'all_linked')]).toEqual([3, 3]);
+    const sig = newRunState(1, co('argus'), 'signal');
+    for (const id of Object.keys(PAYLOADS) as (keyof typeof PAYLOADS)[]) expect(payLevel(sig, id)).toBe(2);
+  });
+
+  it('quota multiplier rounds to 5 on every iteration', () => {
+    const k = co('kestrel');
+    expect(quota(newRunState(1, k, 'dock'))).toBe(25);
+    for (let loop = 0; loop < LOOPS; loop++) COMPANIES[k].sections.forEach((_, i) => {
+      const q = quota({ ...newRunState(1, k, 'dock'), loop }, i);
+      expect(q % 5).toBe(0);
+      expect(q).toBeGreaterThanOrEqual(quota({ ...newRunState(1, k), loop }, i));
+    });
+  });
+
+  it("Partner's phone puts Dead cells in every room", () => {
+    const s = newRunState(1, co('ashgrove'), 'phone');
+    sections(s).forEach((_, i) => expect(roomIce(s, i)).toContain('deadcells'));
   });
 });

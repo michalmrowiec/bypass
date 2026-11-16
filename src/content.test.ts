@@ -55,6 +55,12 @@ describe('content solvability', () => {
     });
   });
 
+  COMPANIES.forEach((co, i) => co.entries.filter((e) => e.always).forEach((e) => {
+    it(co.name + ' · ' + e.name + ': its room ICE deals solvable matrices', () => {
+      for (const section of [0, boss(i)]) expect(unsolvable({ ...newRunState(3, i, e.id), section })).toEqual([]);
+    });
+  }));
+
   it('every ICE and item has a name and rule text', () => {
     for (const e of [...Object.values(ICE), ...Object.values(ITEMS)]) expect(e.name && e.text).toBeTruthy();
   });
