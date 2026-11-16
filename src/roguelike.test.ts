@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  entryOf, payLevel, priceOf, zipPrice, setFamily, setBossIce, canDisconnect, needsStartChoice, DAEMONS, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
+  setMiner, minerIdle, entryOf, payLevel, priceOf, zipPrice, setFamily, setBossIce, canDisconnect, needsStartChoice, DAEMONS, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -64,8 +64,15 @@ describe('roguelike run', () => {
     expect(canExitRoom(s)).toBe(false); // the boss room is always played out
   });
 
-  it('pays empty slots only when something was uploaded', () => {
-    const s = newRunState(1);
+  it('no credits for empty slots without a Miner in idle', () => {
+    const s = { ...newRunState(1), items: ['chip'] as ItemId[] };
+    s.section = 1;
+    endMatrix(s, 10, 5);
+    expect(s.credits).toBe(0);
+  });
+
+  it('Miner idle pays empty slots only when something was uploaded', () => {
+    const s = { ...newRunState(1), items: ['chip'] as ItemId[], miner: 'idle' as const };
     s.section = 1;
     endMatrix(s, 0, 6);
     expect(s.credits).toBe(0);
@@ -180,14 +187,40 @@ describe('daemons', () => {
     const { score, out } = finishMatrix(s, ctx, true);
     expect([score.total, out]).toEqual([60, 'continue']);
     expect(score.fired).toEqual([['chain', { boost: 0.5 }]]);
-    expect(s.earned).toEqual([['Silent daemon', 2], ['4 empty buffer slots (1 per 3)', 1]]);
+    expect(s.earned).toEqual([['Silent daemon', 2]]);
+    const m = { ...run('silent'), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
+    finishMatrix(m, ctx, true);
+    expect(m.earned).toEqual([['Silent daemon', 2], ['Miner idle · 4 empty buffer slots (1 per 3)', 1]]);
   });
 
-  it('a full upload pays a credit, and empty slots pay 1 per 2 when the matrix ends on its own', () => {
+  it('a full upload pays a credit; a Miner in idle adds 1 per 2 empty slots when the matrix ends on its own', () => {
     const s = run();
     s.section = 1;
     finishMatrix(s, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
-    expect(s.earned).toEqual([['every target uploaded', 2], ['4 empty buffer slots (1 per 2)', 2]]);
+    expect(s.earned).toEqual([['every target uploaded', 2]]);
+    const m = { ...run(), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
+    finishMatrix(m, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
+    expect(m.earned).toEqual([['every target uploaded', 2], ['Miner idle · 4 empty buffer slots (1 per 2)', 2]]);
+  });
+
+  it('switching to idle mid-room voids the Miner pool credit, also on an early exit; the next room pays again', () => {
+    const s = { ...run(), items: ['chip'] as ItemId[], credits: 0 };
+    s.section = 1; // Offices: 2 matrices, quota 70
+    expect(setMiner(s, 'idle')).toBe(true);
+    finishMatrix(s, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
+    s.data = 1000;
+    expect(setMiner(s, 'pool')).toBe(true);
+    exitRoom(s);
+    expect(s.earned.some(([why]) => why === 'Miner pool')).toBe(false);
+    nextSection(s);
+    s.data = 1000;
+    while (endMatrix(s, 0, 0) === 'continue');
+    expect(s.earned.some(([why]) => why === 'Miner pool')).toBe(true);
+  });
+
+  it('setMiner needs a Miner; an old save without a mode plays pool', () => {
+    expect(setMiner(run(), 'idle')).toBe(false);
+    expect(minerIdle({ ...run(), items: ['chip'] as ItemId[] })).toBe(false);
   });
 
   it('offers 3 distinct unowned daemons, stable per seed and section', () => {
@@ -563,10 +596,11 @@ describe('Corruption', () => {
 describe('economy', () => {
   const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
 
-  it('caps the surplus credits per room; a Credit chip adds 1', () => {
+  it('caps the surplus credits per room; a Miner in pool adds 1', () => {
     const s = { ...newRunState(1), items: ['chip'] as ItemId[] };
     endMatrix(s, 1000, 0);
     expect(s.earned.map(([, n]) => n)).toEqual([2, 2, 1]);
+    expect(s.earned[2][0]).toBe('Miner pool');
   });
 
   it('a full rack blocks new modules but not upgrades; slots cost more each; selling returns half', () => {

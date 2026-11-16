@@ -214,7 +214,7 @@ const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0
 export const DAEMON_SLOTS = 4;
 export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
 // Credits: one per SURPLUS_PER_CREDIT data over the quota, SECTION_CREDIT per cleared section,
-// one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something (DC_SLOTS_PER_CREDIT after a Disconnect),
+// one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something, only with a Miner in idle (DC_SLOTS_PER_CREDIT after a Disconnect),
 // FULL_CREDIT for a matrix with every target uploaded.
 export const SURPLUS_PER_CREDIT = 20;
 export const SURPLUS_CAP = 2; // per room, so huge scores don't flood the economy
@@ -244,6 +244,8 @@ export interface RunState {
   entry?: string; // entry vector id; missing = the company's default
   family?: Family; // Signal flaw: the one daemon family offers come from
   icePicked?: boolean; // Paper trail: the boss ICE was chosen
+  miner?: 'pool' | 'idle'; // Miner mode; missing = pool
+  roomIdle?: boolean; // a matrix in this room ended with the Miner in idle, so pool pays nothing here
   loop: number; // iteration, 0-based
   patches: Patch[];
   matrix: number; // matrices dealt so far (restarts included), feeds the per-matrix seed
@@ -318,6 +320,15 @@ export function setFamily(s: RunState, f: Family): boolean {
 }
 export const canDisconnect = (s: RunState) => !entryOf(s).noDisconnect;
 
+// Miner (item id 'chip'): pool pays per room played wholly in pool mode, idle pays empty buffer slots.
+export const minerIdle = (s: RunState) => s.items.includes('chip') && s.miner === 'idle';
+export function setMiner(s: RunState, mode: 'pool' | 'idle'): boolean {
+  if (!s.items.includes('chip')) return false;
+  s.miner = mode;
+  logEvent(s, 'Miner · ' + mode);
+  return true;
+}
+
 const earn = (s: RunState, why: string, n: number) => {
   if (n) { s.credits += n; s.earned.push([why, n]); }
 };
@@ -331,7 +342,7 @@ export type MatrixOutcome = 'continue' | 'section' | 'loop' | 'win' | 'lose';
 // Banks a finished matrix; after the section's last one, checks the quota and pays the section credits.
 export function endMatrix(s: RunState, data: number, emptySlots: number, per = SLOTS_PER_CREDIT): MatrixOutcome {
   s.data += data;
-  if (data) earn(s, emptySlots + ' empty buffer slots (1 per ' + per + ')', Math.floor(emptySlots / per));
+  if (data && minerIdle(s)) earn(s, 'Miner idle · ' + emptySlots + ' empty buffer slots (1 per ' + per + ')', Math.floor(emptySlots / per));
   s.scores[s.section].push(data);
   s.total = (s.total ?? 0) + data;
   s.best = Math.max(s.best ?? 0, data);
@@ -362,7 +373,7 @@ function closeRoom(s: RunState): MatrixOutcome {
   earn(s, 'section cleared', SECTION_CREDIT);
   earn(s, s.data - goal + ' data over the quota (1 per ' + SURPLUS_PER_CREDIT + ', max ' + SURPLUS_CAP + ')',
     Math.min(SURPLUS_CAP, Math.floor((s.data - goal) / SURPLUS_PER_CREDIT)));
-  if (s.items.includes('chip')) earn(s, 'Credit chip', 1);
+  if (s.items.includes('chip') && !s.roomIdle && !minerIdle(s)) earn(s, 'Miner pool', 1);
   return !isBoss(s) ? 'section' : s.loop < LOOPS - 1 ? 'loop' : 'win';
 }
 
@@ -376,6 +387,7 @@ export function nextSection(s: RunState): Patch[] | undefined {
   Object.assign(s, { section: s.section + 1, data: carry, carry, restarts: restartsFor(s) });
   delete s.stacks.sandbag; // room-scoped
   delete s.roomFull;
+  delete s.roomIdle;
   if (s.section < sections(s).length) return;
   // A save from before bonus tracking starts recording with the new iteration.
   Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, bonusHits: s.bonusHits ?? [] });
@@ -681,6 +693,7 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
     if (met) s.bonusHits?.push(bonusKey(s.loop, s.section, played(s)));
     logEvent(s, 'bonus ' + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[ctx.bounty].name);
   }
+  if (minerIdle(s)) s.roomIdle = true;
   const out = endMatrix(s, score.total, ctx.l - ctx.buf.length, disconnected ? DC_SLOTS_PER_CREDIT : SLOTS_PER_CREDIT);
   for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
   return { score, met, out };
@@ -869,7 +882,7 @@ export const ITEMS = {
   thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+3 data for every uploaded target' },
   thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +10 data for every uploaded target', needs: 'thumb' },
   thumb3: { name: 'Thumb drive', ver: '3.0', kind: 'USB4 stick', price: 4, text: 'Upgrades v2.0: +25 data for every uploaded target', needs: 'thumb2' },
-  chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: '+$1 for every room you clear' },
+  chip: { name: 'Miner', ver: '1.0', kind: 'GPU', price: 2, text: 'Click to switch modes (not mid-matrix). pool: +$1 for every room you clear in pool mode. idle: +$1 per 2 empty buffer slots in a matrix with an upload, per 3 after Disconnect' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
   sim: { name: 'Burner SIM', ver: '1.0', kind: 'prepaid SIM', price: 3, text: 'Once per room, before your first move, swap the matrix for a fresh one' },
