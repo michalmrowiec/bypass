@@ -656,13 +656,13 @@ describe('cron daemons', () => {
   const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D']], l: 8, n: 5 };
   const run = (...daemons: DaemonId[]) => ({ ...newRunState(1), daemons });
 
-  it('Heartbeat stacks while every target goes up and resets on a miss', () => {
+  it('Heartbeat stacks while every target goes up and halves on a miss', () => {
     const s = run('heartbeat');
     daemonsAfterMatrix(ctx, s, false);
     daemonsAfterMatrix(ctx, s, false);
     expect(scoreMatrix(ctx, s).fired).toEqual([['heartbeat', { boost: 0.6 }]]);
     daemonsAfterMatrix({ ...ctx, targets: [...ctx.targets, ['X', 'Y']] }, s, false);
-    expect(s.stacks.heartbeat).toBe(0);
+    expect(s.stacks.heartbeat).toBe(1); // a miss halves 3 → 1
   });
 
   it('Rotate needs a new start column each matrix', () => {
