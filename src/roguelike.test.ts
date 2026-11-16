@@ -190,7 +190,7 @@ describe('daemons', () => {
     expect(s.earned).toEqual([['Silent daemon', 2]]);
     const m = { ...run('silent'), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
     finishMatrix(m, ctx, true);
-    expect(m.earned).toEqual([['Silent daemon', 2], ['Miner idle · 4 empty buffer slots (1 per 2)', 2]]);
+    expect(m.earned).toEqual([['Silent daemon', 2], ['Credit chip idle · 4 empty buffer slots (1 per 2)', 2]]);
   });
 
   it('a full upload pays a credit; a Miner in idle adds 1 per 2 empty slots when the matrix ends on its own', () => {
@@ -200,7 +200,7 @@ describe('daemons', () => {
     expect(s.earned).toEqual([['every target uploaded', 2]]);
     const m = { ...run(), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
     finishMatrix(m, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
-    expect(m.earned).toEqual([['every target uploaded', 2], ['Miner idle · 4 empty buffer slots (1 per 2)', 2]]);
+    expect(m.earned).toEqual([['every target uploaded', 2], ['Credit chip idle · 4 empty buffer slots (1 per 2)', 2]]);
   });
 
   it('switching to idle mid-room voids the Miner pool credit, also on an early exit; the next room pays again', () => {
@@ -211,11 +211,11 @@ describe('daemons', () => {
     s.data = 1000;
     expect(setMiner(s, 'pool')).toBe(true);
     exitRoom(s);
-    expect(s.earned.some(([why]) => why === 'Miner pool')).toBe(false);
+    expect(s.earned.some(([why]) => why === 'Credit chip pool')).toBe(false);
     nextSection(s);
     s.data = 1000;
     while (endMatrix(s, 0, 0) === 'continue');
-    expect(s.earned.some(([why]) => why === 'Miner pool')).toBe(true);
+    expect(s.earned.some(([why]) => why === 'Credit chip pool')).toBe(true);
   });
 
   it('setMiner needs a Miner; an old save without a mode plays pool', () => {
@@ -600,7 +600,7 @@ describe('economy', () => {
     const s = { ...newRunState(1), items: ['chip'] as ItemId[] };
     endMatrix(s, 1000, 0);
     expect(s.earned.map(([, n]) => n)).toEqual([2, 2, 1]);
-    expect(s.earned[2][0]).toBe('Miner pool');
+    expect(s.earned[2][0]).toBe('Credit chip pool');
   });
 
   it('a full rack blocks new modules but not upgrades; slots cost more each; selling returns half', () => {

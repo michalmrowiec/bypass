@@ -51,7 +51,7 @@ Przy starcie runu wybierasz wejście firmy (kafelki pod kartą w karuzeli). Każ
 | Ashgrove | Client portal | Partner's phone: start z Burner SIM; Dead cells w każdym pokoju | Paper trail: ICE bossa wybierasz na starcie z puli firmy; każda łatka dokłada drugą regułę w tym samym pokoju |
 | Argus | Shared login | Signal flaw: wszystkie payloady od Lv2; oferty daemonów tylko z jednej rodziny, wybranej na starcie | Fibre tap: start z Linker v1; quoty ×1,15 |
 
-Domyślne wejście = gra jak wcześniej, ale puste sloty płacą tylko przez Minera w trybie `idle`.
+Domyślne wejście = gra jak wcześniej, ale puste sloty płacą tylko przez Credit chip w trybie `idle`.
 
 ### Plansze z portami
 Dwie macierze n×n obok siebie (A po lewej, B po prawej). Linia ruchu zostaje w swojej macierzy; start w wierszu 0 macierzy A. 2 pary portów `⇄1`, `⇄2` (para 1 chłodny hologram, para 2 ciepły). Port ma zwykły kod; po jego picku następny ruch idzie w linii partnera w drugiej macierzy (wziąłeś w wierszu → kolumna partnera, w kolumnie → wiersz partnera). Posadzona trasa przechodzi przez ≥1 port. Pierścień wciąga się w port w Twojej linii i wychodzi z partnera; najechanie podświetla parę.
@@ -109,7 +109,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
 | Thumb drive v1/v2/v3 | 2/3/4 | +3 / +10 / +25 data za każdy wgrany target |
-| Miner (id `chip`, dawniej Credit chip) | 2 | Dwa tryby, przełączane kliknięciem w racku (nie w trakcie macierzy, tryb zamyka się na 1. picku). `pool`: +$1 za pokój rozegrany w całości w trybie pool. `idle`: +$1 za każde 2 puste sloty bufora w macierzy z uploadem (także po Disconnect); złota dioda |
+| Credit chip | 2 | Dwa tryby, przełączane kliknięciem w racku (nie w trakcie macierzy, tryb zamyka się na 1. picku). `pool`: +$1 za pokój rozegrany w całości w trybie pool. `idle`: +$1 za każde 2 puste sloty bufora w macierzy z uploadem (także po Disconnect); złota dioda |
 | Ping | 2 | zaznacza start rozwiązania |
 | Heatsink | 2 | Corruption krótsza o 1 ruch |
 | Burner SIM | 3 | raz na pokój, przed 1. ruchem, nowa macierz (klik w rack) |
@@ -141,7 +141,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $2 na pokój.
 - **Inne źródła:** +$2 za pokój; +$2 za matrycę z wgranymi wszystkimi targetami; wcześniejsze wyjście z pokoju $1 za pominiętą matrycę, $3 jeśli w pokoju był full.
 - **Sloty racka:** $4, $6, $8… (+$2 za każdy kolejny), maks. 9.
-- **Puste sloty bufora:** płacą tylko z Minerem w trybie `idle`: $1 za każde 2 (także po Disconnect). Daemon Silent daje +$2 za Disconnect niezależnie od Minera.
+- **Puste sloty bufora:** płacą tylko z Credit chip w trybie `idle`: $1 za każde 2 (także po Disconnect). Daemon Silent daje +$2 za Disconnect niezależnie od Credit chip.
 - **Koszty:** pierwszy reroll w wizycie darmowy, potem $1, $2, $3… (od nowa w następnym sklepie); półka ma 4 itemy. Oferta daemonów pomija te z poprzedniej oferty.
 
 ## 10. UI (najważniejsze)
@@ -156,7 +156,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 ## 11. Narzędzia
 - **Symulator balansu v2** (lokalnie, poza repo): `npx vitest run .notes/sim.test.ts`, wynik trafia do `.notes/sim-out.txt` (ok. 4 min, najwyżej 4 procesy naraz).
   - Boty grają pełne runy, które mogą przegrać. Profile to **wzorcowe buildy ponad rodzinami** (`ALL_PROFILES` w `sim.test.ts`): wagi daemonów (3 rdzeń, 2 dobry, 1 zapchajdziura), itemy w kolejności zakupu i styl trasy. Są ghost (`short`), full (`all`, komplet targetów), runner i combo (`**` + Loopback, `max`) oraz „pierwszy z oferty” jako naiwny gracz. Od mocnych do słabych dodatkowo: stack (wszystkie mnożniki na komplet + Co-processor), sniper (ghost z Priority), cron (streaki), painter (Painter + płaskie dane) i casual (płaskie bonusy, narzędzia v1 grane słabiej).
-  - Bot bierze z oferty daemon o najwyższej wadze, a przy pełnych slotach wymienia najsłabszy ($2/$4/$6 wg rzadkości), gdy oferta jest wyraźnie lepsza. Daemony „na kasę” (Silent u ghosta) są warte tylko w 1. iteracji. Minera (dawniej Credit chip) kupuje w 1. iteracji i sprzedaje potem; na trasach `short` ustawia go na `idle`, inaczej `pool`. `SIM_ENTRY` (0/1/2) wybiera wejście w każdej firmie. Itemy z planu kupuje zawsze, zapychacze spoza planu zostawiają 1 slot na brakujące narzędzie; z wolną kasą (zostawia $2 na wymianę daemona) dokupuje slot racka i kupuje dalej; gdy nie stać go na slot, sprzedaje moduł spoza planu, by kupić planowany. Casual ma narzędzia v1, ale krótsze przeszukiwanie (150 węzłów) i 16% błędów. Z pokoju wychodzi wcześniej (po quota, +$1 za pominiętą macierz), chyba że ma Overtime, daemon ze streakiem albo przed nim cel bonusowy.
+  - Bot bierze z oferty daemon o najwyższej wadze, a przy pełnych slotach wymienia najsłabszy ($2/$4/$6 wg rzadkości), gdy oferta jest wyraźnie lepsza. Daemony „na kasę” (Silent u ghosta) są warte tylko w 1. iteracji. Credit chip kupuje w 1. iteracji i sprzedaje potem; na trasach `short` ustawia go na `idle`, inaczej `pool`. `SIM_ENTRY` (0/1/2) wybiera wejście w każdej firmie. Itemy z planu kupuje zawsze, zapychacze spoza planu zostawiają 1 slot na brakujące narzędzie; z wolną kasą (zostawia $2 na wymianę daemona) dokupuje slot racka i kupuje dalej; gdy nie stać go na slot, sprzedaje moduł spoza planu, by kupić planowany. Casual ma narzędzia v1, ale krótsze przeszukiwanie (150 węzłów) i 16% błędów. Z pokoju wychodzi wcześniej (po quota, +$1 za pominiętą macierz), chyba że ma Overtime, daemon ze streakiem albo przed nim cel bonusowy.
   - **Błędy gracza** (`SIM_ERR`, domyślnie 0,08): w 8% macierzy bot gra losową inną znalezioną trasę z co najmniej 60% danych najlepszej (przed daemonami), np. bez jednego targetu. Nieużyty Rewind lub Loopback naprawia błąd. Raport podaje win rate bez błędów (`clean`) i z błędami (`err`). Przebieg trwa ok. 2 min.
   - ⚠ Po dodaniu lub zmianie daemona albo itemu trzeba zaktualizować wzorce. Raport wypisuje daemony i itemy, których nie używa żaden wzorzec.
   - Ruchy idą przez reguły gry (`applyPick`, `rewind`, `canPick`), ocena przez `scoreMatrix`. Krótki DFS (400 węzłów na macierz) znajduje dobre trasy, ale nie zawsze najlepsze, jak człowiek.

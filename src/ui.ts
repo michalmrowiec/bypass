@@ -377,7 +377,7 @@ function runStatus() {
   const empty = S.puzzle.l - S.run.buffer.length, silent = R.daemons.includes('silent');
   const slots = minerIdle(R) ? Math.floor(empty / SLOTS_PER_CREDIT) : 0, pay = slots + (silent ? 2 : 0);
   if (S.over || !canDisconnect(R)) return '';
-  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Miner idle · ' + empty + ' empty buffer slots: +$1 per ' + SLOTS_PER_CREDIT + ' = +$' + slots + '.' : '')
+  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Credit chip idle · ' + empty + ' empty buffer slots: +$1 per ' + SLOTS_PER_CREDIT + ' = +$' + slots + '.' : '')
     + (silent ? ' Silent +$2.' : '') : 'Upload a target first: nothing to bank yet.';
   return "<button class='btn act' id='disconnect' data-tip-delay='350' data-tip='" + tip + "'" + (live ? '' : ' disabled') + '>Disconnect' + (live && pay ? ' · ' + money(pay, '+') : '') + '</button>';
 }
@@ -625,7 +625,7 @@ function renderDaemons() {
     // or waiting (charged, not now).
     const used = !!t && (t === 'sim' ? R.restarts < 1 : !M[t]); // each tool's name is its ItemState flag
     const missed = !!t && !used && (S.over || ((t === 'sim' || t === 'wild' || t === 'split') && !start));
-    // Miner: its mode switches only outside a matrix in play, so a matrix scores in one mode.
+    // Credit chip: its mode switches only outside a matrix in play, so a matrix scores in one mode.
     const miner = id === 'chip' ? { mode: R.miner ?? 'pool', free: S.mode === 'run' && (start || S.over) } : undefined;
     const spent = !ready && (used || missed);
     const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
