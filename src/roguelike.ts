@@ -205,12 +205,14 @@ function deployPatches(s: RunState): Patch[] {
   for (const i of single.slice(0, Math.round(rooms * PATCH_DOUBLE[Math.min(s.loop, PATCH_DOUBLE.length - 1)]))) add(i);
   // Always at least one new rule, so every iteration brings patch notes.
   for (let k = 0; !out.length && k < 30; k++) add(Math.floor(r() * rooms));
+  if (entryOf(s).doublePatch) for (const p of [...out]) add(p.room);
   for (const p of out) logEvent(s, 'patch · new ICE ' + ICE[p.ice].name + ' in a hidden room');
   return out;
 }
 // Re-dealing a matrix (before the first move) needs a Burner SIM: once per room.
 const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0);
 export const DAEMON_SLOTS = 4;
+export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
 // Credits: one per SURPLUS_PER_CREDIT data over the quota, SECTION_CREDIT per cleared section,
 // one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something (DC_SLOTS_PER_CREDIT after a Disconnect),
 // FULL_CREDIT for a matrix with every target uploaded.
@@ -240,6 +242,8 @@ export interface RunState {
   seed: number;
   company: number; // index into COMPANIES
   entry?: string; // entry vector id; missing = the company's default
+  family?: Family; // Signal flaw: the one daemon family offers come from
+  icePicked?: boolean; // Paper trail: the boss ICE was chosen
   loop: number; // iteration, 0-based
   patches: Patch[];
   matrix: number; // matrices dealt so far (restarts included), feeds the per-matrix seed
@@ -295,6 +299,24 @@ export function newRunState(seed: number, company = 0, entry?: string): RunState
 }
 
 export const played = (s: RunState) => s.scores[s.section].length;
+
+// Start choices some entries ask for, only before the first matrix of the run.
+const atStart = (s: RunState) => !s.loop && !s.section && !played(s);
+export const needsStartChoice = (s: RunState): 'ice' | 'family' | undefined =>
+  entryOf(s).pickBossIce && !s.icePicked ? 'ice' : entryOf(s).familyLock && !s.family ? 'family' : undefined;
+export function setBossIce(s: RunState, id: IceId): boolean {
+  if (!entryOf(s).pickBossIce || !atStart(s) || !COMPANIES[s.company].ice.includes(id)) return false;
+  Object.assign(s, { ice: id, icePicked: true });
+  logEvent(s, 'entry · boss ICE ' + ICE[id].name);
+  return true;
+}
+export function setFamily(s: RunState, f: Family): boolean {
+  if (!entryOf(s).familyLock || !atStart(s)) return false;
+  s.family = f;
+  logEvent(s, 'entry · daemon family ' + f);
+  return true;
+}
+export const canDisconnect = (s: RunState) => !entryOf(s).noDisconnect;
 
 const earn = (s: RunState, why: string, n: number) => {
   if (n) { s.credits += n; s.earned.push([why, n]); }
@@ -450,7 +472,7 @@ export const RARITY = { common: 0.7, rare: 0.25, legendary: 0.05 };
 export type Rarity = keyof typeof RARITY;
 interface Daemon {
   name: string;
-  family: 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
+  family: Family;
   text: string;
   rarity?: Rarity;
   scope?: 'room' | 'run'; // room: its stack or count lasts for one room; run: it reaches past the room
@@ -777,12 +799,13 @@ const visit = (s: RunState) => s.section + (s.loop ? '.' + s.loop : '');
 // With every slot full the offer still comes; taking one swaps out an installed daemon.
 export function offerDaemons(s: RunState): DaemonId[] {
   const r = rng(hashStr(s.seed + '/offer/' + visit(s)));
-  const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && !s.lastOffer?.includes(id)), r);
+  const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && !s.lastOffer?.includes(id)
+    && (!s.family || DAEMONS[id].family === s.family)), r);
   const out: DaemonId[] = [];
   const lead = s.legendOffer && (pool.find((id) => rarityOf(id) === 'legendary') ?? pool.find((id) => rarityOf(id) === 'rare'));
   if (lead) out.push(lead);
   // Each slot rolls a rarity, then takes the first unpicked daemon of it; an empty rarity falls back to any.
-  while (out.length < 3 && out.length < pool.length) {
+  while (out.length < (entryOf(s).offer ?? 3) && out.length < pool.length) {
     const x = r(), tier: Rarity = x < RARITY.legendary ? 'legendary' : x < RARITY.legendary + RARITY.rare ? 'rare' : 'common';
     const left = pool.filter((id) => !out.includes(id));
     out.push(left.find((id) => rarityOf(id) === tier) ?? left[0]);
@@ -882,7 +905,8 @@ export const prioId = (items: ItemId[]) => (['prio2', 'prio1'] as const).find((i
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
-export const slotCost = (s: RunState) => 4 + 2 * (s.rack - RACK_BASE);
+export const slotCost = (s: RunState) => 4 + 2 * (s.rack - RACK_BASE) + (entryOf(s).priceDelta ?? 0);
+export const priceOf = (s: RunState, id: ItemId) => Math.max(1, ITEMS[id].price + (entryOf(s).priceDelta ?? 0));
 // The Co-processor module adds one daemon slot.
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
@@ -912,20 +936,21 @@ export function stockShop(s: RunState, reroll = false): boolean {
     s.rerolls++;
     logEvent(s, 'shop · reroll');
   } else s.rerolls = 0;
-  s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls))).slice(0, SHELF);
+  s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls))).slice(0, entryOf(s).shelf ?? SHELF);
   return true;
 }
 
 // patch.zip: one per shop visit; opening it shows ZIP_PICKS random payloads (seeded per visit), the player keeps one.
 export const ZIP_PRICE = 1, ZIP_PICKS = 3, ZIP_DOUBLE_ODDS = 0.15;
+export const zipPrice = (s: RunState) => ZIP_PRICE + (entryOf(s).priceDelta ?? 0);
 export const zipSold = (s: RunState) => s.zipVisit === visit(s);
 export function buyZip(s: RunState): boolean {
-  if (zipSold(s) || s.credits < ZIP_PRICE) return false;
-  s.credits -= ZIP_PRICE;
+  if (zipSold(s) || s.credits < zipPrice(s)) return false;
+  s.credits -= zipPrice(s);
   s.zipVisit = visit(s);
   const r = rng(hashStr(s.seed + '/zip/' + visit(s)));
   s.zipOpen = shuffled(Object.keys(PAYLOADS), r).slice(0, ZIP_PICKS).map((id) => [id, r() < ZIP_DOUBLE_ODDS ? 2 : 1]);
-  logEvent(s, 'shop · patch.zip −$' + ZIP_PRICE);
+  logEvent(s, 'shop · patch.zip −$' + zipPrice(s));
   return true;
 }
 export function pickZip(s: RunState, i: number): boolean {
@@ -939,13 +964,13 @@ export function pickZip(s: RunState, i: number): boolean {
 }
 
 export function buy(s: RunState, id: ItemId): boolean {
-  const it = item(id);
-  if (!s.shelf.includes(id) || s.credits < it.price || rackFull(s, id)) return false;
-  s.credits -= it.price;
+  const it = item(id), price = priceOf(s, id);
+  if (!s.shelf.includes(id) || s.credits < price || rackFull(s, id)) return false;
+  s.credits -= price;
   s.items = s.items.filter((o) => o !== it.needs).concat(id);
   s.restarts = Math.max(s.restarts, restartsFor(s)); // a SIM bought in the shop works in the next room
   s.shelf = s.shelf.filter((o) => o !== id);
-  logEvent(s, 'shop · bought ' + itemName(id) + ' −$' + it.price + (it.needs ? ' (replaces ' + itemName(it.needs as ItemId) + ')' : ''));
+  logEvent(s, 'shop · bought ' + itemName(id) + ' −$' + price + (it.needs ? ' (replaces ' + itemName(it.needs as ItemId) + ')' : ''));
   return true;
 }
 

@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBreach, recordBest, recordFirst, restoreBackup, save, saveRun, setBreached, utcDate,
@@ -1016,8 +1016,8 @@ function showShop(restock = true) {
     + (R.charges ? "<span class='bnt'>bonus</span> ×2 data charge ×" + R.charges + ' · ' : '') + 'items stay for the whole run</p>' + owned(true)
     + (forSale(R).length > R.shelf.length ? "<div class='shelfbar'><button class='btn' id='reroll'" + (!rerollCost(R) ? '>' + REROLL_ICO + 'Reroll · free'
       : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
-    + "<div class='wares shelf'>" + R.shelf.map((id) => ware(id, 'button', cr(ITEMS[id].price) + (rackFull(R, id) ? ' · rack full' : ''),
-      R.credits < ITEMS[id].price || rackFull(R, id) ? ' poor' : '')).join('')
+    + "<div class='wares shelf'>" + R.shelf.map((id) => ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
+      R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '')).join('')
     + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
@@ -1058,8 +1058,8 @@ function zipZone() {
     + "<p class='meta' id='zipNote'>" + R.zipOpen.length + ' payload patches · keep one</p></div><div class="zpicks">'
     + R.zipOpen.map(zipCard).join('') + '</div></div>';
   if (zipSold(R)) return "<div class='zipzone' id='zipZone'>" + head + "<p class='meta'>" + (zipLast || 'patch installed') + ' · the next patch.zip waits in the next shop</p></div>';
-  return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'><button class='zipbtn' id='buyZip'" + (R.credits < ZIP_PRICE ? ' disabled' : '') + '>' + ZIP_SVG
-    + "<span><b>patch.zip</b> · " + money(ZIP_PRICE) + "</span></button><p class='meta'>An encrypted archive with " + ZIP_PICKS + ' payload patches. Open it and keep one; some archives hold a +2 patch.</p></div></div>';
+  return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'><button class='zipbtn' id='buyZip'" + (R.credits < zipPrice(R) ? ' disabled' : '') + '>' + ZIP_SVG
+    + "<span><b>patch.zip</b> · " + money(zipPrice(R)) + "</span></button><p class='meta'>An encrypted archive with " + ZIP_PICKS + ' payload patches. Open it and keep one; some archives hold a +2 patch.</p></div></div>';
 }
 function wireZip() {
   zipTimers.forEach(clearTimeout);

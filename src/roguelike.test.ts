@@ -5,7 +5,7 @@ import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
-  entryOf, payLevel, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
+  entryOf, payLevel, priceOf, zipPrice, setFamily, setBossIce, canDisconnect, needsStartChoice, DAEMONS, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
 const SECTIONS = COMPANIES[0].sections;
@@ -961,6 +961,60 @@ describe('entries', () => {
       expect(q % 5).toBe(0);
       expect(q).toBeGreaterThanOrEqual(quota({ ...newRunState(1, k), loop }, i));
     });
+  });
+
+  it('Courier tablet shelf holds 3', () => {
+    const s = newRunState(1, co('kestrel'), 'courier');
+    stockShop(s);
+    expect(s.shelf.length).toBe(3);
+  });
+
+  it('Night shift offers 4 daemons and adds $1 to modules, patch.zip and rack slots', () => {
+    const s = { ...newRunState(1, co('meridian'), 'nightshift'), credits: 10, shelf: ['thumb'] as ItemId[] };
+    expect(offerDaemons(s).length).toBe(4);
+    expect([priceOf(s, 'thumb'), zipPrice(s), slotCost(s)]).toEqual([3, 2, 5]);
+    expect(buy(s, 'thumb')).toBe(true);
+    expect(s.credits).toBe(7);
+    expect(priceOf(newRunState(1, co('meridian')), 'thumb')).toBe(2);
+  });
+
+  it('Signal flaw offers only the chosen family and never undefined', () => {
+    const s = newRunState(1, co('argus'), 'signal');
+    expect(needsStartChoice(s)).toBe('family');
+    expect(setFamily(s, 'Ghost')).toBe(true);
+    expect(needsStartChoice(s)).toBeUndefined();
+    const ghost = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => DAEMONS[id].family === 'Ghost');
+    for (const id of offerDaemons(s)) expect(DAEMONS[id].family).toBe('Ghost');
+    s.daemons = ghost.slice(2);
+    const offer = offerDaemons(s);
+    expect(offer.length).toBe(2);
+    expect(offer.every(Boolean)).toBe(true);
+    expect(setFamily(newRunState(1, co('argus')), 'Ghost')).toBe(false);
+  });
+
+  it('Paper trail picks the boss ICE only at the start, from the company pool', () => {
+    const s = newRunState(1, co('ashgrove'), 'papertrail');
+    expect(needsStartChoice(s)).toBe('ice');
+    expect(setBossIce(s, 'conveyor')).toBe(false);
+    expect(setBossIce(s, 'blackout')).toBe(true);
+    expect([s.ice, needsStartChoice(s)]).toEqual(['blackout', undefined]);
+    endMatrix(s, 10, 0);
+    expect(setBossIce(s, 'firewall')).toBe(false);
+    expect(setBossIce(newRunState(1, co('ashgrove')), 'blackout')).toBe(false);
+  });
+
+  it('Paper trail patches add a second rule to every patched room', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const s = newRunState(seed, co('ashgrove'), 'papertrail');
+      s.section = sections(s).length - 1;
+      const ps = nextSection(s)!;
+      for (const room of new Set(ps.map((p) => p.room))) expect(ps.filter((p) => p.room === room).length).toBe(2);
+    }
+  });
+
+  it('Phishing cannot disconnect', () => {
+    expect(canDisconnect(newRunState(1, co('meridian'), 'phishing'))).toBe(false);
+    expect(canDisconnect(newRunState(1, co('meridian')))).toBe(true);
   });
 
   it("Partner's phone puts Dead cells in every room", () => {
