@@ -37,7 +37,7 @@ export interface Entry {
   shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
   noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean; familyLock?: boolean;
 }
-const standard = (id: string, name: string): Entry => ({ id, name, plus: 'The standard contract.', minus: 'No credits for empty buffer slots (use a Miner).' });
+const standard = (id: string, name: string): Entry => ({ id, name, plus: '', minus: '' }); // the plain game, nothing to explain
 // Test bench for new board shapes, with no ICE; becomes a real company once the shape works.
 const LAB: Company = {
   id: 'lab',
@@ -217,13 +217,12 @@ const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0
 export const DAEMON_SLOTS = 4;
 export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
 // Credits: one per SURPLUS_PER_CREDIT data over the quota, SECTION_CREDIT per cleared section,
-// one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something, only with a Miner in idle (DC_SLOTS_PER_CREDIT after a Disconnect),
+// one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something, only with a Miner in idle,
 // FULL_CREDIT for a matrix with every target uploaded.
 export const SURPLUS_PER_CREDIT = 20;
 export const SURPLUS_CAP = 2; // per room, so huge scores don't flood the economy
 export const SECTION_CREDIT = 2;
 export const SLOTS_PER_CREDIT = 2;
-export const DC_SLOTS_PER_CREDIT = 3;
 export const FULL_CREDIT = 2;
 export const EXIT_CREDIT = 1; // per matrix skipped by leaving a room early
 export const EXIT_FULL_CREDIT = 3; // same, once a matrix in the room uploaded every target
@@ -697,7 +696,7 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
     logEvent(s, 'bonus ' + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[ctx.bounty].name);
   }
   if (minerIdle(s)) s.roomIdle = true;
-  const out = endMatrix(s, score.total, ctx.l - ctx.buf.length, disconnected ? DC_SLOTS_PER_CREDIT : SLOTS_PER_CREDIT);
+  const out = endMatrix(s, score.total, ctx.l - ctx.buf.length);
   for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
   return { score, met, out };
 }
@@ -885,7 +884,7 @@ export const ITEMS = {
   thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+3 data for every uploaded target' },
   thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +10 data for every uploaded target', needs: 'thumb' },
   thumb3: { name: 'Thumb drive', ver: '3.0', kind: 'USB4 stick', price: 4, text: 'Upgrades v2.0: +25 data for every uploaded target', needs: 'thumb2' },
-  chip: { name: 'Miner', ver: '1.0', kind: 'GPU', price: 2, text: 'Click to switch modes (not mid-matrix). pool: +$1 for every room you clear in pool mode. idle: +$1 per 2 empty buffer slots in a matrix with an upload, per 3 after Disconnect' },
+  chip: { name: 'Miner', ver: '1.0', kind: 'GPU', price: 2, text: 'Click to switch modes (not mid-matrix). pool: +$1 for every room you clear in pool mode. idle: +$1 per 2 empty buffer slots in a matrix with an upload' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
   sim: { name: 'Burner SIM', ver: '1.0', kind: 'prepaid SIM', price: 3, text: 'Once per room, before your first move, swap the matrix for a fresh one' },

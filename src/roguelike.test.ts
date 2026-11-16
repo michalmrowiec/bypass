@@ -190,7 +190,7 @@ describe('daemons', () => {
     expect(s.earned).toEqual([['Silent daemon', 2]]);
     const m = { ...run('silent'), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
     finishMatrix(m, ctx, true);
-    expect(m.earned).toEqual([['Silent daemon', 2], ['Miner idle · 4 empty buffer slots (1 per 3)', 1]]);
+    expect(m.earned).toEqual([['Silent daemon', 2], ['Miner idle · 4 empty buffer slots (1 per 2)', 2]]);
   });
 
   it('a full upload pays a credit; a Miner in idle adds 1 per 2 empty slots when the matrix ends on its own', () => {
@@ -954,7 +954,8 @@ describe('entries', () => {
     for (const c of real) {
       expect(c.entries.length).toBe(3);
       expect(new Set(c.entries.map((e) => e.id)).size).toBe(3);
-      for (const e of c.entries) expect(e.name && e.plus && e.minus).toBeTruthy();
+      for (const e of c.entries.slice(1)) expect(e.name && e.plus && e.minus).toBeTruthy();
+      expect([c.entries[0].plus, c.entries[0].minus]).toEqual(['', '']); // the default is the plain game
     }
   });
 

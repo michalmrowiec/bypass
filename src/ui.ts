@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -375,9 +375,9 @@ function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
   // Ending early keeps the empty slots, which pay credits.
   const empty = S.puzzle.l - S.run.buffer.length, silent = R.daemons.includes('silent');
-  const slots = minerIdle(R) ? Math.floor(empty / DC_SLOTS_PER_CREDIT) : 0, pay = slots + (silent ? 2 : 0);
+  const slots = minerIdle(R) ? Math.floor(empty / SLOTS_PER_CREDIT) : 0, pay = slots + (silent ? 2 : 0);
   if (S.over || !canDisconnect(R)) return '';
-  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Miner idle · ' + empty + ' empty buffer slots: +$1 per ' + DC_SLOTS_PER_CREDIT + ' = +$' + slots + '.' : '')
+  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Miner idle · ' + empty + ' empty buffer slots: +$1 per ' + SLOTS_PER_CREDIT + ' = +$' + slots + '.' : '')
     + (silent ? ' Silent +$2.' : '') : 'Upload a target first: nothing to bank yet.';
   return "<button class='btn act' id='disconnect' data-tip-delay='350' data-tip='" + tip + "'" + (live ? '' : ' disabled') + '>Disconnect' + (live && pay ? ' · ' + money(pay, '+') : '') + '</button>';
 }
@@ -1179,7 +1179,7 @@ function entryTiles(co: Company | undefined, i: number) {
     const state = k >= open ? 'breach once more to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
     const tag = k < open ? 'button' : 'span';
     return '<' + tag + (k < open ? " data-entry='" + e.id + "'" : '') + " class='btn etile" + (k >= open ? ' locked' : e === pick ? ' sel' : '')
-      + "' data-tip='" + attr('+ ' + e.plus + ' − ' + e.minus) + "'><b>" + e.name + '</b><small>' + state + '</small></' + tag + '>';
+      + "'" + (e.plus ? " data-tip='" + attr('+ ' + e.plus + ' − ' + e.minus) + "'" : '') + "><b>" + e.name + '</b><small>' + state + '</small></' + tag + '>';
   }).join('');
 }
 // A win counts toward the company's entries; the first one also opens the next company.
@@ -1503,7 +1503,7 @@ function enterSection() {
     + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + roomSize(sec.size) + ' · ' + sec.matrices
     + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + DI + '</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
-    + "<p class='meta'>entry · <b>" + entryOf(R).name + '</b>: + ' + entryOf(R).plus + ' − ' + entryOf(R).minus + '</p>'
+    + (entryOf(R).plus ? "<p class='meta'>entry · <b>" + entryOf(R).name + '</b>: + ' + entryOf(R).plus + ' − ' + entryOf(R).minus + '</p>' : '')
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
   $('breach').onclick = () => {
     if (cur) { cur.screen = 'matrix'; saveRun(cur); }
