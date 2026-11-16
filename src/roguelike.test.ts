@@ -709,6 +709,9 @@ describe('playtest daemons, bounties and Glob', () => {
     expect(fired(ctx, 'notrace')).toEqual([['notrace', { mult: 1.5 }]]); // A B C D: all inside AB and BCD
     expect(fired({ ...ctx, buf: ['A', 'B', 'C', 'D', 'X'] }, 'notrace')).toEqual([]); // X is a stray code
     expect(fired({ ...ctx, buf: ['A', 'B'] }, 'notrace')).toEqual([['notrace', { mult: 1.25 }]]); // one target
+    // ** lets "77 00" match early at 77 **; the real upload at the end still counts.
+    const t = [['77', '00'], ['H3', '5K', '77', 'LL', '77']];
+    expect(fired({ ...ctx, targets: t, buf: ['H3', '5K', '77', WILD, '77', '00'], l: 9 }, 'notrace')).toEqual([['notrace', { mult: 1.5 }]]);
   });
 
   it('Painter paints the path of a matrix with an upload and levels up a repainted cell', () => {

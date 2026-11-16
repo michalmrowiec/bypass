@@ -465,7 +465,9 @@ function facts({ buf, path, targets, l, n, jumps, ports, stay }: MatrixCtx): Fac
   const wins = done.map((t) => windowOf(buf, t));
   return {
     codes: done.reduce((a, t) => a + t.length, 0), picks: path.length, cells: new Set(keys).size,
-    wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length, trace: buf.every((_, i) => wins.some((w) => w.includes(i))),
+    // trace: any match of an uploaded target counts, since ** lets a target match earlier than the real upload.
+    wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length,
+    trace: buf.every((_, i) => done.some((t) => t.some((_, j) => i >= j && t.every((c, k) => fits(buf[i - j + k], c))))),
     done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
     empty: l - buf.length, slots: l, light: buf.length <= Math.ceil(l / 2),
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
