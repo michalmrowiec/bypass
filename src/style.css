@@ -466,6 +466,7 @@ button.unit{cursor:var(--hit)}
 .nm em{flex:none;font-style:normal;color:#4c575d}
 .led{flex:none;width:6px;height:6px;border-radius:50%;background:#2c363b}
 .unit.online .led{background:var(--mint);opacity:.6;box-shadow:0 0 4px rgba(90,242,168,.3)}
+.unit.miner.idle .led{background:var(--gold);opacity:.9;box-shadow:0 0 5px color-mix(in srgb,var(--gold) 55%,transparent)}
 /* LEDs as on real gear: blinking or pulsing = you can act, steady = information.
    green ready · blue ready now or never (before the first pick) · amber armed (blinks) or waiting (steady) · off spent. */
 .unit.waiting .led{background:var(--led-amber);opacity:.8;box-shadow:0 0 4px color-mix(in srgb,var(--led-amber) 50%,transparent)}

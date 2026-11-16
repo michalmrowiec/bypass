@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, type Family, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
@@ -44,7 +44,7 @@ let R: RunState = newRunState(0);
 let offer: DaemonId[] = [];
 let endWhy = ''; // why a run matrix ended on its own
 // Run save: R at the last checkpoint, the screen to reopen, and the current matrix's actions, replayed on the same deal.
-type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 };
+type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 } | { m: 'pool' | 'idle' };
 type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
 const RUN_V = 2; // bump when RunState changes shape; older saves are dropped
@@ -375,10 +375,10 @@ function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
   // Ending early keeps the empty slots, which pay credits.
   const empty = S.puzzle.l - S.run.buffer.length, silent = R.daemons.includes('silent');
-  const pay = Math.floor(empty / DC_SLOTS_PER_CREDIT) + (silent ? 2 : 0);
-  if (S.over) return '';
-  const tip = live ? 'Ends the matrix now and banks ' + live + ' data. ' + empty + ' empty buffer slots: +$1 per ' + DC_SLOTS_PER_CREDIT + ' = +$' + Math.floor(empty / DC_SLOTS_PER_CREDIT)
-    + (silent ? '; Silent +$2' : '') + '.' : 'Upload a target first: nothing to bank yet.';
+  const slots = minerIdle(R) ? Math.floor(empty / DC_SLOTS_PER_CREDIT) : 0, pay = slots + (silent ? 2 : 0);
+  if (S.over || !canDisconnect(R)) return '';
+  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Miner idle · ' + empty + ' empty buffer slots: +$1 per ' + DC_SLOTS_PER_CREDIT + ' = +$' + slots + '.' : '')
+    + (silent ? ' Silent +$2.' : '') : 'Upload a target first: nothing to bank yet.';
   return "<button class='btn act' id='disconnect' data-tip-delay='350' data-tip='" + tip + "'" + (live ? '' : ' disabled') + '>Disconnect' + (live && pay ? ' · ' + money(pay, '+') : '') + '</button>';
 }
 
@@ -625,13 +625,16 @@ function renderDaemons() {
     // or waiting (charged, not now).
     const used = !!t && (t === 'sim' ? R.restarts < 1 : !M[t]); // each tool's name is its ItemState flag
     const missed = !!t && !used && (S.over || ((t === 'sim' || t === 'wild' || t === 'split') && !start));
+    // Miner: its mode switches only outside a matrix in play, so a matrix scores in one mode.
+    const miner = id === 'chip' ? { mode: R.miner ?? 'pool', free: S.mode === 'run' && (start || S.over) } : undefined;
     const spent = !ready && (used || missed);
     const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
       : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
       : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
-    return { id, t, ready, st: on ? 'armed' : ready ? 'ready' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
-      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + rich(it.text) + (hint ? ' · <b>' + hint + '</b>' : '')
+    const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
+    return { id, t, ready, miner, st: on ? 'armed' : ready ? 'ready' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
+      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
         + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });
   const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
@@ -647,10 +650,11 @@ function renderDaemons() {
       if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'><i class='scr'></i><i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
-      const it = ITEMS[u.id], tag = u.ready ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + "'" + (u.ready ? " data-tool='" + u.t + "'" : " tabindex='0'")
+      const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
+      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + "'"
+        + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'><i class='scr'></i>" + gear(u.id)
-        + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : '')
+        + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
         + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   const use = (tool: string) => {
@@ -676,6 +680,7 @@ function renderDaemons() {
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
     if (el.dataset.tool) el.onclick = () => use(el.dataset.tool!);
+    if (el.dataset.miner) el.onclick = () => { const m = R.miner === 'idle' ? 'pool' : 'idle'; setMiner(R, m); logAct({ m }); render(); };
   });
   // A locked slot tells its price; slots are bought in order, one per shop click.
   $('items').querySelectorAll<HTMLElement>('.unit.blank').forEach((el, k) => {
@@ -975,7 +980,7 @@ function fold(box: HTMLElement) {
 // What the player owns, shown beside offers and the shop: daemons folded like in play, then rack modules with their art.
 const owned = (shop = false) => {
   const mod = (id: ItemId) => '<' + (shop ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' data-tip='" + ITEMS[id].text + "'>" + gear(id) + '<b>'
-    + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
+    + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + (id === 'chip' ? ' · ' + (R.miner ?? 'pool') : '') + '</small></b>' + (shop ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>');
   return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist dfold'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
     + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.length ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>")
@@ -1374,6 +1379,7 @@ function showLog() {
 }
 
 function disconnect() {
+  if (S.mode === 'run' && !canDisconnect(R)) return;
   logAct({ d: 1 });
   finish(score(S.run.buffer, S.puzzle.targets), true);
   render();
@@ -1479,7 +1485,7 @@ function resumeRun(sv: SavedRun) {
   S.dealing = false;
   try {
     for (const a of sv.log) {
-      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else disconnect();
+      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else if ('m' in a) setMiner(R, a.m); else disconnect();
     }
   } finally { replaying = false; }
 }
