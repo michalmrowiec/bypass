@@ -33,6 +33,17 @@ export function recordBreach(id: string): boolean {
   return true;
 }
 
+// Run mode: wins per company; each one opens the company's next entry. A breach from before wins counts as one.
+const WINS = 'bypass:wins';
+export const wins = (id: string): number => load<Record<string, number>>(WINS)?.[id] ?? (breached().includes(id) ? 1 : 0);
+export const setWins = (all: Record<string, number>) => save(WINS, all);
+export function recordWin(id: string): number {
+  const n = wins(id) + 1;
+  setWins({ ...load<Record<string, number>>(WINS), [id]: n });
+  recordBreach(id);
+  return n;
+}
+
 // Run mode: best finished run per company, by data banked; a tie goes to the faster run.
 export interface BestRun { data: number; ms: number; won: boolean }
 const BEST = 'bypass:best';

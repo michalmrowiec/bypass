@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { bestRun, firstResult, parseBackup, recordBest, recordFirst } from './storage';
+import { bestRun, firstResult, parseBackup, recordBest, recordFirst, recordWin, setBreached, wins } from './storage';
+import { COMPANIES, entriesOpen, entryKey } from './roguelike';
 
 beforeEach(() => {
   const m = new Map<string, string>();
@@ -45,5 +46,30 @@ describe('recordBest', () => {
     expect(recordBest('kestrel', { data: 800, ms: 1000, won: true })).toBe(false);
     expect(recordBest('kestrel', { data: 900, ms: 50000, won: true })).toBe(true);
     expect(bestRun('kestrel')).toEqual({ data: 900, ms: 50000, won: true });
+  });
+});
+
+describe('wins and entries', () => {
+  it('a company breached before wins existed counts as 1 win', () => {
+    setBreached(['kestrel']);
+    expect([wins('kestrel'), wins('meridian')]).toEqual([1, 0]);
+  });
+
+  it('recordWin increments and also records the breach', () => {
+    expect(recordWin('meridian')).toBe(1);
+    expect(recordWin('meridian')).toBe(2);
+    expect(wins('meridian')).toBe(2);
+    setBreached([]);
+    expect(wins('meridian')).toBe(2);
+  });
+
+  it('entriesOpen caps at 3', () => {
+    expect([0, 1, 2, 5].map(entriesOpen)).toEqual([1, 2, 3, 3]);
+  });
+
+  it('the default entry keeps the old record key', () => {
+    const co = COMPANIES[0];
+    expect(entryKey(co, co.entries[0].id)).toBe(co.id);
+    expect(entryKey(co, co.entries[1].id)).toBe(co.id + '/' + co.entries[1].id);
   });
 });
