@@ -126,8 +126,9 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - Odebrane bonusy są oznaczone w następnej ofercie i sklepie. Pokój, w którym był bonus, ma szary badge w kontrakcie.
 
 ## 9. Ekonomia
-- **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $3 na pokój.
-- **Inne źródła:** +$1 za pokój; +$1 za matrycę z wgranymi wszystkimi targetami.
+- **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $2 na pokój.
+- **Inne źródła:** +$2 za pokój; +$2 za matrycę z wgranymi wszystkimi targetami; wcześniejsze wyjście z pokoju $1 za pominiętą matrycę, $3 jeśli w pokoju był full.
+- **Sloty racka:** $4, $6, $8… (+$2 za każdy kolejny), maks. 9.
 - **Puste sloty bufora:** $1 za każde 2, gdy matryca skończy się sama; po Disconnect $1 za każde 3. Daemon Silent dokłada do tego +$2.
 - **Koszty:** pierwszy reroll w wizycie darmowy, potem $1, $2, $3… (od nowa w następnym sklepie); półka ma 4 itemy. Oferta daemonów pomija te z poprzedniej oferty.
 

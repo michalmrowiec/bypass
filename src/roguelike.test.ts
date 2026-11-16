@@ -3,7 +3,7 @@ import { contains, isLegal, newRun, partner, pick, WILD } from './game';
 import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
-  buy, canExitRoom, exitRoom, EXIT_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
+  buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
   bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
@@ -36,6 +36,18 @@ describe('roguelike run', () => {
     expect(endMatrix(s, 0, 0)).toBe('section');
   });
 
+  it('pays $3 per skipped matrix after a full matrix in the room, until the next room', () => {
+    const s = newRunState(1);
+    s.section = 1;
+    endMatrix(s, 130, 0);
+    s.roomFull = true;
+    s.credits = 0;
+    exitRoom(s);
+    expect(s.credits).toBe(EXIT_FULL_CREDIT + 2 + 2);
+    nextSection(s);
+    expect(s.roomFull).toBeUndefined();
+  });
+
   it('lets the player leave a room early once the quota is met, $1 per skipped matrix', () => {
     const s = newRunState(1);
     s.section = 1; // two matrices, quota 70
@@ -45,7 +57,7 @@ describe('roguelike run', () => {
     s.data = 130;
     s.credits = 0;
     expect(exitRoom(s)).toBe('section');
-    expect(s.credits).toBe(EXIT_CREDIT + 1 + 2); // skipped matrix, section cleared, surplus 60 (max $2)
+    expect(s.credits).toBe(EXIT_CREDIT + 2 + 2); // skipped matrix, section cleared, surplus 60 (max $2)
     s.section = BOSS;
     s.scores[BOSS] = [999];
     s.data = 9999;
@@ -66,7 +78,7 @@ describe('roguelike run', () => {
     s.section = 1;
     endMatrix(s, 60, 0);
     endMatrix(s, 70, 0); // 130 vs quota 70: surplus 60 (max $2)
-    expect(s.credits).toBe(1 + 2);
+    expect(s.credits).toBe(2 + 2);
     nextSection(s);
     expect([s.section, s.data, played(s)]).toEqual([2, 0, 0]);
   });
@@ -175,7 +187,7 @@ describe('daemons', () => {
     const s = run();
     s.section = 1;
     finishMatrix(s, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
-    expect(s.earned).toEqual([['every target uploaded', 1], ['4 empty buffer slots (1 per 2)', 2]]);
+    expect(s.earned).toEqual([['every target uploaded', 2], ['4 empty buffer slots (1 per 2)', 2]]);
   });
 
   it('offers 3 distinct unowned daemons, stable per seed and section', () => {
@@ -554,14 +566,14 @@ describe('economy', () => {
   it('caps the surplus credits per room; a Credit chip adds 1', () => {
     const s = { ...newRunState(1), items: ['chip'] as ItemId[] };
     endMatrix(s, 1000, 0);
-    expect(s.earned.map(([, n]) => n)).toEqual([1, 2, 1]);
+    expect(s.earned.map(([, n]) => n)).toEqual([2, 2, 1]);
   });
 
   it('a full rack blocks new modules but not upgrades; slots cost more each; selling returns half', () => {
     const s = { ...newRunState(1), credits: 50, items: ['buffer1', 'shortkey', 'bridge', 'thumb'] as ItemId[], shelf: ['datanode', 'buffer2'] as ItemId[] };
     expect(buy(s, 'datanode')).toBe(false);
     expect(buy(s, 'buffer2')).toBe(true);
-    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([4, true, RACK_BASE + 1, 7]);
+    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([4, true, RACK_BASE + 1, 6]);
     expect(buy(s, 'datanode')).toBe(true);
     const before = s.credits;
     expect(sell(s, 'buffer2')).toBe(true);

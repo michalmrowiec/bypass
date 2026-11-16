@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, canExitRoom, exitRoom, EXIT_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, DC_SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -201,8 +201,8 @@ function render() {
     }
     const at = plan.findIndex(([pr, pc]) => pr === r && pc === c);
     if (at >= 0) { b.classList.add('planned'); b.insertAdjacentHTML('beforeend', "<i class='pnum'>" + (at + 1) + '</i>'); }
-    // Plan mode: clicks plan instead of pick; the lit cells are the plan's next legal ones.
-    if (planning && !S.over) {
+    // Plan mode: clicks plan instead of pick; the lit cells are the plan's next legal ones. An armed item acts for real.
+    if (planning && !S.over && !armed) {
       const can = at >= 0 || (!S.dealing && !offer.length && planOk(pl.board, r, c));
       b.classList.toggle('ok', can);
       b.onclick = can ? () => planAt(r, c, at) : null;
@@ -224,7 +224,7 @@ function render() {
     : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
   if (S.mode !== 'run') planning = false;
   g.classList.toggle('planning', planning);
-  if (planning && !S.over) $('laneLabel').textContent = 'script · ' + (plan.length ? plan.length + (plan.length > 1 ? ' picks' : ' pick') + ' · click a step to cut there' : 'click cells to write a route');
+  if (planning && !S.over && !armed) $('laneLabel').textContent = 'script · ' + (plan.length ? plan.length + (plan.length > 1 ? ' picks' : ' pick') + ' · click a step to cut there' : 'click cells to write a route');
   const pb = $('planBtn');
   pb.hidden = S.over || S.mode !== 'run';
   pb.textContent = planning || !plan.length ? '[ script ]' : '[ script · ' + plan.length + ' ]';
@@ -1491,8 +1491,10 @@ function rewindPeek(on: boolean) {
 }
 
 function doRewind() {
+  const last = S.run.path.at(-1);
   if (!rewind(B())) return;
-  plan = [];
+  // The undone pick becomes the plan's first step.
+  if (last) plan.unshift([last[0], last[1]]);
   stopPlan();
   logAct({ w: 1 });
   note('Rewind · last pick undone');
@@ -1619,8 +1621,8 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 
 function choose(r: number, c: number) {
   if (!legal(r, c)) return;
-  // The planned pick clears its marker; any other pick drops the plan (and stops a running one).
-  if (!armed && plan[0]?.[0] === r && plan[0][1] === c) plan.shift(); else { plan = []; stopPlan(); }
+  // The planned pick clears its marker; an item keeps the plan (render trims it), any other pick drops it.
+  if (armed !== 'wild' && plan[0]?.[0] === r && plan[0][1] === c) plan.shift(); else { stopPlan(); if (!armed) plan = []; }
   logAct(armed ? { r, c, t: armed } : { r, c });
   const bd = B(), tool = armed, cell = rowName(r) + '·' + colName(c);
   const isUp = (t: string[]) => targetProgress(S.run.buffer, t, S.puzzle.l, false).done;
@@ -1732,8 +1734,8 @@ function finish(sc: number, disconnected = false) {
     const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button>" + SUM_CATALOG + "<button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
       ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›').replace("<button class='btn go'", (canExitRoom(R)
-        ? "<button class='btn' id='runExit' data-tip='Quota met: leave now and skip the rest of this room. +$" + EXIT_CREDIT + " per skipped matrix.'"
-          + (claim ? ' disabled' : '') + '>Exit room · ' + money(EXIT_CREDIT * (sections(R)[R.section].matrices - played(R)), '+') + ' ›</button>' : '') + "<button class='btn go'")
+        ? "<button class='btn' id='runExit' data-tip='Quota met: leave now and skip the rest of this room. +$" + exitCredit(R) + " per skipped matrix" + (R.roomFull ? ' (after a full)' : ', $' + EXIT_FULL_CREDIT + ' after a full') + ".'"
+          + (claim ? ' disabled' : '') + '>Exit room · ' + money(exitCredit(R) * (sections(R)[R.section].matrices - played(R)), '+') + ' ›</button>' : '') + "<button class='btn go'")
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
         : runSummary(out === 'win', bill, credits) + btn('runNew', 'New run').replace('</div>', "<button class='btn' id='shareRun'>Copy result</button><button class='btn' id='exportLog'>Export log</button></div>"));
     if (out === 'win' || out === 'lose') {

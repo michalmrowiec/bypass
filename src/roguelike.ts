@@ -185,11 +185,13 @@ export const DAEMON_SLOTS = 4;
 // FULL_CREDIT for a matrix with every target uploaded.
 export const SURPLUS_PER_CREDIT = 20;
 export const SURPLUS_CAP = 2; // per room, so huge scores don't flood the economy
-export const SECTION_CREDIT = 1;
+export const SECTION_CREDIT = 2;
 export const SLOTS_PER_CREDIT = 2;
 export const DC_SLOTS_PER_CREDIT = 3;
-export const FULL_CREDIT = 1;
+export const FULL_CREDIT = 2;
 export const EXIT_CREDIT = 1; // per matrix skipped by leaving a room early
+export const EXIT_FULL_CREDIT = 3; // same, once a matrix in the room uploaded every target
+export const exitCredit = (s: RunState) => (s.roomFull ? EXIT_FULL_CREDIT : EXIT_CREDIT);
 
 // Run buffers have no spare slots of their own; shop items add buffer, links and shorter targets.
 export function sectionMatrix(section: number, items: ItemId[] = [], company = 0): Size {
@@ -230,6 +232,7 @@ export interface RunState {
   best?: number; // best single matrix
   log?: [number, number, number][]; // finished rooms: iteration, room, data
   carry?: number; // data Overtime carried into this room
+  roomFull?: boolean; // a matrix in this room uploaded every target
   freeRerolls?: number; // bonus rewards
   legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
   lastOffer?: DaemonId[]; // the previous daemon offer, kept out of the next one
@@ -288,7 +291,7 @@ export function exitRoom(s: RunState): MatrixOutcome {
   const left = sections(s)[s.section].matrices - played(s);
   s.earned = [];
   logEvent(s, 'room exited early · ' + left + ' matrices skipped');
-  earn(s, left + ' matrices skipped (early exit)', left * EXIT_CREDIT);
+  earn(s, left + ' matrices skipped (early exit' + (s.roomFull ? ' after a full' : '') + ')', left * exitCredit(s));
   const out = closeRoom(s);
   for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
   return out;
@@ -316,6 +319,7 @@ export function nextSection(s: RunState): Patch[] | undefined {
   const carry = overtimeCarry(s);
   Object.assign(s, { section: s.section + 1, data: carry, carry, restarts: restartsFor(s) });
   delete s.stacks.sandbag; // room-scoped
+  delete s.roomFull;
   if (s.section < sections(s).length) return;
   // A save from before bonus tracking starts recording with the new iteration.
   Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, bonusHits: s.bonusHits ?? [] });
@@ -614,7 +618,7 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
   const score = scoreMatrix(ctx, s);
   daemonsAfterMatrix(ctx, s, disconnected);
   const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
-  if (facts(ctx).all) earn(s, 'every target uploaded', FULL_CREDIT);
+  if (facts(ctx).all) { earn(s, 'every target uploaded', FULL_CREDIT); s.roomFull = true; }
   if (score.pay) { const id = score.pay[0]; (s.payPlays ??= {})[id] = (s.payPlays[id] ?? 0) + 1; }
   logEvent(s, 'matrix over' + (disconnected ? ' (disconnect)' : '') + ' · ' + facts(ctx).done.length + '/' + ctx.targets.length + ' uploaded · ' + score.total + ' data');
   if (ctx.bounty) {
@@ -844,7 +848,7 @@ export const prioId = (items: ItemId[]) => (['prio2', 'prio1'] as const).find((i
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
-export const slotCost = (s: RunState) => 4 + 3 * (s.rack - RACK_BASE);
+export const slotCost = (s: RunState) => 4 + 2 * (s.rack - RACK_BASE);
 // The Co-processor module adds one daemon slot.
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
 export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
