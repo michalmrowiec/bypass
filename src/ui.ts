@@ -94,7 +94,8 @@ const planOk = (p: Board, r: number, c: number) => p.run.buffer.length < p.puzzl
 // It is cut at the first pick that is no longer legal; codes still encrypted on the real board stay ?? in it.
 function planBoard(): { board: Board; codes: string[] } {
   // A new matrix, a finished one or another mode ends the script and its writing mode.
-  if (planRun !== S.run || S.mode !== 'run' || S.over) { plan = []; planRun = S.run; planning = false; stopPlan(); }
+  // exit at end lasts one matrix.
+  if (planRun !== S.run || S.mode !== 'run' || S.over) { plan = []; planRun = S.run; planning = false; stopPlan(); ($('exitEnd') as HTMLInputElement).checked = false; }
   const b = B(), p: Board = { ...b, puzzle: structuredClone(b.puzzle), run: structuredClone(b.run), m: structuredClone(b.m), armed: null };
   const codes: string[] = [];
   let k = 0;
@@ -106,18 +107,91 @@ function planBoard(): { board: Board; codes: string[] } {
   plan.length = k;
   return { board: p, codes };
 }
-// ./run: the planned picks one by one, 0.2 s apart; any other action stops it.
-let planTimer = 0;
-const stopPlan = () => { clearTimeout(planTimer); planTimer = 0; };
+// ./run: the plan charges up, then the picks run fast and their codes fly into the buffer; any other action stops it.
+// A round the script ends holds its dialog (and bill) until the finale has played.
+let planTimer = 0, scripting = false, hold: (() => void)[] | null = null;
+const inflight = new Set<number>();
+const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function release() {
+  if (!hold) return;
+  const q = hold;
+  hold = null;
+  if (q.length) { $('modal').hidden = false; $('modalBox').querySelector<HTMLElement>('button:not(.vmcorner)')?.focus({ preventScroll: true }); }
+  q.forEach((f) => f());
+}
+// A held dialog waits for the finale; with nothing held, stopping drops the hold.
+const stopPlan = () => { clearTimeout(planTimer); planTimer = 0; scripting = false; if (!hold?.length) hold = null; };
+// The code flies from its cell to slot i; the slot shows it on landing.
+function flyCode(from: DOMRect, code: string, i: number) {
+  const slot = $('buffer').children[i] as HTMLElement | undefined;
+  if (!slot || still()) return;
+  inflight.add(i);
+  slot.classList.add('wait');
+  const to = slot.getBoundingClientRect(), f = document.createElement('i');
+  f.className = 'flycode';
+  f.textContent = code;
+  Object.assign(f.style, { left: from.left + 'px', top: from.top + 'px', width: from.width + 'px', height: from.height + 'px' });
+  document.body.appendChild(f);
+  f.animate([{ transform: 'none' }, { transform: 'translate(' + (to.left - from.left + (to.width - from.width) / 2) + 'px,' + (to.top - from.top + (to.height - from.height) / 2) + 'px) scale(.9)' }],
+    { duration: 260, easing: 'cubic-bezier(.5,0,.3,1)' }).finished.then(() => {
+    f.remove();
+    inflight.delete(i);
+    const s = $('buffer').children[i] as HTMLElement | undefined;
+    if (s?.classList.contains('wait')) { s.classList.remove('wait'); scramble(s, s.textContent ?? '', 1, 1, 40); }
+  });
+}
+// Script finale: a checksum wave over the buffer, then an upload bar over each uploaded target.
+function finale(): Promise<void> {
+  if (still()) return Promise.resolve();
+  return new Promise((done) => setTimeout(() => {
+    const slots = [...$('buffer').querySelectorAll<HTMLElement>('.slot.filled')];
+    slots.forEach((s, i) => setTimeout(() => {
+      s.classList.add('sum');
+      scramble(s, s.textContent ?? '', 1, 1, 40);
+      setTimeout(() => s.classList.remove('sum'), 260);
+    }, i * 55));
+    const tg = [...$('targets').querySelectorAll<HTMLElement>('.target.done')], t0 = slots.length * 55 + 150;
+    tg.forEach((t, i) => { t.style.setProperty('--sd', t0 + i * 120 + 'ms'); t.classList.add('upbar'); });
+    // The dialog follows right after the last upload bar.
+    setTimeout(done, t0 + (tg.length ? (tg.length - 1) * 120 + 450 : 0));
+  }, inflight.size ? 300 : 0));
+}
+// One log line for the terminal: uploads in the done colour, threats (ICE, disconnect, failures) in pink.
+function termLine(e: string) {
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const bad = /disconnect|ICE|failed|missed|honeypot/.test(e) ? ' bad' : '';
+  const at = e.indexOf(' · upload ');
+  return "<div class='" + bad + "'>" + (at < 0 ? esc(e) : esc(e.slice(0, at)) + "<span class='ok'>" + esc(e.slice(at)) + '</span>') + '</div>';
+}
 function runPlan() {
   stopPlan();
+  scripting = true;
+  hold = [];
+  const n = plan.length, exit = ($('exitEnd') as HTMLInputElement).checked;
+  note('$ ./run · ' + n + (n > 1 ? ' steps' : ' step') + (exit ? ' · exit at end' : ''));
+  let k = 0;
+  const end = () => {
+    planTimer = 0;
+    scripting = false;
+    if (!S.over && exit && canDisconnect(R)) { note('exit · auto-disconnect'); disconnect(); }
+    else if (!S.over) { note('script done · ' + k + '/' + n); render(); }
+    finale().then(release);
+  };
   const step = () => {
     const p = plan[0];
     if (!p || S.over || S.dealing || offer.length || armed || S.mode !== 'run' || !legal(p[0], p[1])) { stopPlan(); render(); return; }
+    const from = document.getElementById('c' + p[0] + p[1])?.getBoundingClientRect(), b0 = S.run.buffer.length;
     choose(p[0], p[1]);
-    if (plan.length) planTimer = window.setTimeout(step, 200); else { planTimer = 0; render(); }
+    k++;
+    if (from) for (let i = b0; i < S.run.buffer.length; i++) flyCode(from, S.run.buffer[i], i);
+    if (!S.over && plan.length && scripting) planTimer = window.setTimeout(step, 140);
+    else if (scripting || S.over) end();
   };
-  step();
+  // Charge: the planned cells light up in order, one quick sweep.
+  const cells = plan.map(([r, c]) => 'c' + r + c);
+  planTimer = window.setTimeout(step, still() ? 0 : n * 60 + 200);
+  render();
+  if (!still()) cells.forEach((id, i) => { const el = document.getElementById(id); el?.style.setProperty('--cd', i * 60 + 'ms'); el?.classList.add('chg'); });
 }
 // Planning a planned cell cuts the plan back to before it.
 function planAt(r: number, c: number, at: number) {
@@ -247,7 +321,12 @@ function render() {
   pb.textContent = planning || !plan.length ? '[ script ]' : '[ script · ' + plan.length + ' ]';
   const go = $('runPlanBtn');
   go.hidden = pb.hidden || planning || !plan.length;
-  go.textContent = planTimer ? '[ ^C ]' : '[ ./run ]';
+  go.textContent = planTimer ? '[ ^C ]' : ($('exitEnd') as HTMLInputElement).checked ? '[ ./run && exit ]' : '[ ./run ]';
+  $('exitOpt').hidden = pb.hidden || !planning;
+  // Terminal under the matrix: the run's event log, newest last.
+  const term = $('term');
+  term.hidden = S.mode !== 'run';
+  if (!term.hidden) term.innerHTML = (R.events ?? []).slice(-5).map(termLine).join('');
   pb.setAttribute('aria-pressed', String(planning));
   const buf = $('buffer');
   buf.innerHTML = '';
@@ -286,10 +365,11 @@ function render() {
     if (s.classList.contains('spare')) s.dataset.tip = 'Backup: leave this slot empty to grow the stack; any other ending halves it';
     if (i === M.kept) s.dataset.tip = 'Kept by Rewind: the buffer gained a slot for it';
     s.textContent = buffer[i] ?? '';
+    if (inflight.has(i)) s.classList.add('wait');
     const ghost = buffer[i] === undefined ? pl.codes[i - buffer.length] : undefined;
     if (ghost !== undefined) { s.textContent = ghost; s.classList.add('plan'); }
     buf.appendChild(s);
-    if (s.classList.contains('new')) scramble(s, buffer[i], 1, 1, 40);
+    if (s.classList.contains('new') && !s.classList.contains('wait')) scramble(s, buffer[i], 1, 1, 40);
   }
   const tg = $('targets');
   tg.innerHTML = '';
@@ -1754,7 +1834,7 @@ function choose(r: number, c: number) {
   }
   const hadFocus = document.activeElement?.classList.contains('cell');
   render();
-  document.getElementById('c' + r + c)?.classList.add('flash');
+  if (!scripting) document.getElementById('c' + r + c)?.classList.add('flash');
   if (hadFocus) nearestPickable(r, c)?.focus();
 }
 
@@ -1835,7 +1915,7 @@ function finish(sc: number, disconnected = false) {
       wireCopy('shareRun', () => txt);
     }
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
-    playBill(bill, room, before, goal);
+    if (hold) { $('modal').hidden = true; hold.push(() => playBill(bill, room, before, goal)); } else playBill(bill, room, before, goal);
     return;
   } else {
     const c = settle(win);
@@ -2268,6 +2348,7 @@ export function init() {
   $('catalogBtn').onclick = () => showCatalog(null);
   $('logBtn').onclick = showLog;
   $('planBtn').onclick = () => { stopPlan(); planning = !planning; render(); };
+  $('exitEnd').onchange = render;
   $('runPlanBtn').onclick = () => { if (planTimer) { stopPlan(); render(); } else runPlan(); };
   $('exportSave').onclick = () => {
     const a = document.createElement('a');

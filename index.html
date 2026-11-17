@@ -36,7 +36,7 @@
   <div class="board">
     <section class="pane">
       <p class="label">matrix</p>
-      <span class="paneacts"><button class="btn paneact" id="runPlanBtn" hidden title="Run the script">[ ./run ]</button><button class="btn paneact" id="planBtn" aria-pressed="false" title="Script: write a route without picking">[ script ]</button></span>
+      <span class="paneacts"><label class="btn paneact exitopt" id="exitOpt" hidden title="Disconnect when the script ends"><input type="checkbox" id="exitEnd"> exit<span class="exlong"> at end</span></label><button class="btn paneact" id="runPlanBtn" hidden title="Run the script">[ ./run ]</button><button class="btn paneact" id="planBtn" aria-pressed="false" title="Script: write a route without picking">[ script ]</button></span>
       <div class="modes sizes" id="sizes" role="group" aria-label="Size" hidden>
         <button class="btn" data-size="easy">easy 5×5</button>
         <button class="btn" data-size="normal">normal 6×6</button>
@@ -55,6 +55,7 @@
       <p class="hint" id="laneLabel">Pick a code in the top row</p>
       <div class="wmark" id="wmark" aria-hidden="true"></div>
       <div class="grid" id="grid" role="grid" aria-label="Code matrix"></div>
+      <div class="term" id="term" hidden aria-hidden="true"></div>
       <p class="hint" id="peek" aria-live="polite"></p>    </section>
     <section class="side">
       <div class="pane">

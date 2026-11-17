@@ -205,6 +205,26 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .paneact{position:absolute;top:-.8em;right:10px;padding:0 6px;background:var(--bg);font-size:12px;line-height:1.55}
 #logBtn{right:112px}
 /* Run event log: a scrolling terminal, newest line at the bottom. */
+/* Terminal under the matrix: the last few log lines, newest with a cursor */
+.term{margin-top:10px;padding:6px 8px;border:1px solid var(--line);background:rgba(0,0,0,.25);font:11px/1.5 var(--mono);color:var(--muted);min-height:calc(5 * 1.5em + 12px);overflow:hidden}
+.term div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.term div:last-child{color:var(--ink)}
+.term div:last-child::after{content:'_';animation:blink 1s steps(1) infinite}
+.term .ok{color:var(--done)}
+.term .bad,.term .bad:last-child{color:var(--pink)}
+@keyframes blink{50%{opacity:0}}
+@media (max-width:640px){.term{min-height:calc(3 * 1.5em + 12px)}.term div:nth-last-child(n+4){display:none}.exlong{display:none}}
+.exitopt{display:flex;align-items:center;gap:4px;cursor:var(--hit)}
+.exitopt input{margin:0;width:11px;height:11px;accent-color:var(--mint);cursor:inherit}
+/* Script run: charge sweep, flying codes, then the finale (checksum wave, upload bars) */
+.cell.chg{animation:chg .22s ease-out var(--cd,0s) forwards}
+@keyframes chg{to{box-shadow:inset 0 -80px 0 color-mix(in srgb,var(--cyan) 22%,transparent),inset 0 0 0 1px var(--cyan)}}
+.flycode{position:fixed;z-index:20;display:grid;place-items:center;pointer-events:none;font:600 16px var(--mono);color:#fff;text-shadow:0 0 8px var(--cyan)}
+.slot.wait{color:transparent}
+.slot.sum{border-color:var(--mint);color:#fff}
+.target.upbar{position:relative;overflow:hidden}
+.target.upbar::before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,color-mix(in srgb,var(--mint) 6%,transparent),color-mix(in srgb,var(--mint) 22%,transparent));border-right:2px solid var(--mint);transform-origin:left;transform:scaleX(0);animation:upbar .42s cubic-bezier(.3,0,.2,1) var(--sd,0s) forwards}
+@keyframes upbar{60%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
 .termlog{max-height:50vh;overflow:auto;margin:8px 0;padding:8px 10px;border:1px solid var(--line);background:var(--bg);font-size:11px;line-height:1.5;color:var(--muted);white-space:pre-wrap;text-align:left}
 .dslot{display:flex;perspective:900px} /* still at rest; the hover lifts, glitches and decrypts the name */
 .dslot.empty{display:grid;place-items:center;min-height:46px;border:1px dashed var(--line);font-size:11px;color:var(--muted);animation:none}
