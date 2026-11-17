@@ -136,12 +136,29 @@ const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabe
 let beltSeen = 0;
 const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + DI + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
 
+// Installed daemons per family (lowercase), most first.
+const famCounts = (ids: DaemonId[]): [string, number][] => {
+  const n: Record<string, number> = {};
+  for (const id of ids) { const f = DAEMONS[id].family.toLowerCase(); n[f] = (n[f] ?? 0) + 1; }
+  return Object.entries(n).sort((x, y) => y[1] - x[1]);
+};
+const FAM_COLOR: Record<string, string> = { splicer: 'var(--cyan)', ghost: '#b9a6ff', runner: '#f0b35a', cron: '#c6e46b' };
 function render() {
   const { grid, targets, l } = S.puzzle;
   const n = grid.length, cols = grid[0].length, w = S.puzzle.half;
   const { buffer, axis, idx } = S.run;
   const g = $('grid');
   g.innerHTML = '';
+  // Lane glass in the colours of every family with 2+ daemons (top to bottom), stronger once one has 3+.
+  const fams = S.mode === 'run' ? famCounts(R.daemons).filter(([, k]) => k >= 2) : [];
+  g.classList.toggle('fam', fams.length > 0);
+  if (fams.length) {
+    const a = fams[0][1] >= 3 ? 26 : 16, cs = fams.map(([f]) => FAM_COLOR[f]);
+    const stops = cs.length === 1 ? [cs[0] + ' ' + a + '%', cs[0] + ' ' + Math.round(a * .4) + '%'] : cs.map((c) => c + ' ' + a + '%');
+    g.style.setProperty('--lfam', 'linear-gradient(' + stops.map((c) => 'color-mix(in srgb,' + c + ',transparent)').join(',') + ')');
+    g.style.setProperty('--lf1', cs[0]);
+    g.style.setProperty('--lf2', cs[cs.length - 1]);
+  }
   const pl = planBoard();
   // Port board: the two matrices sit apart, with a narrow gap column between them.
   g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
