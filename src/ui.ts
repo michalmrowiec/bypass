@@ -1276,7 +1276,6 @@ const iceTags = (ids: IceId[], fresh: IceId[] = []) => ids.map((id) => "<i class
 // the slots after it stay classified.
 const FIRM_SLOTS = 5;
 const runName = () => COMPANIES[R.company].name + ' · ' + entryOf(R).name;
-const attr = (t: string) => t.replace(/'/g, '&#39;');
 // Entry tiles under the carousel: open ones pick the run's entry, the next locked one shows in full, the one after stays classified.
 const ENTRY_PICK = 'bypass:entry';
 function pickedEntry(co: Company) {
@@ -1292,7 +1291,7 @@ function entryTiles(co: Company | undefined, i: number) {
     const state = k >= open ? 'breach ' + co.entries[k - 1].name + ' to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
     const tag = k < open ? 'button' : 'span';
     return '<' + tag + (k < open ? " data-entry='" + e.id + "'" : '') + " class='btn etile" + (k >= open ? ' locked' : e === pick ? ' sel' : '')
-      + "'" + (e.plus ? " data-tip='" + attr('+ ' + e.plus + ' − ' + e.minus) + "'" : '') + "><b>" + e.name + '</b><small>' + state + '</small></' + tag + '>';
+      + "'><b>" + e.name + '</b><small>' + state + '</small>' + (e.plus ? "<span class='etxt'><i>+</i> " + e.plus + "<br><i>−</i> " + e.minus + '</span>' : '') + '</' + tag + '>';
   }).join('');
 }
 // Only a win on the newest open entry opens the next one (a chain); the first win also opens the next company.
@@ -1367,7 +1366,7 @@ function showCompanies(seed: number, back: Mode) {
   const shown = (i: number) => (i <= COMPANIES.findIndex((_, j) => !isOpen(j)) || isOpen(i) ? COMPANIES[i] : undefined);
   showResult(true, "<h2>Choose a target</h2><p class='meta'>one company per run · click a card for its rooms and ICE</p><div class='carousel'>"
     + Array.from({ length: n }, (_, i) => firmCard(shown(i), i)).join('')
-    + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div><div class='entries' id='entries'></div>"
+    + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div>"
     + "<div class='row'>" + (import.meta.env.DEV ? "<button class='btn devbtn' id='devUnlock'>dev · " + (breached().length ? 'lock all' : 'unlock all') + '</button>' : '')
     + "<button class='btn' id='briefing'><span class='ibadge' aria-hidden='true'>i</span>Briefing</button><button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
   document.getElementById('devUnlock')?.addEventListener('click', () => {
@@ -1393,8 +1392,7 @@ function showCompanies(seed: number, back: Mode) {
     ($('cNext') as HTMLButtonElement).disabled = firmAt === n - 1;
     const start = $('startFirm') as HTMLButtonElement;
     start.disabled = !COMPANIES[firmAt] || !isOpen(firmAt);
-    start.textContent = start.disabled ? 'Locked' : 'Start ' + COMPANIES[firmAt].name + ' ›';
-    $('entries').innerHTML = entryTiles(COMPANIES[firmAt], firmAt);
+    start.textContent = start.disabled ? 'Locked' : 'Choose ' + COMPANIES[firmAt].name + ' ›';
   };
   const go = (i: number) => { firmAt = Math.max(0, Math.min(n - 1, i)); place(); };
   // Drag or swipe sideways to turn the carousel; a drag never counts as a click.
@@ -1444,12 +1442,11 @@ function showCompanies(seed: number, back: Mode) {
     };
     c.onpointerleave = () => { t.style.transform = ''; c.querySelector('.fmap')?.classList.remove('hot'); };
   });
-  $('startFirm').onclick = () => { R = newRunState(seed, firmAt, pickedEntry(COMPANIES[firmAt]).id); startChoice(); };
-  $('entries').onclick = (e) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('.etile[data-entry]');
-    if (!t) return;
-    save(ENTRY_PICK, { ...load<Record<string, string>>(ENTRY_PICK), [COMPANIES[firmAt].id]: t.dataset.entry });
-    place();
+  $('startFirm').onclick = () => {
+    const co = COMPANIES[firmAt];
+    if (co.entries.length > 1) return showEntries(seed, back);
+    R = newRunState(seed, firmAt, co.entries[0].id);
+    startChoice();
   };
   $('cPrev').onclick = () => go(firmAt - 1);
   $('cNext').onclick = () => go(firmAt + 1);
@@ -1459,6 +1456,28 @@ function showCompanies(seed: number, back: Mode) {
     else if (e.key === 'Escape') close();
   };
   place();
+}
+
+// Second step after the company carousel: pick the company's entry.
+function showEntries(seed: number, back: Mode) {
+  const co = COMPANIES[firmAt];
+  showResult(true, '<h2>' + co.name + "</h2><p class='meta'>choose an entry · a win on the newest one opens the next</p><div class='entries big' id='entries'></div>"
+    + "<div class='row'><button class='btn' id='backFirms'>‹ Companies</button><button class='btn go' id='startFirm'></button></div>");
+  const draw = () => {
+    $('entries').innerHTML = entryTiles(co, firmAt);
+    $('startFirm').textContent = 'Start ' + pickedEntry(co).name + ' ›';
+  };
+  const backTo = () => showCompanies(seed, back);
+  $('backFirms').onclick = backTo;
+  $('startFirm').onclick = () => { R = newRunState(seed, firmAt, pickedEntry(co).id); startChoice(); };
+  $('entries').onclick = (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('.etile[data-entry]');
+    if (!t) return;
+    save(ENTRY_PICK, { ...load<Record<string, string>>(ENTRY_PICK), [co.id]: t.dataset.entry });
+    draw();
+  };
+  $('modal').onkeydown = (e) => { if (e.key === 'Escape') backTo(); };
+  draw();
 }
 
 const newMatrix = () => { dealMatrix(); logHead(); checkpoint('matrix'); };
