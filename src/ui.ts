@@ -1097,19 +1097,24 @@ function wireZip() {
   const zone = $('zipZone'), zip = zone.querySelector('.zip')!, note = $('zipNote'), cards = [...zone.querySelectorAll<HTMLElement>('.pcard')];
   const final = note.textContent;
   const at = (ms: number, f: () => void) => zipTimers.push(window.setTimeout(f, ms));
-  // The zone grows from the sealed archive's height to the opened one's, instead of jumping.
-  const to = zone.offsetHeight;
-  zone.style.height = zipFrom + 'px';
-  zone.style.overflow = 'hidden';
-  void zone.offsetHeight;
-  zone.style.transition = 'height .45s ease';
-  zone.style.height = to + 'px';
-  const grown = (e: TransitionEvent) => {
-    if (e.target !== zone || e.propertyName !== 'height') return; // the zipper's own transitions bubble up here too
-    zone.style.height = zone.style.overflow = zone.style.transition = '';
-    zone.removeEventListener('transitionend', grown);
-  };
-  zone.addEventListener('transitionend', grown);
+  // Phones: the re-render scrolled the dialog to the top and the cards decrypt below the fold, so bring the archive up.
+  // No grow there: shrinking the zone would clamp that scroll back down.
+  if (matchMedia('(max-width: 720px)').matches) zone.scrollIntoView({ block: 'start' });
+  else {
+    // The zone grows from the sealed archive's height to the opened one's, instead of jumping.
+    const to = zone.offsetHeight;
+    zone.style.height = zipFrom + 'px';
+    zone.style.overflow = 'hidden';
+    void zone.offsetHeight;
+    zone.style.transition = 'height .45s ease';
+    zone.style.height = to + 'px';
+    const grown = (e: TransitionEvent) => {
+      if (e.target !== zone || e.propertyName !== 'height') return; // the zipper's own transitions bubble up here too
+      zone.style.height = zone.style.overflow = zone.style.transition = '';
+      zone.removeEventListener('transitionend', grown);
+    };
+    zone.addEventListener('transitionend', grown);
+  }
   const HEX = '0123456789ABCDEF', hexRow = () => Array.from({ length: 16 }, () => HEX[Math.floor(Math.random() * 16)]).join('');
   const reveal = (c: HTMLElement) => { c.classList.remove('enc', 'zhide'); c.querySelector('.phex')!.textContent = ''; };
   let noise = 0;
@@ -1124,7 +1129,7 @@ function wireZip() {
   zone.querySelector('.zstage')!.insertAdjacentHTML('beforeend', "<button class='btn zskip'>Skip ›</button>");
   const skip = zone.querySelector<HTMLElement>('.zskip')!;
   skip.onclick = (e) => { e.stopPropagation(); finish(); };
-  skip.focus();
+  skip.focus({ preventScroll: true });
   zone.addEventListener('click', (e) => { if (zipTimers.length && !(e.target as HTMLElement).closest('[data-zip]')) finish(); });
   noise = window.setInterval(() => cards.forEach((c) => { if (c.classList.contains('enc')) c.querySelector('.phex')!.textContent = [hexRow(), hexRow(), hexRow()].join('\n'); }), 70);
   zipTimers.push(noise);

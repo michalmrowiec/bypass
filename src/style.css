@@ -767,7 +767,7 @@ button.unit{cursor:var(--hit)}
   .zpicks .pcard>*,.zpicks .pcard .pbody>*{grid-column:1}
   .zpicks .pcard .bnt{justify-self:start}
   .zpicks .pcard .pex{grid-column:2;grid-row:1/span 6;align-self:center;margin:0}
-  .zpicks .pcard>.pveil{grid-column:1/-1;grid-row:1/-1} /* the veil still covers the whole card */
+  .zpicks .pcard>.pveil{grid-area:auto} /* no grid area: the absolute veil then covers the whole card, not just row 1 */
 }
 .pcard{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12px;text-align:left;cursor:var(--hit)}
 .pcard:hover{border-color:var(--data)}
