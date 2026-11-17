@@ -587,6 +587,17 @@ function dragSort<T>(root: HTMLElement, sel: string, list: T[], save: (l: T[]) =
 }
 
 // Owned daemons fill the slots; one that counts toward the current matrix lights up and shows what it adds.
+// Rack faceplates: panel material by hardware kind, and a strip in the colour of the cells the item marks on the matrix.
+const MATERIAL: Partial<Record<ItemId, 'pcb' | 'anod' | 'steel' | 'net'>> = {
+  buffer1: 'pcb', buffer2: 'pcb', linker1: 'pcb', linker2: 'pcb', prio1: 'pcb', prio2: 'pcb', socket: 'pcb',
+  datanode: 'anod', datanode2: 'anod', datanode3: 'anod', thumb: 'anod', thumb2: 'anod', thumb3: 'anod', chip: 'anod', sim: 'anod',
+  wildcard1: 'steel', wildcard2: 'steel', shortkey: 'steel', sidedoor: 'steel', repeater: 'steel', glob: 'steel', heatsink: 'steel', rewind: 'steel',
+  bridge: 'net', bridge2: 'net', ping: 'net', mux: 'net', split1: 'net', split2: 'net', loopback1: 'net', loopback2: 'net',
+};
+const MARK: Partial<Record<ItemId, string>> = {
+  wildcard1: 'var(--pink)', wildcard2: 'var(--pink)', glob: 'var(--pink)', repeater: 'var(--violet)',
+  datanode: 'var(--data)', datanode2: 'var(--data)', datanode3: 'var(--data)', ping: 'repeating-linear-gradient(var(--cyan) 0 3px,transparent 3px 6px)', // dashed, like its cell frame
+};
 function renderDaemons() {
   const sc = S.over && lastBill ? lastBill : scoreMatrix(runCtx(), R);
   const fired = new Map(sc.fired);
@@ -651,11 +662,11 @@ function renderDaemons() {
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'><i class='scr'></i><i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i><i class='scr'></i></div>" + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + "'"
-        + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
-        + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'><i class='scr'></i>" + gear(u.id)
-        + "<span class='nm'><b>" + it.name + ' <small>v' + it.ver + '</small></b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
-        + "</small></span><i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
+      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
+        + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
+        + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + "<i class='scr'></i>" + gear(u.id)
+        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
+        + '</small></span>' + (it.ver !== '1.0' ? "<i class='vplate v" + parseInt(it.ver) + "'>v" + parseInt(it.ver) + '</i>' : '') + "<i class='led'></i><i class='scr'></i></" + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   const use = (tool: string) => {
     if (tool === 'rewind') return doRewind();

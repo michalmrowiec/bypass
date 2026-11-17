@@ -459,6 +459,20 @@ button.ware{cursor:var(--hit)}
 .rail{display:grid;place-items:center;background:#14171a;font-size:8px;color:#56626a;font-variant-numeric:tabular-nums}
 .unit{display:flex;align-items:center;gap:8px;min-width:0;height:46px;margin:3px 4px;padding:0 9px;border:1px solid #262d32;background:#171b1e;color:var(--muted);font:inherit;font-size:11px;text-align:left}
 button.unit{cursor:var(--hit)}
+/* Faceplate materials by hardware kind (before the state rules, so hover/ready/armed borders still win). */
+.unit.hw{position:relative}
+.unit.m-pcb{background:linear-gradient(#1f2618,#171d12);border-color:#3c4a2c} /* olive, so it never reads as the mint ready state */
+.unit.m-anod{background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),linear-gradient(#1b283a,#131c29);border-color:#2c4562}
+.unit.m-steel{background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 1px,transparent 1px 2px),linear-gradient(#262b2f,#1c2023);border-color:#454e54}
+.unit.m-net{background:radial-gradient(circle,rgba(255,255,255,.07) 0 .8px,transparent 1.2px) 0 0/4px 4px,#111417;border-color:#2a3136} /* switch grille */
+/* Strip in the colour of the cells this item marks; brushed version plate before the LED. */
+.strip{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--k)}
+/* Engraved: dull metal set into the faceplate, the digits cut in (dark with a lit lower lip). */
+.vplate{flex:none;padding:0 5px;border:1px solid rgba(0,0,0,.55);border-radius:1px;
+  background:linear-gradient(115deg,#6a747a,#929ca2 30%,#687278 55%,#848e94 80%,#646d73);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.06);
+  font:800 9px/13px var(--mono);font-style:normal;color:#191d20;letter-spacing:.06em;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+.vplate.v3{background:linear-gradient(115deg,#7a4f33,#b98a62 30%,#7d5236 55%,#a87a55 80%,#6f472e);color:#24150c} /* copper, never gold (cash only) */
 .unit:is(:hover,:focus-visible){border-color:#46525a;outline:none}
 .unit .gear{flex:none;width:56px;height:32px}
 /* Phillips screw heads, so they never read as LEDs. */
