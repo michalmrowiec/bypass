@@ -33,7 +33,7 @@ export function recordBreach(id: string): boolean {
   return true;
 }
 
-// Run mode: wins per company; each one opens the company's next entry. A breach from before wins counts as one.
+// Run mode: counted wins per company (only wins on the newest open entry count); each opens the next entry. A breach from before wins counts as one.
 const WINS = 'bypass:wins';
 export const wins = (id: string): number => load<Record<string, number>>(WINS)?.[id] ?? (breached().includes(id) ? 1 : 0);
 export const setWins = (all: Record<string, number>) => save(WINS, all);

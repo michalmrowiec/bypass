@@ -1289,15 +1289,16 @@ function entryTiles(co: Company | undefined, i: number) {
   return co.entries.map((e, k) => {
     if (k > open) return "<span class='btn etile locked'><b>???</b><small>classified</small></span>";
     const best = k < open ? bestRun(entryKey(co, e.id)) : undefined;
-    const state = k >= open ? 'breach once more to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
+    const state = k >= open ? 'breach ' + co.entries[k - 1].name + ' to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
     const tag = k < open ? 'button' : 'span';
     return '<' + tag + (k < open ? " data-entry='" + e.id + "'" : '') + " class='btn etile" + (k >= open ? ' locked' : e === pick ? ' sel' : '')
       + "'" + (e.plus ? " data-tip='" + attr('+ ' + e.plus + ' − ' + e.minus) + "'" : '') + "><b>" + e.name + '</b><small>' + state + '</small></' + tag + '>';
   }).join('');
 }
-// A win counts toward the company's entries; the first one also opens the next company.
+// Only a win on the newest open entry opens the next one (a chain); the first win also opens the next company.
 function winUnlocks(co: Company, next: Company | undefined) {
-  const first = !breached().includes(co.id), was = entriesOpen(wins(co.id)), now = entriesOpen(recordWin(co.id));
+  const first = !breached().includes(co.id), was = entriesOpen(wins(co.id));
+  const now = co.entries.indexOf(entryOf(R)) === was - 1 ? entriesOpen(recordWin(co.id)) : was;
   const fresh = now > was ? co.entries[now - 1] : undefined;
   return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + fresh.name + '</b> + ' + fresh.plus + ' − ' + fresh.minus + '</p>' : '')
     + (first && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');

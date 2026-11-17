@@ -42,7 +42,7 @@ Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
 Każda firma ma ICE poprzedniej i dokłada własne. ICE może też być stałe dla firmy (`always`, w każdym pokoju) albo przypisane do pokoju (`Section.ice`).
 
 ### Wejścia (entry vectors)
-Przy starcie runu wybierasz wejście firmy (kafelki pod kartą w karuzeli). Każda firma ma 3: domyślne + 2 do odblokowania; każda wygrana w firmie (dowolnym wejściem) otwiera następne (`entriesOpen`, licznik `bypass:wins`; firma zhakowana przed wejściami liczy się jako 1 wygrana). Rekord osobno dla każdego wejścia (domyślne trzyma stary klucz firmy). Nazwa wejścia jest w nagłówkach runu i w udostępnianym wyniku; +/− w oknie pokoju. Dane w `Company.entries` (`src/roguelike.ts`), odczyt przez `entryOf`.
+Przy starcie runu wybierasz wejście firmy (kafelki pod kartą w karuzeli). Każda firma ma 3: domyślne + 2 do odblokowania; łańcuch jak stawki w Balatro: dopiero wygrana na najnowszym otwartym wejściu otwiera następne, wygrana na starszym nic nie odblokowuje (`winUnlocks`) (`entriesOpen`, licznik `bypass:wins`; firma zhakowana przed wejściami liczy się jako 1 wygrana). Rekord osobno dla każdego wejścia (domyślne trzyma stary klucz firmy). Nazwa wejścia jest w nagłówkach runu i w udostępnianym wyniku; +/− w oknie pokoju. Dane w `Company.entries` (`src/roguelike.ts`), odczyt przez `entryOf`.
 
 | firma | 1 (domyślne) | 2 | 3 |
 |---|---|---|---|

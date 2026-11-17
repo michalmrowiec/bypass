@@ -28,7 +28,7 @@ export interface Company {
   id: string; name: string; text: string; codes: string[]; sections: Section[]; ice: IceId[]; patches: IceId[]; always?: IceId[];
   rowLabel?: (r: number) => string; colLabel?: (c: number) => string;
   dev?: boolean; // test company: dev server only, open from the start
-  entries: Entry[]; // [0] is the default; each win in the company opens the next one
+  entries: Entry[]; // [0] is the default; a win on the newest open entry opens the next one
 }
 // Entry vector: how the run breaks in, one plus and one minus. startTool: one of these, drawn from the run seed.
 export interface Entry {
@@ -137,7 +137,7 @@ export const COMPANIES: Company[] = [{
 },...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || !!COMPANIES[i]?.dev || breached.includes(COMPANIES[i - 1]?.id);
-// Entries open: the default plus one per win in the company. Records of the default entry keep the company's own key.
+// Entries open: the default plus one per counted win (see winUnlocks in ui.ts). Records of the default entry keep the company's own key.
 export const entriesOpen = (wins: number) => Math.min(3, 1 + wins);
 export const entryKey = (co: Company, entryId: string) => (entryId === co.entries[0].id ? co.id : co.id + '/' + entryId);
 export const sections = (s: RunState) => COMPANIES[s.company].sections;
