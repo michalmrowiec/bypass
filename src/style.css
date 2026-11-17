@@ -205,7 +205,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dslot{display:flex;perspective:900px} /* still at rest; the hover lifts, glitches and decrypts the name */
 .dslot.empty{display:grid;place-items:center;min-height:46px;border:1px dashed var(--line);font-size:11px;color:var(--muted);animation:none}
 /* The card carries tilt and glow (drop-shadow follows the cut corner); the body is the clipped file shape. */
-/* Glow comes from rarity (--gc colour, --gs size, --ga strength): common none, rare silver, legendary gold.
+/* Glow comes from rarity (--gc colour, --gs size, --ga strength): common none, rare silver, legendary pearl holo.
    Being on or hovered only raises it, so an active common never outshines an idle legendary. */
 .dcard{--edge:color-mix(in srgb,var(--fc) 40%,transparent);--gc:var(--fc);--gs:0px;--ga:0%;--sh:0 8px 8px rgba(0,0,0,.55);flex:1;display:flex;padding:0;border:0;background:none;
   font:inherit;font-size:11px;line-height:1.4;text-align:left;color:var(--muted);
@@ -217,7 +217,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dcard.on.r-rare{--gs:8px;--ga:60%}
 .dcard.on.r-legendary{--gs:14px;--ga:90%}
 .dcard:hover,.dcard:focus-visible{--edge:var(--fc);--sh:0 14px 12px rgba(0,0,0,.6);transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateZ(12px);transition:transform .08s,filter .2s}
-/* Hover by rarity: common barely, rare a strong silver glow, legendary a strong gold one (its holo frame races). */
+/* Hover by rarity: common barely, rare a strong silver glow, legendary a strong pearl one (its holo frame races). */
 .dcard:is(:hover,:focus-visible){--gs:6px;--ga:50%}
 .dcard.r-rare:is(:hover,:focus-visible){--gs:14px;--ga:95%}
 .dcard.r-legendary:is(:hover,:focus-visible){--gs:18px;--ga:100%}
@@ -225,8 +225,14 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dbody{position:relative;flex:1;display:flex;align-items:center;gap:12px;min-width:0;padding:10px 12px 10px 10px;overflow:hidden;
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);
   background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),
-    linear-gradient(100deg,color-mix(in srgb,var(--fc) 16%,var(--panel)),var(--panel) 60%);
+    var(--tex,none),linear-gradient(100deg,color-mix(in srgb,var(--fc) 16%,var(--panel)),var(--panel) 60%);
   box-shadow:inset 0 0 0 1px var(--edge)}
+/* Family glass textures (low contrast, reused by the matrix tint). */
+.c-splicer{--tex:repeating-linear-gradient(135deg,color-mix(in srgb,var(--fc) 14%,transparent) 0 1px,transparent 1px 5px)}
+.c-ghost{--tex:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--fc) 16%,transparent) 0 .6px,transparent 1px) 0 0/6px 6px,
+  radial-gradient(ellipse at 70% 40%,color-mix(in srgb,var(--fc) 14%,transparent),transparent 65%)}
+.c-runner{--tex:repeating-linear-gradient(0deg,color-mix(in srgb,var(--fc) 12%,transparent) 0 1px,transparent 1px 5px)}
+.c-cron{--tex:repeating-linear-gradient(90deg,color-mix(in srgb,var(--fc) 16%,transparent) 0 1px,transparent 1px 8px) 0 0/100% 4px no-repeat}
 /* Dog-ear: the clip cuts the corner away, this is the folded-back flap. */
 .fold{position:absolute;top:0;right:0;z-index:1;width:14px;height:14px;
   background:linear-gradient(225deg,transparent 50%,color-mix(in srgb,var(--fc) 35%,var(--panel)) 50%);box-shadow:-1px 1px 0 var(--edge)}
@@ -240,8 +246,8 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .dcard b{font-size:13px;font-weight:700;color:var(--ink)}
 .dmain small{font-size:10px;opacity:.65;font-variant-numeric:tabular-nums}
 /* Scope: a tag and its mark in the file line. Rarity: the card edge and a tag, in colours no family uses:
-   common single edge, rare double silver, legendary double gold with a glow. */
-:root{--rare:#e8eef2;--legend:#ffd23f}
+   common single edge, rare double silver, legendary double pearl with a glow (gold stays for cash). */
+:root{--rare:#e8eef2;--legend:#f3e9ff}
 .r-rare .rar{color:var(--rare)}
 .r-legendary .rar{color:var(--legend)}
 .rar{letter-spacing:.08em;font-weight:600}
@@ -251,15 +257,15 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 /* Foil: the outer frame. Rare: static brushed silver (--metal) under a glint sweeping along it now and then.
    The dog-ear flap takes the same --metal. */
 .r-rare{--metal:linear-gradient(115deg,#7d868c,#f4f8fa 18%,#98a1a7 36%,#fff 52%,#7b848a 70%,#dce3e7 86%,#8f989e)}
-/* Legendary: gold metal, only for the dog-ear flap; the frame itself is the spinning holo .foil. */
-.r-legendary{--metal:linear-gradient(115deg,#7a5a0c,#ffe58a 18%,#b8870f 36%,#fff2b8 52%,#9c700c 70%,#ffd23f 86%,#7a5a0c)}
+/* Legendary: holo metal from the frame's colours, only for the dog-ear flap; the frame itself is the spinning holo .foil. */
+.r-legendary{--metal:linear-gradient(115deg,#ff3d8b,#f3e9ff 18%,#5af2a8 36%,#fff 52%,#3dd9ff 70%,#b9a6ff 86%,#ff3d8b)}
 .foil{position:absolute;inset:0;z-index:2;padding:2px;pointer-events:none;background-size:300% 100%,100% 100%;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 /* Legendary frame: the holo colours run clockwise around the edge at an even speed, one strip per edge.
    Each strip tiles the colour cycle over the perimeter --L and is shifted by its edge's start, so the colours meet at the corners.
    --w/--h come from ui.ts (fallback: a typical card). Dim and slow on standby, bright when on, racing on hover. */
 @property --p{syntax:'<number>';inherits:false;initial-value:0}
-.r-legendary .foil{--dur:6s;--hc:#ff3d8b,#ffd23f,#5af2a8,#3dd9ff,#b9a6ff,#ff3d8b;--W:var(--w,400px);--H:var(--h,80px);--L:calc(2 * var(--W) + 2 * var(--H));--s:calc(var(--p) * var(--L));
+.r-legendary .foil{--dur:6s;--hc:#ff3d8b,#f3e9ff,#5af2a8,#3dd9ff,#b9a6ff,#ff3d8b;--W:var(--w,400px);--H:var(--h,80px);--L:calc(2 * var(--W) + 2 * var(--H));--s:calc(var(--p) * var(--L));
   background:linear-gradient(90deg,var(--hc)) var(--s) 0/var(--L) 2px repeat-x,
     linear-gradient(180deg,var(--hc)) right 0 top calc(var(--s) - var(--W))/2px var(--L) repeat-y,
     linear-gradient(270deg,var(--hc)) calc(2 * var(--W) + var(--H) - var(--s)) 100%/var(--L) 2px repeat-x,
@@ -273,7 +279,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 @keyframes foil{0%{background-position:100% 0,0 0}40%,100%{background-position:-200% 0,0 0}}
 .r-rare .fold,.r-legendary .fold{background:var(--metal);clip-path:polygon(0 0,100% 100%,0 100%);box-shadow:none}
 /* Spontaneous glitch by rarity, short bursts with long quiet gaps. Common: one tear line every 7.5 s.
-   Rare: a double tear every 9 s, the text slips. Legendary: a burst of torn lines every 10 s, the text slices and the name flashes gold. */
+   Rare: a double tear every 9 s, the text slips. Legendary: a burst of torn lines every 10 s, the text slices and the name flashes pearl. */
 .r-rare .dbody::before{animation:tearR 9s steps(1) var(--t,0s) infinite}
 @keyframes tearR{96%{opacity:1;top:22%;transform:translateX(-4px);box-shadow:-3px 0 color-mix(in srgb,var(--pink) 60%,transparent),3px 0 color-mix(in srgb,var(--cyan) 60%,transparent),0 9px var(--rare)}
   97.2%{top:58%;transform:translateX(3px)}98.4%{opacity:0}}

@@ -24,7 +24,7 @@
 | różowy | wildcard `**`, „źle”, ICE, burn, boost |
 | cyjan | consumable (ładunek ×2), dodatkowe sloty bufora, rare |
 | fiolet `--violet` | Repeater ×2, nic więcej |
-| złoty | **tylko kasa** (i legendary); gracz kojarzy go z $ |
+| złoty | **tylko kasa** (legendary to perłowy holo); gracz kojarzy go z $ |
 | limonka | rodzina cron (np. Rotate) |
 | niebieski (`--data`) | wartości data |
 
