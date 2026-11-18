@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
@@ -1024,7 +1024,8 @@ function renderSteps() {
     const st = j >= R.scores[i].length || !R.bonusHits ? 'off' : R.bonusHits.includes(bonusKey(R.loop, i, j)) ? 'won' : 'off lost';
     return " <span class='bnt " + st + "'>bonus</span>";
   }).join('');
-  $('stepList').innerHTML = "<div class='coTag'>" + logo(co.id) + '<span>' + co.name + '<small>run ' + (R.loop + 1) + '/' + LOOPS + (co.always ? ' · every room: ' + iceTags(co.always) : '') + '</small></span></div>'
+  $('stepList').innerHTML = "<div class='coTag'>" + logo(co.id) + '<span>' + co.name + '<small>run ' + (R.loop + 1) + '/' + LOOPS + (co.always ? ' · every room: ' + iceTags(co.always) : '') + '</small>'
+    + (co.entries.length > 1 ? "<i class='etag' tabindex='0' data-tip=\"" + entryTip(entryOf(R)) + '">' + entryTitle(co, entryOf(R)) + '</i>' : '') + '</span></div>'
     + sections(R).map((sec, i) => {
     const got = R.scores[i];
     const state = i < R.section ? 'done' : i === R.section ? 'now' : '';
@@ -1275,7 +1276,11 @@ const iceTags = (ids: IceId[], fresh: IceId[] = []) => ids.map((id) => "<i class
 // Contract carousel: one 3D card per company (logo front, rooms and ICE on the back). The next locked company shows in full,
 // the slots after it stay classified.
 const FIRM_SLOTS = 5;
-const runName = () => COMPANIES[R.company].name + ' · ' + entryOf(R).name;
+// Entries are numbered in unlock order: "#2 Courier tablet".
+const entryTitle = (co: Company, e: Entry) => '#' + (co.entries.indexOf(e) + 1) + ' ' + e.name;
+const runName = () => COMPANIES[R.company].name + ' · ' + entryTitle(COMPANIES[R.company], entryOf(R));
+// What the entry changes, for its tag in the contract pane.
+const entryTip = (e: Entry) => (e.plus ? '+ ' + e.plus + ' − ' + e.minus : 'Standard entry: no changes.');
 // Entry tiles under the carousel: open ones pick the run's entry, the next locked one shows in full, the one after stays classified.
 const ENTRY_PICK = 'bypass:entry';
 function pickedEntry(co: Company) {
@@ -1288,10 +1293,10 @@ function entryTiles(co: Company | undefined, i: number) {
   return co.entries.map((e, k) => {
     if (k > open) return "<span class='btn etile locked'><b>???</b><small>classified</small></span>";
     const best = k < open ? bestRun(entryKey(co, e.id)) : undefined;
-    const state = k >= open ? 'breach ' + co.entries[k - 1].name + ' to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
+    const state = k >= open ? 'breach ' + entryTitle(co, co.entries[k - 1]) + ' to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
     const tag = k < open ? 'button' : 'span';
     return '<' + tag + (k < open ? " data-entry='" + e.id + "'" : '') + " class='btn etile" + (k >= open ? ' locked' : e === pick ? ' sel' : '')
-      + "'><b>" + e.name + '</b><small>' + state + '</small>' + (e.plus ? "<span class='etxt'><i>+</i> " + e.plus + "<br><i>−</i> " + e.minus + '</span>' : '') + '</' + tag + '>';
+      + "'><b>" + entryTitle(co, e) + '</b><small>' + state + '</small>' + (e.plus ? "<span class='etxt'><i>+</i> " + e.plus + "<br><i>−</i> " + e.minus + '</span>' : '') + '</' + tag + '>';
   }).join('');
 }
 // Only a win on the newest open entry opens the next one (a chain); the first win also opens the next company.
@@ -1299,7 +1304,7 @@ function winUnlocks(co: Company, next: Company | undefined) {
   const first = !breached().includes(co.id), was = entriesOpen(wins(co.id));
   const now = co.entries.indexOf(entryOf(R)) === was - 1 ? entriesOpen(recordWin(co.id)) : was;
   const fresh = now > was ? co.entries[now - 1] : undefined;
-  return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + fresh.name + '</b> + ' + fresh.plus + ' − ' + fresh.minus + '</p>' : '')
+  return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + entryTitle(co, fresh) + '</b> + ' + fresh.plus + ' − ' + fresh.minus + '</p>' : '')
     + (first && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
 }
 // Entries that ask for a choice before the first room (boss ICE or daemon family) get one dialog per choice.
@@ -1465,7 +1470,7 @@ function showEntries(seed: number, back: Mode) {
     + "<div class='row'><button class='btn' id='backFirms'>‹ Companies</button><button class='btn go' id='startFirm'></button></div>");
   const draw = () => {
     $('entries').innerHTML = entryTiles(co, firmAt);
-    $('startFirm').textContent = 'Start ' + pickedEntry(co).name + ' ›';
+    $('startFirm').textContent = 'Start ' + entryTitle(co, pickedEntry(co)) + ' ›';
   };
   const backTo = () => showCompanies(seed, back);
   $('backFirms').onclick = backTo;
@@ -1636,7 +1641,7 @@ function enterSection() {
     + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + roomSize(sec.size) + ' · ' + sec.matrices
     + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + DI + '</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
-    + (entryOf(R).plus ? "<p class='meta'>entry · <b>" + entryOf(R).name + '</b>: + ' + entryOf(R).plus + ' − ' + entryOf(R).minus + '</p>' : '')
+    + (entryOf(R).plus ? "<p class='meta'>entry · <b>" + entryTitle(COMPANIES[R.company], entryOf(R)) + '</b>: + ' + entryOf(R).plus + ' − ' + entryOf(R).minus + '</p>' : '')
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
   $('breach').onclick = () => {
     if (cur) { cur.screen = 'matrix'; saveRun(cur); }

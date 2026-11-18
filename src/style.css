@@ -1073,6 +1073,7 @@ button.chip:hover{border-color:var(--gold)}
 .coTag .flogo{width:34px;height:34px;filter:none}
 .coTag span{display:flex;flex-direction:column;line-height:1.25}
 .coTag small{font-weight:400;color:var(--muted)}
+.coTag .etag{font-style:normal;font-weight:400;color:var(--mint);cursor:help;text-decoration:underline dotted;text-underline-offset:2px}
 /* Company colours: logos only, the game's own colours keep their meaning. */
 .lg-kestrel{--lg1:#ffc857;--lg2:#ff6a2b;--lg3:#ff2e63}
 .lg-meridian{--lg1:#36e2ff;--lg2:#7a5cff;--lg3:#eafcff}
