@@ -303,7 +303,8 @@ function render() {
     b.className = 'cell';
     b.id = 'c' + r + c;
     const v = cellView(bd, r, c);
-    if (v.alt) b.innerHTML = "<span class='dh'>" + v.code + "</span><span class='dh dalt'>" + v.alt + "</span><i class='dsplit'></i>";
+    const dh = (x: string, cls: string) => "<span class='dh" + cls + (x === WILD ? ' w' : '') + "'>" + x + '</span>';
+    if (v.alt) b.innerHTML = dh(v.code, '') + dh(v.alt, ' dalt') + "<i class='dsplit'></i>";
     else b.textContent = v.hidden ? '??' : v.code;
     b.classList.add(...v.cls);
     if (moved && v.cls.includes('belt')) b.classList.add('shift');
@@ -324,8 +325,8 @@ function render() {
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
       b.classList.add('ok');
       b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code + (v.alt ? ' or ' + v.alt : '')) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + portTag(port) + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
-      // An armed Wildcard only places **, so no code to choose.
-      b.onclick = v.alt && armed !== 'wild' ? dualClick(b, v.code, v.alt, (alt) => choose(r, c, alt)) : () => choose(r, c);
+      // With an armed Wildcard the chosen half is the one ** replaces.
+      b.onclick = v.alt ? dualClick(b, v.code, v.alt, (alt) => choose(r, c, alt)) : () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
     }
@@ -1794,7 +1795,7 @@ function markCode(code?: string) {
   const bd = B(), dark = isBlackout(bd);
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
     const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
-    const on = !!code && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && (fits(g, code) || altOf(S.puzzle, r, c) === code);
+    const on = !!code && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && (fits(g, code) || fits(altOf(S.puzzle, r, c), code));
     el.classList.toggle('tpeek', on);
     el.classList.toggle('near', on && inLane(S.run, r, c, S.puzzle));
   });

@@ -97,11 +97,10 @@ export function isLegal(run: Run, r: number, c: number, p?: Pick<Puzzle, 'half'>
 
 export const anyLegal = (run: Run, p: Puzzle) => laneCells(run, p).some(([r, c]) => isLegal(run, r, c, p));
 
-// A Dual cell's second code; gone once the cell turns ## or **.
-export const altOf = (p: Pick<Puzzle, 'grid' | 'alt'>, r: number, c: number) => {
-  const v = p.grid[r][c];
-  return v !== BLOCK && v !== WILD ? p.alt?.[r + ',' + c] : undefined;
-};
+// A Dual cell's second code (** once a Wildcard took that half); gone once the cell turns ##.
+export const altOf = (p: Pick<Puzzle, 'grid' | 'alt'>, r: number, c: number) => (p.grid[r][c] !== BLOCK ? p.alt?.[r + ',' + c] : undefined);
+// A cell holding ** in either half: one-shot, so Loopback skips it and no second ** goes on it.
+export const isWildCell = (p: Pick<Puzzle, 'grid' | 'alt'>, r: number, c: number) => p.grid[r][c] === WILD || altOf(p, r, c) === WILD;
 
 // through: Loopback v1.0 back through a port; the run stays on the port instead of jumping to its partner.
 // alt: a Dual cell gives its second code.

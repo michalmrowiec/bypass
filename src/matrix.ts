@@ -1,5 +1,5 @@
 // Matrix rules for a run: the deal, what each cell shows and allows, and what a pick does. No DOM here.
-import { altOf, burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, portBack, WILD, type Run } from './game';
+import { altOf, isWildCell, burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, portBack, WILD, type Run } from './game';
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
@@ -70,9 +70,9 @@ export function canPick(b: Board, r: number, c: number): boolean {
   const { grid } = b.puzzle;
   if (b.over || grid[r][c] === BLOCK || burning(b.run, r, c)) return false;
   switch (b.armed) {
-    case 'wild': return !isUsed(b, r, c) && grid[r][c] !== WILD && !same(b.m.rep, r, c);
+    case 'wild': return !isUsed(b, r, c) && !isWildCell(b.puzzle, r, c) && !same(b.m.rep, r, c);
     case 'jump': return !isUsed(b, r, c) && (jumpAny(b) || nextToLast(b, r, c));
-    case 'loop': return isUsed(b, r, c) && grid[r][c] !== WILD && (loopAny(b) || inLane(b.run, r, c, b.puzzle) || portBack(b.run, b.puzzle, r, c));
+    case 'loop': return isUsed(b, r, c) && !isWildCell(b.puzzle, r, c) && (loopAny(b) || inLane(b.run, r, c, b.puzzle) || portBack(b.run, b.puzzle, r, c));
     case 'mux': return !isUsed(b, r, c) && muxLane(b, r, c);
     default: return isLegal(b.run, r, c, b.puzzle) || doorEdge(b, r, c);
   }
@@ -88,7 +88,8 @@ export function cellView(b: Board, r: number, c: number): CellView {
   const cls: string[] = [], tags: CellView['tags'] = [];
   let burnLeft: number | undefined;
   if (hidden) cls.push('enc');
-  if (code === WILD) cls.push('wild');
+  // A Dual cell marks only its ** half (the UI does it on the code).
+  if (code === WILD && !altOf(b.puzzle, r, c)) cls.push('wild');
   if (code === BLOCK) cls.push(b.puzzle.shape ? 'void' : 'ice');
   if (b.m.nodes?.some((q) => same(q, r, c))) tags.push('node');
   if (same(b.m.trap, r, c)) { cls.push('trap'); tags.push('trap'); }
@@ -149,7 +150,9 @@ export function applyPick(b: Board, r: number, c: number, alt = false): PickResu
   b.armed = null;
   if (tool) m.tools = true;
   if (tool === 'wild') {
-    puzzle.grid[r][c] = WILD;
+    // On a Dual cell ** takes the chosen half only.
+    if (alt && altOf(puzzle, r, c)) puzzle.alt![r + ',' + c] = WILD;
+    else puzzle.grid[r][c] = WILD;
     if (puzzle.belt?.row === r) puzzle.belt.base[beltSrc(puzzle.belt.base, c, run.path.length)] = WILD;
     m.wild = false;
     return 'placed';
