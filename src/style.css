@@ -777,6 +777,16 @@ button.unit{cursor:var(--hit)}
 .zipzone .zhead{margin:0 0 8px;color:var(--data)}
 .zstage{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .zstage>.meta{flex:1;min-width:180px;margin:0}
+/* Glass style: a 3D case replaces the flat archive; .z3try hides the 2D fallback while three.js loads. */
+.zip.zimg{width:72px;height:72px;margin:-6px -4px -4px}
+.zipzone.z3try>.zstage,.zipzone.z3try>.zpicks{display:none}
+.z3{position:relative;min-height:290px;user-select:none;-webkit-user-select:none}
+.z3stage{width:100%;height:290px}
+.z3gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.z3log{text-align:center;min-height:2.6em;margin:0}
+.z3log b{color:var(--data)}
+.z3sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;padding:0}
+.z3skip{position:absolute;top:0;right:0;z-index:1}
 .zipbtn{background:none;border:0;padding:0;color:var(--ink);font:inherit;font-size:12px;cursor:var(--hit);display:flex;flex-direction:column;align-items:center;gap:4px}
 .zipbtn b{color:var(--data)}
 .zipbtn:disabled{cursor:default;opacity:.45}

@@ -16,6 +16,7 @@ import {
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
 } from './storage';
+import { webglOk, type ZipCard } from './zip3d-api';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
 interface DailyRecord { score: number; tries: number; time: number }
@@ -1197,6 +1198,23 @@ const ZIP_SVG = "<svg class='zip' viewBox='0 0 64 76' aria-hidden='true'><path c
   + "</g><g class='zpull'><rect x='27' y='8' width='10' height='14' rx='2'/><rect class='zdot' x='30' y='16' width='4' height='4' rx='1'/></g><text class='zext' x='32' y='68' text-anchor='middle'>.ZIP</text></svg>";
 let zipAnim = false, zipLast = '', zipFrom = 0; // zipFrom: the zone's height before the archive opened
 let zipTimers: number[] = [];
+// Visual style: 'glass' adds 3D (patch.zip so far), 'classic' keeps the flat 2D look. More of the UI will follow it.
+const STYLE = 'bypass:style';
+let style: 'glass' | 'classic' = load<string>(STYLE) === 'classic' ? 'classic' : 'glass';
+function syncStyle() { document.documentElement.dataset.style = style; $('styleBtn').textContent = 'style: ' + style; }
+let zipOpened: string | undefined; // the shop visit whose 3D patch.zip was already opened, so a re-render skips the seal
+const use3d = () => style === 'glass' && webglOk();
+const plainEffect = (e: Effect) => [e.flat && '+' + e.flat + ' data', e.boost && '+' + e.boost + ' boost', e.mult && '×' + e.mult].filter(Boolean).join(' · ');
+const zipCards = (): ZipCard[] => R.zipOpen!.map(([id, n]) => {
+  const p = id as PayloadId, lv = payLevel(R, p), ex = PAYLOADS[p].ex;
+  return { id, n, lv, eff: plainEffect(payEffect(p, lv + n)), text: PAYLOADS[p].text, buf: ex.buf, l: ex.l, targets: ex.targets };
+});
+function keepZip(i: number) {
+  const [id, n] = R.zipOpen![i];
+  if (!pickZip(R, i)) return;
+  zipLast = 'patched ' + payFile(id as PayloadId) + ' → Lv' + payLevel(R, id as PayloadId) + (n > 1 ? ' (+2)' : '');
+  showShop(false);
+}
 // A patch card: the payload, its level jump, the bonus it reaches and an example. pveil covers it while it decrypts.
 const zipCard = ([id, n]: [string, number], i: number) => {
   const p = id as PayloadId, lv = payLevel(R, p);
@@ -1207,25 +1225,33 @@ const zipCard = ([id, n]: [string, number], i: number) => {
 };
 function zipZone() {
   const head = "<p class='meta zhead'>patch.zip · 1 per shop · raises one payload for the rest of the run</p>";
-  if (R.zipOpen) return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'>" + ZIP_SVG.replace("class='zip'", "class='zip open'")
+  if (R.zipOpen) return "<div class='zipzone" + (use3d() ? " z3try'" : "'") + " id='zipZone'>" + head + (use3d() ? "<div class='z3' id='zip3d'></div>" : '') + "<div class='zstage'>" + ZIP_SVG.replace("class='zip'", "class='zip open'")
     + "<p class='meta' id='zipNote'>" + R.zipOpen.length + ' payload patches · keep one</p></div><div class="zpicks">'
     + R.zipOpen.map(zipCard).join('') + '</div></div>';
   if (zipSold(R)) return "<div class='zipzone' id='zipZone'>" + head + "<p class='meta'>" + (zipLast || 'patch installed') + ' · the next patch.zip waits in the next shop</p></div>';
-  return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'><button class='zipbtn' id='buyZip'" + (R.credits < zipPrice(R) ? ' disabled' : '') + '>' + ZIP_SVG
+  return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'><button class='zipbtn' id='buyZip'" + (R.credits < zipPrice(R) ? ' disabled' : '') + '>'
+    + (style === 'glass' ? "<img class='zip zimg' src='" + import.meta.env.BASE_URL + "zip-case.png' alt=''>" : ZIP_SVG) // a still of the 3D case
     + "<span><b>patch.zip</b> · " + money(zipPrice(R)) + "</span></button><p class='meta'>An encrypted archive with " + ZIP_PICKS + ' payload patches. Open it and keep one; some archives hold a +2 patch.</p></div></div>';
 }
 function wireZip() {
   zipTimers.forEach(clearTimeout);
   zipTimers = [];
   document.getElementById('buyZip')?.addEventListener('click', () => { const h = $('zipZone').offsetHeight; if (buyZip(R)) { zipAnim = true; zipFrom = h; showShop(false); } });
-  $('modalBox').querySelectorAll<HTMLElement>('[data-zip]').forEach((b) => {
-    b.onclick = () => {
-      const [id, n] = R.zipOpen![+b.dataset.zip!];
-      if (!pickZip(R, +b.dataset.zip!)) return;
-      zipLast = 'patched ' + payFile(id as PayloadId) + ' → Lv' + payLevel(R, id as PayloadId) + (n > 1 ? ' (+2)' : '');
-      showShop(false);
-    };
-  });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-zip]').forEach((b) => { b.onclick = () => keepZip(+b.dataset.zip!); });
+  const host = document.getElementById('zip3d');
+  if (host && R.zipOpen) { // glass style: three.js loads lazily; if it or WebGL fails, the 2D archive takes over
+    const anim = zipAnim, visit = R.zipVisit;
+    zipAnim = false;
+    const fallback = () => { if (!host.isConnected) return; host.closest('.zipzone')!.classList.remove('z3try'); zipAnim = anim; unzipDom(); };
+    import('./zip3d')
+      .then((m) => m.mountZip3d(host, zipCards(), { opened: zipOpened === visit, animate: !matchMedia('(prefers-reduced-motion: reduce)').matches, onOpen: () => { zipOpened = visit; }, onPick: keepZip }))
+      .then((ok) => { if (!ok) fallback(); }, fallback);
+    return;
+  }
+  unzipDom();
+}
+// The 2D unzip (classic style, or no WebGL).
+function unzipDom() {
   if (!zipAnim || !R.zipOpen) return;
   zipAnim = false;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -2409,6 +2435,8 @@ export function init() {
   $('modeTrain').onclick = () => setMode('train');
   $('modeSprint').onclick = () => setMode('sprint');
   $('modeRun').onclick = () => setMode('run');
+  $('styleBtn').onclick = () => { style = style === 'glass' ? 'classic' : 'glass'; save(STYLE, style); syncStyle(); };
+  syncStyle();
   $('catalogBtn').onclick = () => showCatalog(null);
   $('logBtn').onclick = showLog;
   $('planBtn').onclick = () => { stopPlan(); planning = !planning; render(); };
