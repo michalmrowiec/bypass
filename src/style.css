@@ -675,8 +675,6 @@ button.unit{cursor:var(--hit)}
 .cell.dual .dsplit{position:absolute;inset:3px;pointer-events:none;
   background:linear-gradient(to top left,transparent calc(50% - .6px),rgba(232,238,242,.4) 50%,transparent calc(50% + .6px))}
 .cell.dual.used .dsplit{opacity:.4}
-.cell.dual .dh.w{color:var(--pink);animation:rgb 3s steps(1) infinite}
-.cell.dual.used .dh.w{color:transparent;animation:none}
 .cell.dual.ok:hover{color:var(--muted)}
 .cell.dual.ok:hover:not(.hb) .dh:first-child,.cell.dual.ok.hb:hover .dalt{color:var(--mint)}
 .dmenu{position:fixed;z-index:50;display:flex;gap:6px;padding:6px;transform:translate(-50%,calc(-100% - 6px));

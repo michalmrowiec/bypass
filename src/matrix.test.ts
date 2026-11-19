@@ -255,30 +255,3 @@ describe('tool readiness', () => {
     expect(loopReady(b)).toBe(true);
   });
 });
-
-describe('Dual cells and Wildcard', () => {
-  it('** replaces only the chosen half, and that cell stays one-shot', () => {
-    const b = board();
-    b.puzzle.alt = { '0,1': 'Z' };
-    b.armed = 'wild';
-    expect(applyPick(b, 0, 1, true)).toBe('placed');
-    expect([b.puzzle.grid[0][1], b.puzzle.alt['0,1']]).toEqual(['B', WILD]);
-    expect(cellView(b, 0, 1)).toMatchObject({ code: 'B', alt: WILD });
-    b.armed = 'wild';
-    expect(canPick(b, 0, 1)).toBe(false);
-    b.armed = null;
-    applyPick(b, 0, 1, true);
-    expect(b.run.buffer).toEqual([WILD]);
-    b.armed = 'loop';
-    expect(canPick(b, 0, 1)).toBe(false);
-  });
-
-  it('** on the first half keeps the second code', () => {
-    const b = board();
-    b.puzzle.alt = { '0,1': 'Z' };
-    b.armed = 'wild';
-    applyPick(b, 0, 1);
-    expect([b.puzzle.grid[0][1], b.puzzle.alt['0,1']]).toEqual([WILD, 'Z']);
-    expect(cellView(b, 0, 1).cls).not.toContain('wild');
-  });
-});

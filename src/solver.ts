@@ -19,8 +19,6 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
   let k = run.path.length;
   const belt = p.belt;
   const code = (r: number, c: number) => (belt && r === belt.row ? belt.base[beltSrc(belt.base, c, k)] : p.grid[r][c]);
-  // One-shot **, either half of a Dual cell: Loopback never re-picks it.
-  const wild = (r: number, c: number) => code(r, c) === WILD || altOf(p, r, c) === WILD;
   const open = (r: number, c: number) => p.grid[r][c] !== BLOCK && !hot(r, c);
   const NEAR = [[-1, 0], [1, 0], [0, -1], [0, 1]];
   let nodes = 0;
@@ -64,14 +62,14 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     for (const [r, c] of laneCells(lane, p)) {
       if (!open(r, c)) continue;
       if (!used.has(r + ',' + c)) { if (step(r, c, lane, jump, loop, mux)) return true; }
-      else if (loop && !tools.loopAny && !wild(r, c) && step(r, c, lane, jump, false, mux)) return true;
+      else if (loop && !tools.loopAny && code(r, c) !== WILD && step(r, c, lane, jump, false, mux)) return true;
     }
     if (loop && !tools.loopAny) for (const [a, b] of p.ports ?? []) for (const [r, c] of [a, b]) {
-      if (used.has(r + ',' + c) && !hot(r, c) && !wild(r, c) && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
+      if (used.has(r + ',' + c) && !hot(r, c) && code(r, c) !== WILD && portBack(lane, p, r, c) && step(r, c, lane, jump, false, mux, true)) return true;
     }
     if (loop && tools.loopAny) for (const key of [...used]) {
       const [r, c] = key.split(',').map(Number);
-      if (!hot(r, c) && !wild(r, c) && step(r, c, lane, jump, false, mux)) return true;
+      if (!hot(r, c) && code(r, c) !== WILD && step(r, c, lane, jump, false, mux)) return true;
     }
     // Mux: a free cell in the row or column of the last pick, as if the lane were both lines through it.
     if (mux && !lane.free && last) {
