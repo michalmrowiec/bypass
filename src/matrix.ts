@@ -89,7 +89,7 @@ export function cellView(b: Board, r: number, c: number): CellView {
   let burnLeft: number | undefined;
   if (hidden) cls.push('enc');
   if (code === WILD) cls.push('wild');
-  if (code === BLOCK) cls.push('ice');
+  if (code === BLOCK) cls.push(b.puzzle.shape ? 'void' : 'ice');
   if (b.m.nodes?.some((q) => same(q, r, c))) tags.push('node');
   if (same(b.m.trap, r, c)) { cls.push('trap'); tags.push('trap'); }
   if (same(b.m.rep, r, c)) tags.push('rep');

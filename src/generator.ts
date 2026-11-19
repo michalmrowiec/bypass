@@ -8,9 +8,11 @@ export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 // deep: 1 makes one link overlap 2 codes instead of 1 (needs two targets of 3+ codes).
 // block: a sealed row or column (BLOCK cells); the solution path never touches it.
 // burn: Corruption; the solution path never steps next to any of its last `burn` cells.
+// solo: the port pairs sit inside one n×n matrix instead of joining two.
+// mask: board shape, one string per row, '#' = no cell there (an L, a cross); not on port boards.
 // dual: 1 to this many Dual cells, each with a second code a pick may take instead.
 // ports: a port board, two n×n matrices side by side with this many port pairs (block and burn are not supported there).
-export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number; ports?: number; dual?: number }
+export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number; ports?: number; solo?: boolean; dual?: number; mask?: string[] }
 export const BLOCK = '##';
 export const SIZES = {
   easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
@@ -27,6 +29,7 @@ export interface Puzzle {
   belt?: { row: number; base: string[] }; // Conveyor: the row's codes before any pick
   half?: number; // port boards: two n×n matrices side by side, `half` (= n) columns each
   ports?: [[number, number], [number, number]][]; // port pairs, first in the left matrix, partner in the right one
+  shape?: true; // a masked board: its ## cells are not there at all
   alt?: Record<string, string>; // Dual cells: 'r,c' -> a second code a pick may take instead
 }
 
@@ -51,14 +54,18 @@ export function rng(seed: number): () => number {
 }
 
 // Port board walk: starts in row 0 of the left matrix and must pass at least one port, or the right matrix is decoration.
-function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T): Pick<Puzzle, 'half' | 'ports' | 'path'> | null {
+// solo: both ends of each pair in one matrix, never in the same row or column (that jump would be plain).
+function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T, solo = false): Pick<Puzzle, 'half' | 'ports' | 'path'> | null {
   const cells = (h: number) => Array.from({ length: N * N }, (_, i): [number, number] => [Math.floor(i / N), h * N + (i % N)]);
-  const a = cells(0), b = cells(1), ports: Puzzle['ports'] = [];
+  const a = cells(0), b = solo ? a : cells(1), ports: Puzzle['ports'] = [];
+  const taken = (x: [number, number]) => ports.some(([p, q]) => p === x || q === x);
   for (let k = 0; k < count; k++) {
-    const pa = pick(a.filter((x) => !ports.some(([q]) => q === x))), pb = pick(b.filter((x) => !ports.some(([, q]) => q === x)));
+    const pa = pick(a.filter((x) => !taken(x)));
+    const pb = pick(b.filter((x) => !taken(x) && x !== pa && (!solo || (x[0] !== pa[0] && x[1] !== pa[1]))));
     ports.push([pa, pb]);
   }
-  const shape = { grid: Array.from({ length: N }, () => new Array(2 * N)), targets: [], l: 0, half: N, ports };
+  const half = solo ? undefined : N;
+  const shape = { grid: Array.from({ length: N }, () => new Array(half ? 2 * N : N)), targets: [], l: 0, half, ports };
   const path: [number, number][] = [];
   let lane: Lane = { axis: 'row', idx: 0, half: 0 };
   while (path.length < len) {
@@ -68,10 +75,10 @@ function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T)
     path.push([r, c]);
     lane = nextLane(lane, r, c, shape);
   }
-  return path.some(([r, c]) => partner(shape, r, c)) ? { half: N, ports, path } : null;
+  return path.some(([r, c]) => partner(shape, r, c)) ? { ...(half && { half }), ports, path } : null;
 }
 
-export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES, deep: deepOpt = 0, block, burn, ports, dual }: Size = SIZES.normal): Puzzle {
+export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES, deep: deepOpt = 0, block, burn, ports, solo, dual, mask }: Size = SIZES.normal): Puzzle {
   // One code can't make distinct, non-uniform targets: the retry loop would never end.
   if (new Set(codes).size < 2) throw new Error('code pool needs at least 2 distinct codes');
   const r = rng(seed);
@@ -80,10 +87,10 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
   // Only between targets of 3+ codes, so neither fits inside the other.
   const deep = deepOpt && links && lens.filter((l) => l >= 3).length >= 2 ? 1 : 0;
   const planted = lens.reduce((a, b) => a + b, 0) - links - deep;
-  const sealed = (c: [number, number]) => !!block && c[block[0] === 'row' ? 0 : 1] === block[1];
+  const sealed = (c: [number, number]) => (!!block && c[block[0] === 'row' ? 0 : 1] === block[1]) || mask?.[c[0]]?.[c[1]] === '#';
   const startCols = Array.from({ length: N }, (_, c) => c).filter((c) => !sealed([0, c]));
   for (;;) {
-    const board = ports ? portWalk(N, ports, planted, pick) : undefined;
+    const board = ports ? portWalk(N, ports, planted, pick, solo) : undefined;
     if (board === null) continue;
     // Walk a random legal path long enough for the chained targets, then plant them along it.
     const path: [number, number][] = [[0, pick(startCols)]];
@@ -122,10 +129,10 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
     if (new Set(targets.map((t) => t.join(' '))).size < targets.length) continue;
     if (targets.some((t) => t.every((c) => c === t[0]))) continue;
     const seq = order.flatMap((ti, j) => targets[ti].slice(j === deepAt ? 2 : linked.has(j) ? 1 : 0));
-    const grid = Array.from({ length: N }, () => Array.from({ length: board ? 2 * N : N }, () => pick(codes)));
+    const grid = Array.from({ length: N }, () => Array.from({ length: board?.half ? 2 * N : N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
-    if (block && !board) for (let i = 0; i < N; i++) grid[block[0] === 'row' ? block[1] : i][block[0] === 'row' ? i : block[1]] = BLOCK;
-    const p: Puzzle = board ? { grid, targets, l: planted + slack, ...board } : { grid, targets, l: planted + slack, path };
+    if (!board) grid.forEach((row, y) => row.forEach((_, x) => { if (sealed([y, x])) row[x] = BLOCK; }));
+    const p: Puzzle = board ? { grid, targets, l: planted + slack, ...board } : { grid, targets, l: planted + slack, path, ...(mask && { shape: true as const }) };
     if (dual) p.alt = dualCells(p, 1 + Math.floor(r() * dual), codes, r);
     return p;
   }

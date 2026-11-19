@@ -1218,6 +1218,9 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 /* Each pair has its own hologram: pair 1 cool, pair 2 warm. --pc is the pair's accent (tag, hover glow). */
 .cell.port1{--holo:conic-gradient(from 200deg,#8ff6ff,#9fb8ff,#c3a6ff,#9fb8ff,#8ff6ff);--pc:#a9c4ff}
 .cell.port2{--holo:conic-gradient(from 200deg,#ff9fdc,#ffb3b0,#ffd0a8,#ffb3b0,#ff9fdc);--pc:#ffb8c4}
+.cell.port3{--holo:conic-gradient(from 200deg,#e8eef2,#b8f0ff,#ffffff,#b8f0ff,#e8eef2);--pc:#dfe8ee}
+/* Shaped boards: masked cells are simply not there. */
+.cell.void{visibility:hidden}
 .cell .pframe,.cell .pring{position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;background:var(--holo);pointer-events:none;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 .cell .pframe{opacity:.85}

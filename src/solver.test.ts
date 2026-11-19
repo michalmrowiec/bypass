@@ -85,3 +85,26 @@ describe('Dual cells', () => {
     expect(run.buffer).toEqual(['4B']);
   });
 });
+
+describe('board shapes', () => {
+  it('a solo port pair sits in one matrix, ends in different rows and columns', () => {
+    for (let s = 1; s <= 30; s++) {
+      const p = generate(s, { n: 6, lens: [2, 3, 3], links: [1], slack: 0, ports: 1, solo: true });
+      expect(p.half).toBeUndefined();
+      expect(p.grid[0]).toHaveLength(6);
+      const [[a, b]] = p.ports!;
+      expect(a[0] !== b[0] && a[1] !== b[1]).toBe(true);
+      expect(canComplete(newRun(), p)).toBe(true);
+    }
+  });
+
+  it('a masked board has ## where the mask cuts it, the solution avoids them', () => {
+    const mask = ['##...##', '##...##', '.......', '.......', '.......', '##...##', '##...##'];
+    for (let s = 1; s <= 30; s++) {
+      const p = generate(s, { n: 7, lens: [2, 3, 3], links: [1], slack: 0, mask });
+      expect(p.shape).toBe(true);
+      mask.forEach((row, r) => [...row].forEach((m, c) => expect(p.grid[r][c] === '##').toBe(m === '#')));
+      expect(canComplete(newRun(), p)).toBe(true);
+    }
+  });
+});

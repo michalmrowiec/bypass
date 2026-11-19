@@ -1,4 +1,4 @@
-import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
+import { BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, type Challenge, challengeCode, isFinished, newRun, parseChallenge, parseCode, score,
   stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner, altOf,
@@ -193,6 +193,13 @@ function runPlan() {
   render();
   if (!still()) cells.forEach((id, i) => { const el = document.getElementById(id); el?.style.setProperty('--cd', i * 60 + 'ms'); el?.classList.add('chg'); });
 }
+// Real service ports (ftp, ssh, telnet, smtp, dns, http, pop3, imap, https, smb, mysql, rdp, postgres, alt http) name the pairs;
+// each board draws its own, seeded by where its ports sit, so they hold through the matrix.
+const PORT_NAMES = [':21', ':22', ':23', ':25', ':53', ':80', ':110', ':143', ':443', ':445', ':3306', ':3389', ':5432', ':8080'];
+function portNames(p: Puzzle): string[] {
+  const r = rng(hashStr(JSON.stringify(p.ports ?? []))), pool = [...PORT_NAMES];
+  return (p.ports ?? []).map(() => pool.splice(Math.floor(r() * pool.length), 1)[0]);
+}
 // Dual cell: with a mouse the half you click picks its code (second code = lower right of the diagonal);
 // touch and keyboard open a small chooser over the cell instead.
 const altHalf = (el: HTMLElement, e: MouseEvent) => {
@@ -268,7 +275,7 @@ function render() {
   g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
   const gap = () => { const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); g.appendChild(d); };
   const portNo = (r: number, c: number) => pairOf(S.puzzle, r, c) + 1;
-  const portTag = (p: number) => [':22', ':80'][p - 1]; // pair name: both ends show the same real port
+  const names = portNames(S.puzzle), portTag = (p: number) => names[p - 1]; // pair name: both ends show the same real port
   // Hex-dump headers: column offsets on top, row addresses on the left; the active lane's header lights up.
   const hx = (text: string, on: boolean, cls = '') => {
     const h = document.createElement('div');
@@ -1392,7 +1399,7 @@ function showMap(co: Company, seed: number, back: Mode) {
 }
 
 // Port rooms show both matrices: 5×5 ⇄ 5×5.
-const roomSize = (z: { n: number; ports?: number }) => z.n + '×' + z.n + (z.ports ? ' ⇄ ' + z.n + '×' + z.n : '');
+const roomSize = (z: { n: number; ports?: number; solo?: boolean }) => z.n + '×' + z.n + (z.ports ? (z.solo ? ' ⇄' : ' ⇄ ' + z.n + '×' + z.n) : '');
 
 function showCompanies(seed: number, back: Mode) {
   R = newRunState(seed);
