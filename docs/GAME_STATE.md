@@ -142,7 +142,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Inne źródła:** +$2 za pokój; +$2 za matrycę z wgranymi wszystkimi targetami; wcześniejsze wyjście z pokoju $1 za pominiętą matrycę, $3 jeśli w pokoju był full.
 - **Sloty racka:** $4, $6, $8… (+$2 za każdy kolejny), maks. 9.
 - **Puste sloty bufora:** płacą tylko z Credit chip w trybie `idle`: $1 za każde 2 (także po Disconnect). Daemon Silent daje +$2 za Disconnect niezależnie od Credit chip.
-- **Koszty:** pierwszy reroll w wizycie darmowy, potem $1, $2, $3… (od nowa w następnym sklepie); półka ma 4 itemy. Oferta daemonów pomija te z poprzedniej oferty.
+- **Koszty:** pierwszy reroll w wizycie darmowy, potem $1, $2, $3… (od nowa w następnym sklepie); półka ma 4 itemy. Itemy odrzucone rerollem mają ×0,25 szansy na pierwszej półce następnego sklepu (`SKIPPED_ODDS`). Oferta daemonów pomija te z poprzedniej oferty.
 
 ## 10. UI (najważniejsze)
 - **Kontrakt:** pokoje, pola z wynikami macierzy, ICE i łatki, badge bonusu, licznik kredytów i danych pokoju.

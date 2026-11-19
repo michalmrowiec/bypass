@@ -262,6 +262,25 @@ describe('shop', () => {
     expect(t.shelf).toEqual(s.shelf);
   });
 
+  it('items rerolled away show up rarer on the next visit, only on its first shelf', () => {
+    let seen = 0, base = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = { ...rich(10), seed };
+      stockShop(s);
+      const gone = [...s.shelf];
+      stockShop(s, true);
+      expect(s.skipped).toEqual(gone);
+      s.section++;
+      const t = { ...s, skipped: [] };
+      stockShop(s);
+      stockShop(t);
+      expect(s.skipped).toEqual([]);
+      seen += s.shelf.filter((id) => gone.includes(id)).length;
+      base += t.shelf.filter((id) => gone.includes(id)).length;
+    }
+    expect(seen).toBeLessThan(base * 0.5);
+  });
+
   it('a v2.0 is sold over its v1.0 and replaces it', () => {
     const s = rich(10, ['buffer1']);
     expect(forSale(s)).toContain('buffer2');

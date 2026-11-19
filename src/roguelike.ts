@@ -265,6 +265,7 @@ export interface RunState {
   items: ItemId[]; // shop items owned, kept for the run
   shelf: ItemId[]; // what the shop offers on this visit
   rerolls: number; // shelf rerolls on this visit
+  skipped?: ItemId[]; // items rerolled away on this visit; rarer on the next visit's first shelf
   ice: IceId; // the boss room's rule
   // Run summary; optional so saves from before them still load.
   total?: number; // data banked over the whole run
@@ -943,17 +944,24 @@ export const olderVersions = (id: ItemId): ItemId[] => { const n = item(id).need
 export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter((id) => !s.items.includes(id)
   && (!item(id).needs || s.items.includes(item(id).needs as ItemId)) && !s.items.some((o) => olderVersions(o).includes(id)));
 
+// Odds of an item rerolled away last visit, against 1 for the rest, on the next visit's first shelf.
+export const SKIPPED_ODDS = 0.25;
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
 export function stockShop(s: RunState, reroll = false): boolean {
+  let avoid: ItemId[] = [];
   if (reroll) {
     const cost = rerollCost(s);
     if (cost && s.freeRerolls) s.freeRerolls--;
     else if (s.credits < cost) return false;
     else s.credits -= cost;
     s.rerolls++;
+    s.skipped = [...(s.skipped ?? []), ...s.shelf];
     logEvent(s, 'shop · reroll');
-  } else s.rerolls = 0;
-  s.shelf = shuffled(forSale(s), rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls))).slice(0, entryOf(s).shelf ?? SHELF);
+  } else { s.rerolls = 0; avoid = s.skipped ?? []; s.skipped = []; }
+  const r = rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls));
+  // Weighted shuffle: key r^(1/w), highest keys win.
+  s.shelf = forSale(s).map((id) => [r() ** (avoid.includes(id) ? 1 / SKIPPED_ODDS : 1), id] as const)
+    .sort((a, b) => b[0] - a[0]).map(([, id]) => id).slice(0, entryOf(s).shelf ?? SHELF);
   return true;
 }
 
