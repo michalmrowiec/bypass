@@ -324,7 +324,8 @@ function render() {
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
       b.classList.add('ok');
       b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code + (v.alt ? ' or ' + v.alt : '')) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + portTag(port) + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
-      b.onclick = v.alt ? dualClick(b, v.code, v.alt, (alt) => choose(r, c, alt)) : () => choose(r, c);
+      // An armed Wildcard only places **, so no code to choose.
+      b.onclick = v.alt && armed !== 'wild' ? dualClick(b, v.code, v.alt, (alt) => choose(r, c, alt)) : () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
     }
