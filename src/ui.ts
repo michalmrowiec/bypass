@@ -1,7 +1,7 @@
 import { BLOCK, CODES, generate, hashStr, SIZES, type Puzzle, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, type Challenge, challengeCode, isFinished, newRun, parseChallenge, parseCode, score,
-  stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner,
+  stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner, altOf,
 } from './game';
 import { gear, DATA_PATHS } from './gear';
 import { hacker, logo } from './logos';
@@ -44,7 +44,7 @@ let R: RunState = newRunState(0);
 let offer: DaemonId[] = [];
 let endWhy = ''; // why a run matrix ended on its own
 // Run save: R at the last checkpoint, the screen to reopen, and the current matrix's actions, replayed on the same deal.
-type Act = { r: number; c: number; t?: Tool } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 } | { m: 'pool' | 'idle' };
+type Act = { r: number; c: number; t?: Tool; a?: 1 } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 } | { m: 'pool' | 'idle' };
 type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
 const RUN_V = 2; // bump when RunState changes shape; older saves are dropped
@@ -71,7 +71,7 @@ const doneSeen = new Set<number>();
 // Cell under the mouse or keyboard focus, for the crosshair highlight.
 let cursor: [number, number] | null = null;
 // Scratchpad: planned picks, shown as numbered markers and a greyed buffer; the player clicks them out for real.
-let plan: [number, number][] = [], planning = false, planRun: unknown = null;
+let plan: [number, number, boolean?][] = [], planning = false, planRun: unknown = null;
 const dailyKey = () => 'bypass:' + utcDate();
 const sprintBestKey = () => 'bypass:sprintBestMs:' + S.sprintLen;
 const stages = () => SPRINTS[S.sprintLen];
@@ -99,9 +99,9 @@ function planBoard(): { board: Board; codes: string[] } {
   const b = B(), p: Board = { ...b, puzzle: structuredClone(b.puzzle), run: structuredClone(b.run), m: structuredClone(b.m), armed: null };
   const codes: string[] = [];
   let k = 0;
-  for (; k < plan.length && planOk(p, ...plan[k]); k++) {
-    const [r, c] = plan[k], from = p.run.buffer.length, hidden = cellView(b, r, c).hidden;
-    applyPick(p, r, c);
+  for (; k < plan.length && planOk(p, plan[k][0], plan[k][1]); k++) {
+    const [r, c, alt] = plan[k], from = p.run.buffer.length, hidden = cellView(b, r, c).hidden;
+    applyPick(p, r, c, alt);
     codes.push(...p.run.buffer.slice(from).map((x) => (hidden ? '??' : x)));
   }
   plan.length = k;
@@ -181,7 +181,7 @@ function runPlan() {
     const p = plan[0];
     if (!p || S.over || S.dealing || offer.length || armed || S.mode !== 'run' || !legal(p[0], p[1])) { stopPlan(); render(); return; }
     const from = document.getElementById('c' + p[0] + p[1])?.getBoundingClientRect(), b0 = S.run.buffer.length;
-    choose(p[0], p[1]);
+    choose(p[0], p[1], p[2]);
     k++;
     if (from) for (let i = b0; i < S.run.buffer.length; i++) flyCode(from, S.run.buffer[i], i);
     if (!S.over && plan.length && scripting) planTimer = window.setTimeout(step, 140);
@@ -193,9 +193,39 @@ function runPlan() {
   render();
   if (!still()) cells.forEach((id, i) => { const el = document.getElementById(id); el?.style.setProperty('--cd', i * 60 + 'ms'); el?.classList.add('chg'); });
 }
+// Dual cell: with a mouse the half you click picks its code (second code = lower right of the diagonal);
+// touch and keyboard open a small chooser over the cell instead.
+const altHalf = (el: HTMLElement, e: MouseEvent) => {
+  const at = el.getBoundingClientRect();
+  return (e.clientX - at.left) / at.width + (e.clientY - at.top) / at.height > 1;
+};
+function dualClick(el: HTMLElement, code: string, alt: string, then: (alt: boolean) => void) {
+  el.onmousemove = (e) => el.classList.toggle('hb', altHalf(el, e));
+  return (e: MouseEvent) => ((e as PointerEvent).pointerType === 'mouse' ? then(altHalf(el, e)) : dualMenu(el, [code, alt], then));
+}
+function dualMenu(el: HTMLElement, codes: string[], then: (alt: boolean) => void) {
+  document.querySelector('.dmenu')?.remove();
+  const m = document.createElement('div'), at = el.getBoundingClientRect();
+  m.className = 'dmenu';
+  m.setAttribute('role', 'menu');
+  Object.assign(m.style, { left: at.left + at.width / 2 + 'px', top: at.top + 'px' });
+  const close = () => { m.remove(); document.removeEventListener('pointerdown', away, true); };
+  const away = (e: Event) => { if (!m.contains(e.target as Node)) close(); };
+  codes.forEach((code, i) => {
+    const x = document.createElement('button');
+    x.textContent = code;
+    x.setAttribute('role', 'menuitem');
+    x.onclick = () => { close(); then(i === 1); };
+    m.append(x);
+  });
+  m.onkeydown = (e) => { if (e.key === 'Escape') { close(); el.focus(); } };
+  document.addEventListener('pointerdown', away, true);
+  document.body.append(m);
+  (m.firstElementChild as HTMLElement).focus();
+}
 // Planning a planned cell cuts the plan back to before it.
-function planAt(r: number, c: number, at: number) {
-  if (at >= 0) plan = plan.slice(0, at); else plan.push([r, c]);
+function planAt(r: number, c: number, at: number, alt = false) {
+  if (at >= 0) plan = plan.slice(0, at); else plan.push([r, c, alt]);
   render();
 }
 const doorOpen = () => isDoorOpen(B());
@@ -266,7 +296,8 @@ function render() {
     b.className = 'cell';
     b.id = 'c' + r + c;
     const v = cellView(bd, r, c);
-    b.textContent = v.hidden ? '??' : v.code;
+    if (v.alt) b.innerHTML = "<span class='dh'>" + v.code + "</span><span class='dh dalt'>" + v.alt + "</span><i class='dsplit'></i>";
+    else b.textContent = v.hidden ? '??' : v.code;
     b.classList.add(...v.cls);
     if (moved && v.cls.includes('belt')) b.classList.add('shift');
     for (const t of v.tags) b.insertAdjacentHTML('beforeend', TAG[t]);
@@ -285,8 +316,8 @@ function render() {
     if (v.burnLeft !== undefined) b.insertAdjacentHTML('beforeend', "<i class='btag'>" + (v.burnLeft === Infinity ? '∞' : v.burnLeft) + '</i>');
     if (!S.dealing && !offer.length && canPick(bd, r, c)) {
       b.classList.add('ok');
-      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + portTag(port) + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
-      b.onclick = () => choose(r, c);
+      b.setAttribute('aria-label', 'Pick ' + (v.hidden ? 'an encrypted code' : v.code + (v.alt ? ' or ' + v.alt : '')) + (v.tags.includes('trap') ? ' (honeypot)' : '') + (port ? ' (port ' + portTag(port) + ')' : '') + ' at row ' + (r + 1) + ' column ' + (c + 1));
+      b.onclick = v.alt ? dualClick(b, v.code, v.alt, (alt) => choose(r, c, alt)) : () => choose(r, c);
     } else {
       b.setAttribute('aria-disabled', 'true');
     }
@@ -296,7 +327,7 @@ function render() {
     if (planning && !S.over && !armed) {
       const can = at >= 0 || (!S.dealing && !offer.length && planOk(pl.board, r, c));
       b.classList.toggle('ok', can);
-      b.onclick = can ? () => planAt(r, c, at) : null;
+      b.onclick = !can ? null : v.alt && at < 0 ? dualClick(b, v.code, v.alt, (alt) => planAt(r, c, at, alt)) : () => planAt(r, c, at);
       if (can) { b.removeAttribute('aria-disabled'); b.setAttribute('aria-label', (at >= 0 ? 'Cut the script at step ' + (at + 1) : 'Script step ' + (plan.length + 1)) + ' at row ' + (r + 1) + ' column ' + (c + 1)); }
       else b.setAttribute('aria-disabled', 'true');
     }
@@ -1623,7 +1654,7 @@ function resumeRun(sv: SavedRun) {
   S.dealing = false;
   try {
     for (const a of sv.log) {
-      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else if ('m' in a) setMiner(R, a.m); else disconnect();
+      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c, !!a.a); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else if ('m' in a) setMiner(R, a.m); else disconnect();
     }
   } finally { replaying = false; }
 }
@@ -1755,7 +1786,7 @@ function markCode(code?: string) {
   const bd = B(), dark = isBlackout(bd);
   document.querySelectorAll<HTMLElement>('#grid .cell').forEach((el) => {
     const r = +el.id[1], c = +el.id[2], g = S.puzzle.grid[r][c];
-    const on = !!code && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && fits(g, code);
+    const on = !!code && !S.over && !dark && !isEncrypted(bd, r, c) && g !== BLOCK && !isUsed(r, c) && !burning(S.run, r, c) && (fits(g, code) || altOf(S.puzzle, r, c) === code);
     el.classList.toggle('tpeek', on);
     el.classList.toggle('near', on && inLane(S.run, r, c, S.puzzle));
   });
@@ -1815,15 +1846,15 @@ function nextStage() {
 
 const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus();
 
-function choose(r: number, c: number) {
+function choose(r: number, c: number, alt = false) {
   if (!legal(r, c)) return;
   // The planned pick clears its marker; an item keeps the plan (render trims it), any other pick drops it.
-  if (armed !== 'wild' && plan[0]?.[0] === r && plan[0][1] === c) plan.shift(); else { stopPlan(); if (!armed) plan = []; }
-  logAct(armed ? { r, c, t: armed } : { r, c });
+  if (armed !== 'wild' && plan[0]?.[0] === r && plan[0][1] === c && !plan[0][2] === !alt) plan.shift(); else { stopPlan(); if (!armed) plan = []; }
+  logAct({ r, c, t: armed ?? undefined, a: alt ? 1 : undefined }); // undefined keys drop out of the JSON save
   const bd = B(), tool = armed, cell = rowName(r) + '·' + colName(c);
   const isUp = (t: string[]) => targetProgress(S.run.buffer, t, S.puzzle.l, false).done;
   const was = S.puzzle.targets.map(isUp);
-  const placed = applyPick(bd, r, c) === 'placed';
+  const placed = applyPick(bd, r, c, alt) === 'placed';
   armed = bd.armed;
   if (placed) note((tool ? toolName(tool) + ' · ' : '') + 'placed on ' + cell);
   else {

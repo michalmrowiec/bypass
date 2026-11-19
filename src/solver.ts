@@ -1,4 +1,4 @@
-import { contains, WILD, halfOf, laneCells, nextLane, partner, portBack, partial, type Lane, type Run } from './game';
+import { altOf, contains, WILD, halfOf, laneCells, nextLane, partner, portBack, partial, type Lane, type Run } from './game';
 import { beltSrc, BLOCK, type Puzzle } from './generator';
 
 // Once-per-matrix moves a run may still hold: jump to a free cell, or pick a used cell again (in the lane, or anywhere with loopAny).
@@ -28,21 +28,28 @@ export function canComplete(run: Run, p: Puzzle, budget = 60_000, tools: Tools =
     const fresh = !used.has(key);
     used.add(key);
     const twice = tools.rep?.[0] === r && tools.rep[1] === c;
-    const v = code(r, c);
-    buf.push(v);
-    if (twice) buf.push(v);
+    // A Dual cell (off the belt) branches on both its codes.
+    const alt = belt?.row === r ? undefined : altOf(p, r, c);
+    const vs = alt ? [code(r, c), alt] : [code(r, c)];
+    const len = buf.length + (twice ? 2 : 1);
     k++;
     const was = run.burn ? NEAR.map(([dr, dc]) => {
       const k = r + dr + ',' + (c + dc), old = burnt.get(k);
-      burnt.set(k, Math.max(old ?? 0, buf.length + run.burn!));
+      burnt.set(k, Math.max(old ?? 0, len + run.burn!));
       return [k, old] as const;
     }) : [];
-    // `last` for the next step is where you stand: a port's partner, unless you came back through it.
-    const ok = dfs(nextLane(from, r, c, through ? { half: p.half } : p), jump, loop, mux, through ? [r, c] : partner(p, r, c) ?? [r, c]);
+    let ok = false;
+    for (const v of vs) {
+      buf.push(v);
+      if (twice) buf.push(v);
+      // `last` for the next step is where you stand: a port's partner, unless you came back through it.
+      ok = dfs(nextLane(from, r, c, through ? { half: p.half } : p), jump, loop, mux, through ? [r, c] : partner(p, r, c) ?? [r, c]);
+      buf.pop();
+      if (twice) buf.pop();
+      if (ok) break;
+    }
     for (const [k, old] of was.reverse()) { if (old === undefined) burnt.delete(k); else burnt.set(k, old); }
     k--;
-    buf.pop();
-    if (twice) buf.pop();
     if (fresh) used.delete(key);
     return ok;
   };

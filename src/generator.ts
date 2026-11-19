@@ -8,8 +8,9 @@ export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 // deep: 1 makes one link overlap 2 codes instead of 1 (needs two targets of 3+ codes).
 // block: a sealed row or column (BLOCK cells); the solution path never touches it.
 // burn: Corruption; the solution path never steps next to any of its last `burn` cells.
+// dual: 1 to this many Dual cells, each with a second code a pick may take instead.
 // ports: a port board, two n×n matrices side by side with this many port pairs (block and burn are not supported there).
-export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number; ports?: number }
+export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number; ports?: number; dual?: number }
 export const BLOCK = '##';
 export const SIZES = {
   easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
@@ -26,6 +27,7 @@ export interface Puzzle {
   belt?: { row: number; base: string[] }; // Conveyor: the row's codes before any pick
   half?: number; // port boards: two n×n matrices side by side, `half` (= n) columns each
   ports?: [[number, number], [number, number]][]; // port pairs, first in the left matrix, partner in the right one
+  alt?: Record<string, string>; // Dual cells: 'r,c' -> a second code a pick may take instead
 }
 
 export function hashStr(s: string): number {
@@ -69,7 +71,7 @@ function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T)
   return path.some(([r, c]) => partner(shape, r, c)) ? { half: N, ports, path } : null;
 }
 
-export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES, deep: deepOpt = 0, block, burn, ports }: Size = SIZES.normal): Puzzle {
+export function generate(seed: number, { n: N, lens, links: linkOpts, slack, codes = CODES, deep: deepOpt = 0, block, burn, ports, dual }: Size = SIZES.normal): Puzzle {
   // One code can't make distinct, non-uniform targets: the retry loop would never end.
   if (new Set(codes).size < 2) throw new Error('code pool needs at least 2 distinct codes');
   const r = rng(seed);
@@ -122,10 +124,23 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
     const seq = order.flatMap((ti, j) => targets[ti].slice(j === deepAt ? 2 : linked.has(j) ? 1 : 0));
     const grid = Array.from({ length: N }, () => Array.from({ length: board ? 2 * N : N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
-    if (board) return { grid, targets, l: planted + slack, ...board };
-    if (block) for (let i = 0; i < N; i++) grid[block[0] === 'row' ? block[1] : i][block[0] === 'row' ? i : block[1]] = BLOCK;
-    return { grid, targets, l: planted + slack, path };
+    if (block && !board) for (let i = 0; i < N; i++) grid[block[0] === 'row' ? block[1] : i][block[0] === 'row' ? i : block[1]] = BLOCK;
+    const p: Puzzle = board ? { grid, targets, l: planted + slack, ...board } : { grid, targets, l: planted + slack, path };
+    if (dual) p.alt = dualCells(p, 1 + Math.floor(r() * dual), codes, r);
+    return p;
   }
+}
+
+// Dual cells: random cells (not ##, not ports) get a second, different code; the planted code stays, so solvability holds.
+function dualCells(p: Puzzle, n: number, codes: string[], r: () => number): Record<string, string> {
+  const open = p.grid.flatMap((row, y) => row.flatMap((v, x): [number, number][] => (v !== BLOCK && !partner(p, y, x) ? [[y, x]] : [])));
+  const alt: Record<string, string> = {};
+  for (let k = 0; k < n && open.length; k++) {
+    const [y, x] = open.splice(Math.floor(r() * open.length), 1)[0];
+    const other = codes.filter((c) => c !== p.grid[y][x]);
+    alt[y + ',' + x] = other[Math.floor(r() * other.length)];
+  }
+  return alt;
 }
 
 // Conveyor: belt slots skip ## cells; after k picks the code at slot j came from slot j - k.

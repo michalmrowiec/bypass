@@ -1,5 +1,5 @@
 // Matrix rules for a run: the deal, what each cell shows and allows, and what a pick does. No DOM here.
-import { burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, portBack, WILD, type Run } from './game';
+import { altOf, burning, contains, halfOf, inLane, isLegal, newRun, partner, pick, portBack, WILD, type Run } from './game';
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
@@ -78,7 +78,7 @@ export function canPick(b: Board, r: number, c: number): boolean {
   }
 }
 
-export interface CellView { code: string; hidden: boolean; cls: string[]; tags: ('node' | 'trap' | 'rep')[]; burnLeft?: number; paint?: number }
+export interface CellView { code: string; alt?: string; hidden: boolean; cls: string[]; tags: ('node' | 'trap' | 'rep')[]; burnLeft?: number; paint?: number }
 
 // What a cell shows; `cls` are the cell's CSS classes, except 'ok' (pickable), which the UI adds.
 export function cellView(b: Board, r: number, c: number): CellView {
@@ -113,7 +113,9 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (b.ctx.daemons.includes('corner') && isCorner([r, c], grid.length, b.puzzle.half)) cls.push('corner');
   // Belt row: used cells show, greyed, the code sliding under them, so the belt stays readable.
   if (b.puzzle.belt?.row === r && code !== BLOCK) cls.push('belt', 'memo');
-  return { code, hidden, cls, tags, burnLeft, paint: level && paintData(level) };
+  const alt = hidden || b.puzzle.belt?.row === r ? undefined : altOf(b.puzzle, r, c);
+  if (alt) cls.push('dual');
+  return { code, alt, hidden, cls, tags, burnLeft, paint: level && paintData(level) };
 }
 
 export function dealBoard(seed: number, s: RunState): Board {
@@ -140,7 +142,8 @@ export const startRun = (s: RunState): Run => ({ ...newRun(), burn: burnOf(s) ||
 export type PickResult = 'placed' | 'picked';
 
 // Applies a legal pick, or an armed Wildcard's placement (no move). Any armed tool is put down.
-export function applyPick(b: Board, r: number, c: number): PickResult {
+// alt: a Dual cell's second code.
+export function applyPick(b: Board, r: number, c: number, alt = false): PickResult {
   const { run, puzzle, m } = b;
   const tool = b.armed;
   b.armed = null;
@@ -154,9 +157,9 @@ export function applyPick(b: Board, r: number, c: number): PickResult {
   const door = isDoorOpen(b), offLane = !inLane(run, r, c, puzzle), back = tool === 'loop' && !loopAny(b) && portBack(run, puzzle, r, c);
   m.back = { axis: run.axis, idx: run.idx, free: run.free, half: run.half }; // before Mux widens the lane, so Rewind does not hand it back
   if (tool === 'mux') { run.free = standAt(b); m.mux = false; }
-  pick(run, puzzle, r, c, back);
+  pick(run, puzzle, r, c, back, alt);
   if (back) m.stay = [...(m.stay ?? []), run.path.length - 1];
-  if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(puzzle.grid[r][c]);
+  if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(run.buffer.at(-1)!);
   if (door) sideDoor(run, r, c, puzzle.grid.length);
   if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);
   if (tool === 'jump') m.jump = false;

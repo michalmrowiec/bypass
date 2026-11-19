@@ -1,4 +1,4 @@
-import { hashStr, type Puzzle, type Size, type SizeKey } from './generator';
+import { BLOCK, hashStr, type Puzzle, type Size, type SizeKey } from './generator';
 
 export const MAX_TRIES = 3;
 // Sprint: matrices against the clock, ramping from one target to three; ms is the per-matrix time limit.
@@ -97,9 +97,16 @@ export function isLegal(run: Run, r: number, c: number, p?: Pick<Puzzle, 'half'>
 
 export const anyLegal = (run: Run, p: Puzzle) => laneCells(run, p).some(([r, c]) => isLegal(run, r, c, p));
 
+// A Dual cell's second code; gone once the cell turns ## or **.
+export const altOf = (p: Pick<Puzzle, 'grid' | 'alt'>, r: number, c: number) => {
+  const v = p.grid[r][c];
+  return v !== BLOCK && v !== WILD ? p.alt?.[r + ',' + c] : undefined;
+};
+
 // through: Loopback v1.0 back through a port; the run stays on the port instead of jumping to its partner.
-export function pick(run: Run, puzzle: Puzzle, r: number, c: number, through = false): void {
-  run.buffer.push(puzzle.grid[r][c]);
+// alt: a Dual cell gives its second code.
+export function pick(run: Run, puzzle: Puzzle, r: number, c: number, through = false, alt = false): void {
+  run.buffer.push((alt && altOf(puzzle, r, c)) || puzzle.grid[r][c]);
   run.used.add(r + ',' + c);
   run.path.push([r, c]);
   if (run.burn) {

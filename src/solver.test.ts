@@ -61,3 +61,27 @@ it('square boards deal the same for a seed as before', () => {
   const deals = Object.values(SIZES).flatMap((z) => Array.from({ length: 30 }, (_, i) => JSON.stringify(generate(i + 1, z))));
   expect(hashStr(deals.join('|'))).toBe(2504023170);
 });
+
+describe('Dual cells', () => {
+  it('generates 1..dual cells with a second, different code, never on ports', () => {
+    for (let s = 1; s <= 40; s++) {
+      const p = generate(s, { ...SIZES.easy, dual: 4 });
+      const keys = Object.keys(p.alt ?? {});
+      expect(keys.length).toBeGreaterThanOrEqual(1);
+      expect(keys.length).toBeLessThanOrEqual(4);
+      for (const k of keys) { const [r, c] = k.split(',').map(Number); expect(p.alt![k]).not.toBe(p.grid[r][c]); }
+      const q = generate(s, { ...SIZES.easy, ports: 2, dual: 4 });
+      for (const [a, b] of q.ports!) for (const [r, c] of [a, b]) expect(q.alt?.[r + ',' + c]).toBeUndefined();
+    }
+  });
+
+  it('a pick takes the second code on request, and the solver branches on it', () => {
+    // Row 0: 1D|4B, then column 0 down. Only the second code of (0,0) starts the target.
+    const p: Puzzle = { grid: [['1D', '7F'], ['C9', 'E5']], targets: [['4B', 'C9']], l: 2, alt: { '0,0': '4B' } };
+    const run = newRun();
+    expect(canComplete(run, p)).toBe(true);
+    expect(canComplete(run, { ...p, alt: undefined })).toBe(false);
+    pick(run, p, 0, 0, false, true);
+    expect(run.buffer).toEqual(['4B']);
+  });
+});

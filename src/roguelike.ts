@@ -42,10 +42,11 @@ const standard = (id: string, name: string): Entry => ({ id, name, plus: '', min
 const LAB: Company = {
   id: 'lab',
   name: 'Lab',
-  text: 'Dev test bench: port boards, two matrices joined by ⇄ pairs. No ICE.',
+  text: 'Dev test bench: Dual cells, then port boards (two matrices joined by ⇄ pairs). No ICE.',
   codes: CODES,
   dev: true,
   sections: [
+    { name: 'Dual', quota: 30, matrices: 2, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0, dual: 4 }, brief: 'Dual cells: two codes in one cell, pick the half you want.' },
     { name: 'Ports I', quota: 30, matrices: 2, size: { n: 5, lens: [2, 3, 3], links: [1], slack: 0, ports: 2 }, brief: 'Two matrices, two port pairs.' },
     { name: 'Ports II', quota: 60, matrices: 2, size: { n: 5, lens: [2, 3, 4], links: [1], slack: 0, ports: 2 }, brief: 'Longer targets across both matrices.' },
     { name: 'Ports III', quota: 90, matrices: 2, size: { n: 5, lens: [3, 3, 4], links: [1, 2], slack: 0, ports: 2 }, brief: 'Long chains, both matrices.' },
