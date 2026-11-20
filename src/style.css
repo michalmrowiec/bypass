@@ -781,7 +781,8 @@ button.unit{cursor:var(--hit)}
 .zip.zimg{width:72px;height:72px;margin:-6px -4px -4px}
 .zipzone.z3try>.zstage,.zipzone.z3try>.zpicks{display:none}
 .z3{position:relative;min-height:290px;user-select:none;-webkit-user-select:none}
-.z3stage{width:100%;height:290px}
+.z3stage{width:100%;height:317px} /* zip3d sets the exact height; these match its usual size */
+@media (max-width:560px){.z3stage{height:446px}}
 .z3gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .z3log{text-align:center;min-height:2.6em;margin:0}
 .z3log b{color:var(--data)}
@@ -804,6 +805,17 @@ button.unit{cursor:var(--hit)}
 .zip.shake{animation:zshake .3s ease}
 @keyframes zshake{25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
 .zskip{margin-left:auto}
+/* While patch.zip is open the shelf folds into one strip of small wares (icon, name, price), so the dialog keeps its height. */
+.shelf.mini{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:4px 0}
+.shelf.mini .ware{display:grid;grid-template-columns:60px minmax(0,1fr);column-gap:8px;row-gap:2px;align-items:center;justify-items:start;text-align:left}
+.shelf.mini .ware .stage{grid-row:1/3;width:60px;height:40px}
+.shelf.mini .ware .stage::after{left:8px;right:8px;bottom:0;height:6px}
+.shelf.mini .ware .gear{width:60px;height:34px}
+.shelf.mini .ware:is(:hover,:focus-visible) .gear{transform:translateY(-2px)}
+.shelf.mini .ware>small,.shelf.mini .ware p{display:none}
+.shelf.mini .ware b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.shelf.mini .ware b small{display:none}
+.shelf.mini .ware .price{margin:0;font-size:11px}
 .zpicks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
 /* Phones: patches stacked, full width; text on the left, the example on the right. */
 @media (max-width:720px){
@@ -1250,3 +1262,23 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 @keyframes ringIn{0%{transform:scale(1.7);opacity:0}70%{transform:scale(1);opacity:.9}100%{transform:scale(1);opacity:0}}
 @keyframes ringOut{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.7);opacity:0}}
 .shopCr{margin:0 auto 0 0;align-self:center}
+/* patch.zip: Skip in the zone's header line; the kept patch shown after the pick. */
+.zipzone>.z3skip{position:absolute;top:6px;right:8px;z-index:1}
+.zkept{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--data);background:color-mix(in srgb,var(--data) 8%,var(--bg));box-shadow:inset 3px 0 0 var(--data);font-size:12px}
+.zkept .zok{width:40px;height:48px}
+.zkept .zcard{flex:none;width:64px;height:auto;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.5),0 0 10px -2px var(--data)}
+/* shop re-render after buying or keeping a patch: shelf and zip zone fade in while the dialog eases */
+.zswap :is(.shelf,.zipzone){animation:zswap .45s ease}
+@keyframes zswap{from{opacity:0}}
+.zkept .ztxt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.zkept small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--data)}
+.zkept .pname{font-size:16px;color:var(--data)}
+.zkept .meta{font-size:11px}
+.zkept.flare{animation:pflare 1s ease-out}
+.zipzone .zfoot{margin:6px 0 0}
+.zipzone:has(>.z3skip) .zhead{padding-right:76px}
+/* Catalog payloads: card thumbnails in the first column, wide screens only. */
+.paytable .pthumb{width:64px;padding-right:10px}
+.paytable .pthumb img{display:block;width:64px;aspect-ratio:96/130;border-radius:5px;background:#0e1214;box-shadow:0 3px 10px rgba(0,0,0,.45)}
+.paytable .pthumb img:not([src]){visibility:hidden}
+.paytable:not(.wide) .pthumb{display:none}

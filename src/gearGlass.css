@@ -252,3 +252,8 @@
   background:linear-gradient(rgba(255,255,255,.06),rgba(255,255,255,.01) 45%,rgba(0,0,0,.2)),repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 2px),linear-gradient(#1c2227,#14191d)}
 :root[data-style=glass] .unit.blank .vent{display:none}
 :root[data-style=glass] .unit.blank .lock{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#56626a}
+/* Credit chip in the rack: the card shows the mode it is set to (pool/idle) instead of cycling on hover */
+.unit.miner.hw .gl :is(.q-mode,.q-mPool,.q-mIdle){animation:none}
+.unit.miner.idle .gl .q-mPool{opacity:0}
+.unit.miner.idle .gl .q-mIdle{opacity:1}
+.unit.miner.idle .gl .q-mode{transform:translateX(24px)}

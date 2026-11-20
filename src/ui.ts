@@ -944,10 +944,10 @@ const payEx = (id: PayloadId) => {
 };
 // Payloads with their level, plays and bonus this run; the one the current buffer makes is lit.
 const payTable = (now: Score) => '<p class="meta">' + Object.keys(PAYLOADS).length + ' payloads · only the highest that matches scores · patch.zip in the shop raises one</p>'
-  + "<table class='paytable'><thead><tr><th>payload</th><th>lv</th><th>played</th><th>per level</th><th>now</th></tr></thead><tbody>"
+  + "<table class='paytable'><thead><tr><th class='pthumb'></th><th>payload</th><th>lv</th><th>played</th><th>per level</th><th>now</th></tr></thead><tbody>"
   + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => {
     const lv = payLevel(R, id), step = { flat: PAYLOADS[id].data, mult: 1 + PAYLOADS[id].mult };
-    return '<tr' + (now.pay?.[0] === id ? " class='now'" : '') + "><td><span class='pfile'>" + id + "<span class='fext'>.bin</span></span><br><span class='meta'>" + PAYLOADS[id].text + '</span>' + payEx(id) + '</td><td>' + lv + '</td><td>'
+    return '<tr' + (now.pay?.[0] === id ? " class='now'" : '') + "><td class='pthumb'><img data-pcard='" + id + "' alt=''></td><td><span class='pfile'>" + id + "<span class='fext'>.bin</span></span><br><span class='meta'>" + PAYLOADS[id].text + '</span>' + payEx(id) + '</td><td>' + lv + '</td><td>'
       + (R.payPlays?.[id] ?? 0) + '</td><td>' + fmtEffect(step) + '</td><td>' + fmtEffect(payEffect(id, lv)) + '</td></tr>';
   }).join('') + '</tbody></table>';
 
@@ -986,6 +986,13 @@ function showCatalog(back?: (() => void) | null) {
     + "<input id='catSearch' class='catsearch' type='search' autocomplete='off' placeholder='search " + catalogTab + "' aria-label='Search " + catalogTab + "'>"
     + "<div class='catbody'>" + devBar + body + "</div><div class='row'><button class='btn' id='closeCatalog'>Close</button></div>");
   tilt($('modalBox'));
+  // Wide layouts: each payload row starts with a thumbnail of its patch card (drawn by the lazily loaded zip3d module).
+  // (the catalog may sit in the side panel, so this checks the table's own width, not the screen's)
+  const ptab = document.querySelector<HTMLElement>('.paytable'), thumbs = document.querySelectorAll<HTMLImageElement>('img[data-pcard]');
+  if (ptab && ptab.clientWidth >= 560) {
+    ptab.classList.add('wide');
+    import('./zip3d').then(async (m) => { await document.fonts.ready; thumbs.forEach((im) => { if (im.isConnected) im.src = m.cardImage(zipCard3(im.dataset.pcard!, 1)); }); }, () => {});
+  }
   for (const t of ['daemons', 'items', 'payloads', 'bonuses', 'ice'] as const) $('tab-' + t).onclick = () => { catalogTab = t; showCatalog(); };
   // Search hides the entries whose text misses the query; the query stays across tabs and re-renders.
   const search = $('catSearch') as HTMLInputElement;
@@ -1172,7 +1179,7 @@ function showShop(restock = true) {
     + (R.charges ? "<span class='bnt'>bonus</span> ×2 data charge ×" + R.charges + ' · ' : '') + 'items stay for the whole run</p>' + owned(true)
     + (forSale(R).length > R.shelf.length ? "<div class='shelfbar'><button class='btn' id='reroll'" + (!rerollCost(R) ? '>' + REROLL_ICO + 'Reroll · free'
       : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
-    + "<div class='wares shelf'>" + R.shelf.map((id) => ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
+    + "<div class='wares shelf" + (R.zipOpen ? ' mini' : '') + "'>" + R.shelf.map((id) => ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '')).join('')
     + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
@@ -1198,7 +1205,7 @@ const REROLL_ICO = "<svg class='rrico' viewBox='0 0 24 24' aria-hidden='true'><p
 const ZIP_SVG = "<svg class='zip' viewBox='0 0 64 76' aria-hidden='true'><path class='zbody' d='M6 2h38l14 14v56a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/><path class='zfold' d='M44 2v14h14z'/><g class='zteeth'>"
   + Array.from({ length: 9 }, (_, i) => "<rect class='" + (i % 2 ? 'r' : 'l') + "' x='" + (i % 2 ? 31 : 26) + "' y='" + (6 + i * 5) + "' width='7' height='3'/>").join('')
   + "</g><g class='zpull'><rect x='27' y='8' width='10' height='14' rx='2'/><rect class='zdot' x='30' y='16' width='4' height='4' rx='1'/></g><text class='zext' x='32' y='68' text-anchor='middle'>.ZIP</text></svg>";
-let zipAnim = false, zipLast = '', zipFrom = 0; // zipFrom: the zone's height before the archive opened
+let zipAnim = false, zipLast = '', zipJust = false;
 let zipTimers: number[] = [];
 // Visual style: 'glass' adds 3D (patch.zip so far), 'classic' keeps the flat 2D look. More of the UI will follow it.
 const STYLE = 'bypass:style';
@@ -1207,30 +1214,57 @@ function syncStyle() { document.documentElement.dataset.style = style; $('styleB
 let zipOpened: string | undefined; // the shop visit whose 3D patch.zip was already opened, so a re-render skips the seal
 const use3d = () => style === 'glass' && webglOk();
 const plainEffect = (e: Effect) => [e.flat && '+' + e.flat + ' data', e.boost && '+' + e.boost + ' boost', e.mult && '×' + e.mult].filter(Boolean).join(' · ');
-const zipCards = (): ZipCard[] => R.zipOpen!.map(([id, n]) => {
+const zipCard3 = (id: string, n: number): ZipCard => {
   const p = id as PayloadId, lv = payLevel(R, p), ex = PAYLOADS[p].ex;
-  return { id, n, lv, eff: plainEffect(payEffect(p, lv + n)), text: PAYLOADS[p].text, buf: ex.buf, l: ex.l, targets: ex.targets };
-});
-function keepZip(i: number) {
+  return { id, n, lv, eff: plainEffect(payEffect(p, lv + n)), text: PAYLOADS[p].text, buf: ex.buf, l: ex.l, targets: ex.targets, plays: R.payPlays?.[id] ?? 0 };
+};
+const zipCards = () => R.zipOpen!.map(([id, n]) => zipCard3(id, n));
+// The shop re-renders in one go; the dialog eases between its old and new height and the shelf/zip zone fade in.
+function easeShop(update: () => void) {
+  const box = $('modalBox'), h0 = box.getBoundingClientRect().height;
+  update();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  box.classList.add('zswap');
+  const h1 = box.getBoundingClientRect().height;
+  const end = () => { Object.assign(box.style, { boxSizing: '', overflow: '', height: '', transition: '' }); box.classList.remove('zswap'); };
+  if (Math.abs(h1 - h0) < 2) return void setTimeout(end, 400);
+  Object.assign(box.style, { boxSizing: 'border-box', overflow: 'hidden', height: h0 + 'px' });
+  void box.offsetHeight;
+  Object.assign(box.style, { transition: 'height .5s ease', height: h1 + 'px' });
+  const done = (e: TransitionEvent) => { if (e.target !== box || e.propertyName !== 'height') return; box.removeEventListener('transitionend', done); end(); };
+  box.addEventListener('transitionend', done);
+}
+// img: a still of the kept 3D card (glass); the 2D archive stands in otherwise
+function keepZip(i: number, img?: string) {
   const [id, n] = R.zipOpen![i];
   if (!pickZip(R, i)) return;
-  zipLast = 'patched ' + payFile(id as PayloadId) + ' → Lv' + payLevel(R, id as PayloadId) + (n > 1 ? ' (+2)' : '');
-  showShop(false);
+  const p = id as PayloadId, lv = payLevel(R, p);
+  zipLast = (img ? "<img class='zcard' src='" + img + "' alt=''>" : ZIP_SVG.replace("class='zip'", "class='zip open zok'"))
+    + "<span class='ztxt'><small>patch installed</small><b class='pname'>" + id + "<span class='fext'>.bin</span></b>"
+    + '<span>Lv' + (lv - n) + ' → <b>Lv' + lv + '</b>' + (n > 1 ? " <span class='bnt'>+2</span>" : '') + "</span><span class='meta'>" + fmtEffect(payEffect(p, lv)) + ' · ' + PAYLOADS[p].text + '</span></span>';
+  zipJust = true;
+  easeShop(() => showShop(false));
 }
+const playsText = (n: number) => (n ? 'played ' + n + '× this run' : 'not played yet this run');
 // A patch card: the payload, its level jump, the bonus it reaches and an example. pveil covers it while it decrypts.
 const zipCard = ([id, n]: [string, number], i: number) => {
   const p = id as PayloadId, lv = payLevel(R, p);
   return "<button class='pcard" + (n > 1 ? ' big' : '') + "' data-zip='" + i + "'><b class='pname'>" + id + "<span class='fext'>.bin</span></b>"
     + "<span class='pbody'>" + (n > 1 ? "<span class='bnt'>+2 levels</span>" : '') + '<span>Lv' + lv + ' → <b class="pto">Lv' + (lv + n) + '</b></span>'
-    + "<span class='meta'>" + fmtEffect(payEffect(p, lv + n)) + "</span><span class='meta'>" + PAYLOADS[p].text + '</span>' + payEx(p) + '</span>'
+    + "<span class='meta'>" + fmtEffect(payEffect(p, lv + n)) + "</span><span class='meta'>" + PAYLOADS[p].text + '</span>' + payEx(p) + "<span class='meta'>" + playsText(R.payPlays?.[id] ?? 0) + '</span></span>'
     + "<span class='pveil' aria-hidden='true'><span class='phex'></span><i class='pbar'><i></i></i></span></button>";
 };
+// The 3D zone renders as a skeleton at its mounted size, so the dialog eases to the right height.
 function zipZone() {
   const head = "<p class='meta zhead'>patch.zip · 1 per shop · raises one payload for the rest of the run</p>";
-  if (R.zipOpen) return "<div class='zipzone" + (use3d() ? " z3try'" : "'") + " id='zipZone'>" + head + (use3d() ? "<div class='z3' id='zip3d'></div>" : '') + "<div class='zstage'>" + ZIP_SVG.replace("class='zip'", "class='zip open'")
+  if (R.zipOpen) return "<div class='zipzone" + (use3d() ? " z3try'" : "'") + " id='zipZone'>" + head + (use3d() ? "<div class='z3' id='zip3d'><div class='z3stage'></div><p class='meta z3log'></p></div>" : '') + "<div class='zstage'>" + ZIP_SVG.replace("class='zip'", "class='zip open'")
     + "<p class='meta' id='zipNote'>" + R.zipOpen.length + ' payload patches · keep one</p></div><div class="zpicks">'
     + R.zipOpen.map(zipCard).join('') + '</div></div>';
-  if (zipSold(R)) return "<div class='zipzone' id='zipZone'>" + head + "<p class='meta'>" + (zipLast || 'patch installed') + ' · the next patch.zip waits in the next shop</p></div>';
+  if (zipSold(R)) { // the kept patch stays on show; it flares once, right after the pick
+    const kept = zipLast ? "<div class='zkept" + (zipJust ? ' flare' : '') + "'>" + zipLast + '</div>' : "<p class='meta'>patch installed</p>";
+    zipJust = false;
+    return "<div class='zipzone' id='zipZone'>" + head + kept + "<p class='meta zfoot'>the next patch.zip waits in the next shop</p></div>";
+  }
   return "<div class='zipzone' id='zipZone'>" + head + "<div class='zstage'><button class='zipbtn' id='buyZip'" + (R.credits < zipPrice(R) ? ' disabled' : '') + '>'
     + (style === 'glass' ? "<img class='zip zimg' src='" + import.meta.env.BASE_URL + "zip-case.png' alt=''>" : ZIP_SVG) // a still of the 3D case
     + "<span><b>patch.zip</b> · " + money(zipPrice(R)) + "</span></button><p class='meta'>An encrypted archive with " + ZIP_PICKS + ' payload patches. Open it and keep one; some archives hold a +2 patch.</p></div></div>';
@@ -1238,7 +1272,7 @@ function zipZone() {
 function wireZip() {
   zipTimers.forEach(clearTimeout);
   zipTimers = [];
-  document.getElementById('buyZip')?.addEventListener('click', () => { const h = $('zipZone').offsetHeight; if (buyZip(R)) { zipAnim = true; zipFrom = h; showShop(false); } });
+  document.getElementById('buyZip')?.addEventListener('click', () => { if (buyZip(R)) { zipAnim = true; easeShop(() => showShop(false)); } });
   $('modalBox').querySelectorAll<HTMLElement>('[data-zip]').forEach((b) => { b.onclick = () => keepZip(+b.dataset.zip!); });
   const host = document.getElementById('zip3d');
   if (host && R.zipOpen) { // glass style: three.js loads lazily; if it or WebGL fails, the 2D archive takes over
@@ -1263,23 +1297,7 @@ function unzipDom() {
   const final = note.textContent;
   const at = (ms: number, f: () => void) => zipTimers.push(window.setTimeout(f, ms));
   // Phones: the re-render scrolled the dialog to the top and the cards decrypt below the fold, so bring the archive up.
-  // No grow there: shrinking the zone would clamp that scroll back down.
   if (matchMedia('(max-width: 720px)').matches) zone.scrollIntoView({ block: 'start' });
-  else {
-    // The zone grows from the sealed archive's height to the opened one's, instead of jumping.
-    const to = zone.offsetHeight;
-    zone.style.height = zipFrom + 'px';
-    zone.style.overflow = 'hidden';
-    void zone.offsetHeight;
-    zone.style.transition = 'height .45s ease';
-    zone.style.height = to + 'px';
-    const grown = (e: TransitionEvent) => {
-      if (e.target !== zone || e.propertyName !== 'height') return; // the zipper's own transitions bubble up here too
-      zone.style.height = zone.style.overflow = zone.style.transition = '';
-      zone.removeEventListener('transitionend', grown);
-    };
-    zone.addEventListener('transitionend', grown);
-  }
   const HEX = '0123456789ABCDEF', hexRow = () => Array.from({ length: 16 }, () => HEX[Math.floor(Math.random() * 16)]).join('');
   const reveal = (c: HTMLElement) => { c.classList.remove('enc', 'zhide'); c.querySelector('.phex')!.textContent = ''; };
   let noise = 0;

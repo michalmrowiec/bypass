@@ -57,6 +57,21 @@ function wrap(g, text, max) {
   text.split(' ').forEach((w) => { const t = lines[lines.length - 1] ? lines[lines.length - 1] + ' ' + w : w; if (g.measureText(t).width > max && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; });
   return lines.slice(0, 3);
 }
+// The effect in the game's colours: data amounts in data cyan with the data icon, boost and multipliers in pink.
+const DATA_ICON = ['M10 2h7l4 4v11h-5', 'M4 7h8l4 4v11H4z', 'M12 7v4h4'].map((d) => new Path2D(d));
+function effLine(g, eff, x, y, max) {
+  const size = fit(g, eff, 800, 32, max);
+  eff.split(' · ').forEach((part, i) => {
+    if (i) { g.fillStyle = '#5c676c'; g.fillText(' · ', x, y); x += g.measureText(' · ').width; }
+    const data = part.endsWith(' data'), t = data ? part.slice(0, -5) : part;
+    g.fillStyle = data ? '#2ee6d6' : '#ff3d8b'; g.fillText(t, x, y); x += g.measureText(t).width;
+    if (!data) return;
+    const k = size / 24;
+    g.save(); g.translate(x + size * .1, y - size * .82); g.scale(k, k);
+    g.strokeStyle = '#2ee6d6'; g.lineWidth = 2.2; g.lineJoin = 'round'; DATA_ICON.forEach((d) => g.stroke(d));
+    g.restore(); x += size * 1.05;
+  });
+}
 function drawFront(g, p, name) {
   const big = p.n > 1, acc = big ? '#5af2a8' : '#2ee6d6';
   frame(g, big);
@@ -74,11 +89,14 @@ function drawFront(g, p, name) {
     if (i >= p.lv && i < p.lv + p.n) { g.shadowColor = '#5af2a8'; g.shadowBlur = 10; }
     g.fillRect(x, 226, sw, 16); g.shadowBlur = 0;
   }
-  fit(g, p.eff, 800, 32, CW - 72); g.fillStyle = '#d6dde0'; g.fillText(p.eff, 36, 302);
-  g.font = `400 24px ${FONT}`; g.fillStyle = '#8b979c';
-  wrap(g, p.text, CW - 72).forEach((ln, i) => g.fillText(ln, 36, 340 + i * 30));
+  effLine(g, p.eff, 36, 302, CW - 72);
+  g.font = `400 28px ${FONT}`; g.fillStyle = '#8b979c';
+  wrap(g, p.text, CW - 72).forEach((ln, i) => g.fillText(ln, 36, 342 + i * 34));
+  g.font = `600 26px ${FONT}`; g.fillStyle = '#7d888d';
+  if (p.plays) { const a = 'played '; g.fillText(a, 36, CH - 204); g.fillStyle = acc; g.fillText(p.plays + '×', 36 + g.measureText(a).width, CH - 204); g.fillStyle = '#6b767c'; g.fillText(' this run', 36 + g.measureText(a + p.plays + '×').width, CH - 204); }
+  else g.fillText('not played yet this run', 36, CH - 204);
   const { done, cov } = cover(p), bw = (CW - 72 - (p.l - 1) * 6) / p.l, by = CH - 186;
-  g.textAlign = 'center'; g.font = `400 24px ${FONT}`;
+  g.textAlign = 'center'; g.font = `500 27px ${FONT}`;
   for (let i = 0; i < p.l; i++) {
     const x = 36 + i * (bw + 6), code = p.buf[i], cl = code === undefined ? 'e' : cov[i] >= 2 ? 's' : cov[i] ? 'u' : '';
     if (cl === 's') { g.fillStyle = 'rgba(46,230,214,.22)'; g.fillRect(x, by, bw, 52); }
@@ -86,19 +104,22 @@ function drawFront(g, p, name) {
     g.setLineDash(cl === 'e' ? [6, 5] : []); g.strokeRect(x + 1, by + 1, bw - 2, 50); g.setLineDash([]);
     if (code) { g.fillStyle = cl ? '#d6dde0' : '#6b767c'; g.fillText(code, x + bw / 2, by + 34); }
   }
-  g.textAlign = 'left'; g.font = `400 21px ${FONT}`;
+  g.textAlign = 'left';
+  // targets in one row: the font steps down until they fit
+  const lbl = (t) => (done.includes(t) ? '✓ ' : '') + t.join(' ');
+  let fs = 25; do g.font = `500 ${fs}px ${FONT}`; while (p.targets.reduce((w, t) => w + g.measureText(lbl(t)).width + 24, -8) > CW - 72 && --fs > 15);
   let x = 36; const ty = CH - 114;
   p.targets.forEach((t) => {
     const ok = done.includes(t), s = (ok ? '✓ ' : '') + t.join(' '), w = g.measureText(s).width + 16;
     g.strokeStyle = ok ? 'rgba(46,230,214,.5)' : '#2a3035'; g.strokeRect(x, ty, w, 34);
     g.fillStyle = ok ? '#2ee6d6' : '#6b767c'; g.fillText(s, x + 8, ty + 24); x += w + 8;
   });
-  g.font = `600 17px ${FONT}`; g.fillStyle = 'rgba(107,118,124,.8)'; g.fillText('PAYLOAD PATCH · ' + p.id.toUpperCase(), 36, CH - 44);
+  g.font = `600 20px ${FONT}`; g.fillStyle = 'rgba(125,136,141,.85)'; g.fillText('PAYLOAD PATCH · ' + p.id.toUpperCase(), 36, CH - 44);
 }
 function drawBack(g, c) { // the reverse: encrypted
   frame(g, false);
   g.font = `700 22px ${FONT}`; g.fillStyle = '#6b767c'; g.fillText(`patch.zip  ${c.i + 1}/${c.of}`, 70, 70);
-  const rn = rnd(c.seed); holes(g, 112, () => rn() < .2);
+  const rn = rnd(c.seed); holes(g, 130, c.mask ? (col, row) => c.mask[col * 4 + row] : () => rn() < .2); // same rows as the front, so the pattern lands in place
   g.font = `400 23px ${FONT}`; g.fillStyle = 'rgba(46,230,214,.5)';
   c.hex.forEach((row, r) => g.fillText(row, 36, 230 + r * 30));
   g.font = `700 24px ${FONT}`; g.fillStyle = '#2ee6d6'; g.fillText('▣ ENCRYPTED', 36, CH - 78);
@@ -119,6 +140,14 @@ function paint(c) { // back, front, or the scan moving down between them
     }
   }
   c.tex.needsUpdate = true;
+}
+// A small picture of a card's decrypted front: the kept patch in the shop, thumbnails in the catalog.
+export function cardImage(p: ZipCard) {
+  const big = document.createElement('canvas'); big.width = CW; big.height = CH;
+  drawFront(big.getContext('2d'), p, p.id);
+  const s = document.createElement('canvas'); s.width = 160; s.height = Math.round(160 * CH / CW);
+  s.getContext('2d').drawImage(big, 0, 0, s.width, s.height);
+  return s.toDataURL();
 }
 function glitch(c) { // a few name chars flip to hex, slices of the face jump sideways with a teal tint
   const g = c.g, n = c.p.id.split('').map((ch) => (Math.random() < .25 ? HEX[Math.random() * 16 | 0] : ch)).join('');
@@ -306,22 +335,27 @@ export async function mountZip3d(host: HTMLElement, picks: ZipCard[], opts: ZipO
   const glow = glowSprite(); scene.add(glow);
   const ic = buildCase(picks), cards = ic.cards; scene.add(ic.g);
   const flash = (k) => (glow.material.opacity = .5 + .9 * Math.sin(Math.PI * k));
-  let state = 'sealed', t0 = 0, flights = null, raf = 0, hover = -1, focus = -1, kept = -1, ptr = null, cw = 180, small = false;
+  let state = 'sealed', t0 = 0, flights = null, raf = 0, hover = -1, focus = -1, kept = -1, ptr = null, cw = 180, small = false, grid = false;
   let tx = 0, ty = 0, cx = 0, cy = 0, lastMove = -1e9;
-  const GAP = 18, FILL = [900, 1300, 1700, 2100];
+  const GAP = 18, FILL = [650, 900, 1150, 1400];
   const Q0 = new THREE.Quaternion(), SPIN = new THREE.Quaternion(), YA = new THREE.Vector3(0, 1, 0);
   const log = (a, b = '') => { logEl.innerHTML = a + (b ? '<br>' + b : ''); };
   const toWorld = (x, y) => { const z = host.getBoundingClientRect(); return { x: x - z.left - host.clientWidth / 2, y: host.clientHeight / 2 - (y - z.top) }; };
   const center = () => { const r = stage.getBoundingClientRect(); return toWorld(r.left + r.width / 2, r.top + r.height / 2); };
   const slot = (i) => { // where card i rests: a row centred where the case stood
-    const c = center(), s = cw / W, k = i - (cards.length - 1) / 2;
+    const c = center(), s = cw / W;
     if (focus === i) return { x: c.x, y: c.y, z: 60, s: Math.min(250, host.clientWidth - 40) / W / 1.1 };
-    return { x: c.x + k * (cw + GAP), y: c.y, z: (kept === i ? 26 : 0) + (hover === i ? 12 : 0) + (focus >= 0 ? -40 : 0), s: s * (kept === i ? 1.05 : 1) };
+    // phones: two per row (2 + 1), rows stacked around the centre
+    const row = grid ? Math.floor(i / 2) : 0, rows = grid ? Math.ceil(cards.length / 2) : 1, inRow = grid ? Math.min(2, cards.length - row * 2) : cards.length;
+    const kx = (grid ? i % 2 : i) - (inRow - 1) / 2, ky = (rows - 1) / 2 - row, ch = cw * H / W;
+    return { x: c.x + kx * (cw + GAP), y: c.y + ky * (ch + GAP), z: (kept === i ? 26 : 0) + (hover === i ? 12 : 0) + (focus >= 0 ? -40 : 0), s: s * (kept === i ? 1.05 : 1) };
   };
   const size = () => {
     const w = host.clientWidth, n = cards.length;
-    cw = Math.min(190, (w - 24 - (n - 1) * GAP) / n); small = cw < 150;
-    const sh = Math.round(Math.max(cw * H / W + 60, 290)) + 'px';
+    grid = n > 2 && (w - 24 - (n - 1) * GAP) / n < 130; // a row would leave the cards too small to read
+    const per = grid ? 2 : n, rows = Math.ceil(n / per);
+    cw = Math.min(grid ? 160 : 190, (w - 24 - (per - 1) * GAP) / per); small = cw < 120;
+    const sh = Math.round(Math.max(rows * cw * H / W + (rows - 1) * GAP + 60, 290)) + 'px';
     if (stage.style.height !== sh) stage.style.height = sh;
     const h = host.clientHeight;
     R3.setSize(w, h, false); cam.aspect = w / h; cam.position.set(0, 0, h / 2 / Math.tan(15 * Math.PI / 180)); cam.updateProjectionMatrix();
@@ -349,8 +383,9 @@ export async function mountZip3d(host: HTMLElement, picks: ZipCard[], opts: ZipO
     if (!opts.animate) return settled();
     t0 = performance.now();
     log('$ unzip <b>patch.zip</b>', 'cracking the seal…');
-    host.insertAdjacentHTML('beforeend', "<button class='btn zskip z3skip'>Skip ›</button>");
-    const sk = host.querySelector('.z3skip'); sk.onclick = (e) => { e.stopPropagation(); skip(); };
+    // Skip sits in the zone's header line, clear of the cards
+    (host.closest('.zipzone') || host).insertAdjacentHTML('beforeend', "<button class='btn zskip z3skip'>Skip ›</button>");
+    const sk = (host.closest('.zipzone') || host).querySelector('.z3skip'); sk.onclick = (e) => { e.stopPropagation(); skip(); };
   }
   function skip() { if (state === 'opening') settled(); }
   function startFlight() {
@@ -398,12 +433,17 @@ export async function mountZip3d(host: HTMLElement, picks: ZipCard[], opts: ZipO
   function stepCards(now) { // bar → scan → done, painted straight onto each card's texture
     cards.forEach((c) => {
       if (c.phase === 'bar') {
-        if (!c.hexAt || now - c.hexAt > 90) { c.hex = hexRows(Math.random); c.hexAt = now; }
         c.pct = c.t0 ? clamp((now - c.t0) / FILL[c.i % FILL.length]) : 0;
+        if (!c.hexAt || now - c.hexAt > 90) {
+          c.hex = hexRows(Math.random); c.hexAt = now;
+          // punch holes flicker, each one locking into the payload's own pattern as the bar fills
+          const fin = idHoles(c.p.id);
+          c.mask = Array.from({ length: 88 }, (_, k) => ((k * 37 + 11) % 88) / 88 < c.pct * 1.1 ? fin(k >> 2, k & 3) : Math.random() < .22);
+        }
         if (c.pct >= 1) { c.phase = 'scan'; c.t1 = now; log('decrypting <b>' + c.p.id + '.bin</b>…'); }
         paint(c);
       } else if (c.phase === 'scan') {
-        const k = clamp((now - c.t1) / 650), nk = clamp((now - c.t1) / 700), n = Math.floor(nk * c.p.id.length);
+        const k = clamp((now - c.t1) / 480), nk = clamp((now - c.t1) / 520), n = Math.floor(nk * c.p.id.length);
         c.scan = eio(k);
         c.name = c.p.id.slice(0, n) + Array.from({ length: c.p.id.length - n }, () => HEX[Math.random() * 16 | 0]).join('');
         if (k >= 1 && nk >= 1) { c.phase = 'done'; c.name = c.p.id; if (c.p.n > 1) c.flare = now; if (cards.every((x) => x.phase === 'done')) finish(); }
@@ -430,7 +470,7 @@ export async function mountZip3d(host: HTMLElement, picks: ZipCard[], opts: ZipO
   function finish() {
     if (state === 'done') return;
     state = 'done'; glow.material.opacity = .28;
-    host.querySelector('.z3skip')?.remove();
+    (host.closest('.zipzone') || host).querySelector('.z3skip')?.remove();
     log('<b>' + cards.length + '</b> payload patches · keep one');
     kb.innerHTML = cards.map((c) => `<button class="z3sr" data-i="${c.i}">Keep ${c.p.id}.bin, Lv${c.p.lv} → Lv${c.p.lv + c.p.n}, ${c.p.eff}, ${c.p.text}</button>`).join('');
     kb.querySelectorAll('button').forEach((b) => {
@@ -442,7 +482,8 @@ export async function mountZip3d(host: HTMLElement, picks: ZipCard[], opts: ZipO
     if (state !== 'done' || kept >= 0) return;
     if (small && !direct && focus !== i) { focus = i; log('tap again to keep <b>' + cards[i].p.id + '.bin</b>'); return; } // phones: first tap enlarges
     focus = -1; kept = i; log('patching <b>' + cards[i].p.id + '.bin</b>…');
-    setTimeout(() => opts.onPick(i), opts.animate ? 420 : 0); // the kept card lifts and the rest dim, then the shop re-renders
+    const img = cardImage(cards[i].p);
+    setTimeout(() => opts.onPick(i, img), opts.animate ? 420 : 0); // the kept card lifts and the rest dim, then the shop re-renders
   }
   const cardAt = (pt) => {
     for (const i of [focus, ...cards.map((c) => c.i)]) {
