@@ -1,4 +1,5 @@
 import type { ItemId } from './roguelike';
+import { gearGlass } from './gearGlass';
 
 // The data icon: two stacked files (24×24). The UI shows it next to every data amount.
 export const DATA_PATHS = "<path d='M10 2h7l4 4v11h-5'/><path d='M4 7h8l4 4v11H4z'/><path d='M12 7v4h4'/>";
@@ -176,4 +177,5 @@ const ART: Record<ItemId, string> = {
 };
 
 // Every upgrade id ends in 2 or 3; those get the v2 accents (.gear.v2 in style.css), v3.0 also .v3.
-export const gear = (id: ItemId) => "<svg class='gear" + (/[23]$/.test(id) ? ' v2' : '') + (/3$/.test(id) ? ' v3' : '') + "' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>';
+// Both styles are rendered; CSS shows the one matching html[data-style]. `rack` crops the glass art for the short rack unit.
+export const gear = (id: ItemId, rack = false) => "<svg class='gear" + (/[23]$/.test(id) ? ' v2' : '') + (/3$/.test(id) ? ' v3' : '') + "' viewBox='0 0 150 84' aria-hidden='true'>" + ART[id] + '</svg>' + gearGlass(id, rack);

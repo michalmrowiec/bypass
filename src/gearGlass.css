@@ -1,0 +1,254 @@
+/* Glass item art (gearGlass.ts). Ported from the concept page; classes and keyframes carry a q prefix. */
+.gl{--acc:#5af2a8;--amber:#ffb547}
+:root[data-style=glass] .gear:not(.gl),:root:not([data-style=glass]) .gear.gl{display:none}
+/* ---------- shared item styles ---------- */
+.q-t{font-family:var(--mono);font-weight:800;fill:var(--acc)}
+.q-silk{font-family:var(--mono);font-weight:600;fill:#7f8c98}
+.q-di path{fill:none;stroke:var(--acc);stroke-width:1.8;stroke-linejoin:round}
+.q-bar{fill:var(--acc);opacity:.55;transition:opacity .3s}
+.q-led{fill:var(--acc)}
+.q-ud{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.q-sheen{transform:translateX(0)}
+.q-spin{transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .gl .q-ud{transform:translateY(-3px)}
+.hw:is(:hover,:focus-visible) .gl .q-sheen{animation:qsheen .9s ease-out}
+.hw:is(:hover,:focus-visible) .gl .q-bar{opacity:1}
+.hw:is(:hover,:focus-visible) .gl .q-led{fill:var(--amber);animation:qblink .3s steps(2) infinite}
+@keyframes qsheen{to{transform:translateX(200px)}}
+@keyframes qblink{50%{opacity:.25}}
+
+/* buffer: codes qdrop into slots one by one, the extra slot catches the last one */
+.q-code{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-code{animation:qcodeIn .25s forwards;animation-delay:calc(var(--i) * .14s)}
+.q-x-idle{transition:opacity .2s}
+.hw:is(:hover,:focus-visible) .gl .q-x-idle{opacity:0}
+.q-xslot{transition:fill .3s}
+.hw:is(:hover,:focus-visible) .gl .q-xslot{fill:rgba(90,242,168,.18)}
+@keyframes qcodeIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+/* data node: packets flow into the port, bank bar fills */
+.q-pkt{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-pkt{animation:qflowR 1s linear infinite;animation-delay:calc(var(--i) * -.33s)}
+.hw:is(:hover,:focus-visible) .gl .q-pkt.q-l{animation-name:qflowL}
+@keyframes qflowR{0%{opacity:0;transform:translateX(0)}20%{opacity:1}100%{opacity:0;transform:translateX(16px)}}
+@keyframes qflowL{0%{opacity:0;transform:translateX(0)}20%{opacity:1}100%{opacity:0;transform:translateX(-16px)}}
+.q-bank{transform-box:fill-box;transform-origin:left;transform:scaleX(0)}
+.hw:is(:hover,:focus-visible) .gl .q-bank{animation:qfillx 1.6s ease-in-out infinite}
+@keyframes qfillx{0%{transform:scaleX(0)}70%,100%{transform:scaleX(1)}}
+.hw:is(:hover,:focus-visible) .gl .q-pulse{animation:qpulse 1.6s ease-in-out infinite}
+@keyframes qpulse{0%,60%{opacity:1}75%{opacity:.4}90%{opacity:1}}
+
+/* priority: first packet jumps to the multiplier, queue shifts */
+.hw:is(:hover,:focus-visible) .gl .q-pk1{animation:qjump 1.6s cubic-bezier(.5,0,.3,1) infinite}
+.hw:is(:hover,:focus-visible) .gl .q-qshift{animation:qshift 1.6s cubic-bezier(.5,0,.3,1) infinite}
+.q-bx{transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .gl .q-bx{animation:qhit 1.6s ease-out infinite}
+@keyframes qjump{0%{transform:none;opacity:1}45%{transform:translate(var(--jx),0);opacity:1}55%,100%{transform:translate(var(--jx),0);opacity:0}}
+@keyframes qshift{0%,45%{transform:none}80%,100%{transform:translateX(var(--sx))}}
+@keyframes qhit{0%,45%{transform:none;filter:none}55%{transform:scale(1.15);filter:brightness(1.6)}75%,100%{transform:none;filter:none}}
+
+/* priority: packet rides the cable into port 1 */
+/* impulse runs along the cable and stops at the plug, then the port LED flares */
+.q-imp{stroke-dasharray:12 200;stroke-dashoffset:12;opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-imp{animation:qimp 1.6s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes qimp{0%{stroke-dashoffset:12;opacity:1}45%{stroke-dashoffset:-88;opacity:1}50%,100%{stroke-dashoffset:-88;opacity:0}}
+.q-pled{transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .gl .q-pled{animation:qpled 1.6s ease-out infinite}
+@keyframes qpled{0%,44%{transform:none;filter:none}50%{transform:scale(2.6);filter:brightness(1.8)}80%,100%{transform:none;filter:none}}
+.hw:is(:hover,:focus-visible) .gl .q-retspin{animation:qrot 5s linear infinite reverse}
+.q-engr{font-family:var(--mono);font-weight:800;fill:#2b333b}
+/* data node: qroute traced through the data cell, then banked */
+.q-route{stroke-dasharray:100;stroke-dashoffset:100}
+.hw:is(:hover,:focus-visible) .gl .q-route{animation:qroute 2s ease-in-out infinite}
+@keyframes qroute{0%{stroke-dashoffset:100;opacity:1}45%,85%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}
+.q-ncell{transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .gl .q-ncell{animation:qncell 2s infinite;animation-delay:var(--d)}
+@keyframes qncell{0%{transform:scale(1.35);filter:brightness(2.2)}20%,100%{transform:none;filter:none}}
+.q-bank2{transform-box:fill-box;transform-origin:left;transform:scaleX(0)}
+.hw:is(:hover,:focus-visible) .gl .q-bank2{animation:qbank2 2s ease-in-out infinite}
+@keyframes qbank2{0%,45%{transform:scaleX(0)}75%,100%{transform:scaleX(1)}}
+.hw:is(:hover,:focus-visible) .gl .q-pulse2{animation:qpulse2 2s infinite}
+@keyframes qpulse2{0%,45%{opacity:.5}55%{opacity:1;filter:brightness(1.8)}100%{opacity:1}}
+.q-route{stroke:#4fc8ff}.q-ncell rect{fill:#4fc8ff;stroke:#4fc8ff}.q-bank2{fill:#4fc8ff}
+.q-dv .q-t{fill:#4fc8ff}.q-dv .q-di path{stroke:#4fc8ff}
+.q-bank,.q-btrack,.q-pkt{fill:#4fc8ff}
+.q-spark{opacity:0;transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .gl .q-spark{animation:qspark .5s .3s ease-out}
+@keyframes qspark{0%{opacity:0;transform:scale(.3)}30%{opacity:1}100%{opacity:0;transform:scale(1.8)}}
+/* short key: last tooth is cut off */
+.q-snip{opacity:.55}
+.hw:is(:hover,:focus-visible) .gl .q-snip{animation:qsnip .5s steps(2) 2}
+.q-cut{transform-box:fill-box;transform-origin:top left}
+.hw:is(:hover,:focus-visible) .gl .q-cut{animation:qdrop .7s .35s cubic-bezier(.5,0,.8,.5) forwards}
+@keyframes qsnip{50%{opacity:1;stroke-width:1.4}}
+@keyframes qdrop{to{transform:translate(4px,14px) rotate(28deg);opacity:0}}
+
+/* wildcard: codes cycle until ** lands; v2 reticle locks on */
+.q-w{opacity:0}
+.q-w0{opacity:1;transition:opacity .2s}
+.hw:is(:hover,:focus-visible) .gl .q-w0{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-w{animation:qcyc 1.6s infinite;animation-delay:calc(var(--i) * .4s)}
+@keyframes qcyc{0%,24%{opacity:1}25%,100%{opacity:0}}
+.hw:is(:hover,:focus-visible) .gl .q-ring{animation:qrot 4s linear infinite}
+.q-ret{transform-box:fill-box;transform-origin:center}
+.hw:is(:hover,:focus-visible) .gl .q-ret{animation:qlock .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes qrot{to{transform:rotate(360deg)}}
+@keyframes qlock{from{transform:scale(1.35) rotate(45deg);opacity:.2}}
+
+/* rewind: reels spin backwards */
+.hw:is(:hover,:focus-visible) .gl .q-reel{animation:qrot .9s linear infinite reverse}
+.q-tape{stroke-dasharray:2 2}
+.hw:is(:hover,:focus-visible) .gl .q-tape{animation:qtape .3s linear infinite}
+.q-rwb{transition:fill .2s,filter .2s}
+.hw:is(:hover,:focus-visible) .gl .q-rwb{fill:var(--acc);filter:url(#pd-glow)}
+@keyframes qtape{to{stroke-dashoffset:4}}
+
+/* burner sim: matrix reshuffles, corner smoulders */
+.hw:is(:hover,:focus-visible) .gl .q-mc{animation:qshuf .5s steps(3) 3;animation-delay:calc(var(--i) * .05s)}
+.hw:is(:hover,:focus-visible) .gl .q-refresh{animation:qrot .9s cubic-bezier(.4,0,.2,1)}
+.q-burn{opacity:1;transition:opacity .3s}
+.hw:is(:hover,:focus-visible) .gl .q-burn{opacity:0}
+/* laser burn: glowing qember (SMIL, always running) travels the card qedge, shown on hover */
+.q-fuse{opacity:0;transition:opacity .25s}
+.hw:is(:hover,:focus-visible) .gl .q-fuse{opacity:1}
+@keyframes qshuf{33%{fill-opacity:.1}66%{fill-opacity:.9}}
+@keyframes qember{50%{opacity:.6}}
+
+/* linker/split: qpulse along a cable (pathLength 100, dasharray 12) */
+.q-lk,.q-fin,.q-fout{stroke-dasharray:12 200;stroke-dashoffset:12;opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-lk{animation:qlk 2s ease-in-out infinite}
+@keyframes qlk{0%{stroke-dashoffset:12;opacity:1}45%{stroke-dashoffset:-100;opacity:1}50%,100%{stroke-dashoffset:-100;opacity:0}}
+.hw:is(:hover,:focus-visible) .gl .q-lfa{animation:qlfa 2s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-lfb{animation:qlfb 2s infinite}
+@keyframes qlfa{0%,8%{filter:brightness(2.2)}20%,100%{filter:none}}
+@keyframes qlfb{0%,44%{filter:none}50%{filter:brightness(2.2)}70%,100%{filter:none}}
+.hw:is(:hover,:focus-visible) .gl .q-fin{animation:qfin 2s linear infinite}
+.hw:is(:hover,:focus-visible) .gl .q-fout{animation:qfout 2s ease-out infinite}
+@keyframes qfin{0%{stroke-dashoffset:12;opacity:1}40%{stroke-dashoffset:-100;opacity:1}42%,100%{opacity:0}}
+@keyframes qfout{0%,39%{stroke-dashoffset:12;opacity:0}40%{stroke-dashoffset:12;opacity:1}82%{stroke-dashoffset:-100;opacity:1}85%,100%{opacity:0}}
+.q-lfo{opacity:.45}
+.hw:is(:hover,:focus-visible) .gl .q-lfo{animation:qlfo 2s infinite}
+@keyframes qlfo{0%,80%{opacity:.45;filter:none}86%{opacity:1;filter:brightness(2)}100%{opacity:1;filter:none}}
+.hw:is(:hover,:focus-visible) .gl .q-dial{animation:qdial 2s ease-in-out infinite}
+/* side door: pick rakes, qedge cells light around the ring */
+.hw:is(:hover,:focus-visible) .gl .q-rake{animation:qrake .45s ease-in-out infinite alternate}
+@keyframes qrake{to{transform:translateX(-3px)}}
+.hw:is(:hover,:focus-visible) .gl .q-edge{animation:qedge 1.6s infinite;animation-delay:calc(var(--i) * .1s)}
+@keyframes qedge{0%{fill:#5af2a8;fill-opacity:.5}30%,100%{fill:#0c1a15;fill-opacity:1}}
+/* heatsink fan, glob ROM pins, repeater copies */
+.hw:is(:hover,:focus-visible) .gl .q-fan{animation:qrot .45s linear infinite}
+/* credit chip: mode knob flips pool/idle, +$1 pops on each */
+.hw:is(:hover,:focus-visible) .gl .q-mode{animation:qmodeSw 2s ease-in-out infinite}
+@keyframes qmodeSw{0%,40%{transform:none}50%,90%{transform:translateX(24px)}100%{transform:none}}
+.q-cpop{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-cpop{animation:qcpop 2s infinite}
+@keyframes qcpop{0%,50%{opacity:0;transform:translateY(2px)}8%,58%{opacity:1;transform:none}25%,75%{opacity:0;transform:translateY(-5px)}100%{opacity:0}}
+/* co-processor cores; mux qlever and its inputs */
+.q-core{fill-opacity:.25}
+.hw:is(:hover,:focus-visible) .gl .q-core{animation:qcore 1.2s infinite;animation-delay:calc(var(--i) * .15s)}
+@keyframes qcore{0%,40%{fill-opacity:1}60%,100%{fill-opacity:.25}}
+/* mux, as in the legacy art: the selected input glows whole, the qlever flips between them */
+.q-lever{transform-box:view-box;transform-origin:84px 44px;transform:rotate(-28deg)}
+.hw:is(:hover,:focus-visible) .gl .q-lever{animation:qlever 1.6s linear infinite}
+@keyframes qlever{0%,40%{transform:rotate(-28deg)}50%,90%{transform:rotate(28deg)}100%{transform:rotate(-28deg)}}
+.q-m1{opacity:0}/* idle: qlever on ROW, so ROW and the output glow */
+.hw:is(:hover,:focus-visible) .gl .q-m1{animation:qm1 1.6s steps(1) infinite}
+.hw:is(:hover,:focus-visible) .gl .q-m2{animation:qm2 1.6s steps(1) infinite}
+.hw:is(:hover,:focus-visible) .gl .q-mo{opacity:1}
+@keyframes qm2{0%{opacity:1}45%{opacity:0}95%{opacity:1}}
+@keyframes qm1{0%{opacity:0}45%{opacity:1}95%{opacity:0}}
+/* credit chip: card details follow the mode */
+.q-mIdle{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-mPool{animation:qmPool 2s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-mIdle{animation:qmIdle 2s infinite}
+@keyframes qmPool{0%,42%{opacity:1}48%,92%{opacity:0}98%,100%{opacity:1}}
+@keyframes qmIdle{0%,42%{opacity:0}48%,92%{opacity:1}98%,100%{opacity:0}}
+.q-gE9{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-gE9{animation:qgE9 1.6s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-gAst{animation:qgAst 1.6s infinite}
+@keyframes qgE9{0%,35%{opacity:1}40%,100%{opacity:0}}
+@keyframes qgAst{0%,35%{opacity:0}40%,100%{opacity:1}}
+.hw:is(:hover,:focus-visible) .gl .q-pin{animation:qpinr 1.2s infinite;animation-delay:calc(var(--i) * .08s)}
+@keyframes qpinr{0%{filter:brightness(1.8)}30%,100%{filter:none}}
+.q-rp1,.q-rp2{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-rp1{animation:qrp1 1.6s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-rp2{animation:qrp2 1.6s infinite}
+@keyframes qrp1{0%,25%{opacity:0}32%,90%{opacity:1}100%{opacity:0}}
+@keyframes qrp2{0%,45%{opacity:0}52%,90%{opacity:1}100%{opacity:0}}
+/* loopback: the code lands in the spare slot when the qpulse comes back */
+.q-lbfill{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-lbfill{animation:qlbf 2s infinite}
+@keyframes qlbf{0%,44%{opacity:0}50%,92%{opacity:1}100%{opacity:0}}
+/* split v2: cut marks light as the qdial sweeps over them, the middle one stays */
+.q-cmL,.q-cmM,.q-cmR{opacity:.6}
+.hw:is(:hover,:focus-visible) .gl .q-cmL{animation:qcmL 2s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-cmM{animation:qcmM 2s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-cmR{animation:qcmR 2s infinite}
+/* split: cut lines only while animating, the arrows stay */
+.q-cl{opacity:0;transition:opacity .2s}
+.hw:is(:hover,:focus-visible) .gl .q-cl{opacity:1}
+@keyframes qcmL{0%,8%{opacity:1}12%,100%{opacity:.6}}
+@keyframes qcmR{0%,12%{opacity:.6}18%,26%{opacity:1}30%,100%{opacity:.6}}
+@keyframes qcmM{0%,30%{opacity:.6}34%,92%{opacity:1}100%{opacity:.6}}
+@keyframes qdial{0%{transform:rotate(-70deg)}18%{transform:rotate(70deg)}34%,100%{transform:none}}
+/* ping: waves roll out, the top-row cell gets marked */
+.q-pw{opacity:.2}
+.hw:is(:hover,:focus-visible) .gl .q-pw{animation:qpw 1.2s infinite;animation-delay:calc(var(--i) * .15s)}
+@keyframes qpw{0%{opacity:.2}15%{opacity:1}45%,100%{opacity:.2}}
+.q-pmark{opacity:0;transition:opacity .25s}
+.hw:is(:hover,:focus-visible) .gl .q-pmark{opacity:1;transition-delay:.45s}
+/* ping: the marked cell is shown at rest; on hover it hops along the top row in a shuffled order, one hop per wave */
+.hw:is(:hover,:focus-visible) .gl .q-pgo{animation:qpgoX 9.6s steps(1) infinite,qpgoA 1.2s ease-out infinite}
+@keyframes qpgoX{0%{transform:translateX(-10px)}12.5%{transform:translateX(10px)}25%{transform:none}37.5%{transform:translateX(10px)}50%{transform:translateX(-10px)}62.5%{transform:none}75%{transform:translateX(-10px)}87.5%{transform:translateX(10px)}}
+@keyframes qpgoA{0%{opacity:0}30%,100%{opacity:1}}
+/* thumb drive screen: COPY with a progress bar, speed from --spd */
+.q-hole{fill:#161b20}
+.q-scr-c text{font-family:var(--mono);font-weight:800;fill:var(--acc)}
+.q-t-num{font-size:9.5px}.q-t-lbl{font-size:7.5px;letter-spacing:.6px}
+.q-track{fill:rgba(90,242,168,.18)}
+.q-fill{fill:var(--acc);transform-box:fill-box;transform-origin:left;transform:scaleX(0)}
+.q-busy-g{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-idle-g{opacity:0}.hw:is(:hover,:focus-visible) .gl .q-busy-g{opacity:1}
+.hw:is(:hover,:focus-visible) .gl .q-fill{animation:qfillx2 var(--spd) linear infinite}
+.hw:is(:hover,:focus-visible) .gl .q-t-lbl{animation:qblink 1.2s steps(2) infinite}
+.hw:is(:hover,:focus-visible) .gl .q-scr-c{animation:qflick .35s steps(1)}
+@keyframes qfillx2{to{transform:scaleX(1)}}
+@keyframes qflick{0%{opacity:1}20%{opacity:.35}40%{opacity:1}60%{opacity:.6}100%{opacity:1}}
+.q-scr-c .q-idle-g text{fill:#4fc8ff}.q-scr-c .q-idle-g .q-di path{stroke:#4fc8ff}
+
+@media (prefers-reduced-motion:reduce){.hw:is(:hover,:focus-visible) .gl *{animation:none!important}.q-code,.q-w{opacity:1}.q-w{display:none}}
+
+/* Glass rack: the same .rack/.unit markup in smoked glass with a mint top light (concept: .notes/item-svg). */
+:root[data-style=glass] .rack{position:relative;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(90deg,#11161b,#1a2128 80%,#0d1115) left 16px top 0/24px 100% no-repeat,
+    linear-gradient(270deg,#11161b,#1a2128 80%,#0d1115) right 16px top 0/24px 100% no-repeat,linear-gradient(#0c1116,#080b0e);
+  box-shadow:inset 0 1px 0 rgba(90,242,168,.35),0 12px 30px rgba(0,0,0,.45)}
+:root[data-style=glass] .rack::before{content:"";position:absolute;inset:0 0 auto;height:60px;background:linear-gradient(rgba(90,242,168,.07),transparent);pointer-events:none}
+:root[data-style=glass] .rack header{border-bottom-color:rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
+:root[data-style=glass] .rail{background:linear-gradient(90deg,#0f1418,#161d23);color:#4d5b67}
+:root[data-style=glass] .unit{--tint:linear-gradient(#141b22,#10161c);position:relative;overflow:hidden;height:54px;margin:4px 5px;padding:0 10px;gap:9px;border-radius:5px;
+  background:linear-gradient(rgba(255,255,255,.07),rgba(255,255,255,.015) 45%,rgba(0,0,0,.18)),var(--tint);
+  border:1px solid rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 6px rgba(0,0,0,.35);transition:border-color .3s,box-shadow .3s,opacity .3s}
+:root[data-style=glass] .unit.m-pcb{--tint:linear-gradient(#18221a,#111a13)}
+:root[data-style=glass] .unit.m-anod{--tint:repeating-linear-gradient(90deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px),linear-gradient(#17243a,#0f1826)}
+:root[data-style=glass] .unit.m-steel{--tint:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 2px),linear-gradient(#20262b,#161b1f)}
+:root[data-style=glass] .unit.m-net{--tint:radial-gradient(circle,rgba(255,255,255,.07) 0 .8px,transparent 1.2px) 0 0/4px 4px,#10151a}
+/* light sliding over the glass on hover */
+:root[data-style=glass] .unit.hw::after{content:"";position:absolute;top:-30%;bottom:-30%;left:-50%;width:40%;pointer-events:none;opacity:0;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.12) 45%,rgba(90,242,168,.08) 60%,transparent);transform:skewX(-18deg)}
+:root[data-style=glass] .unit.hw:is(:hover,:focus-visible)::after{animation:qgrSweep .9s ease-out}
+@keyframes qgrSweep{from{opacity:1;transform:skewX(-18deg) translateX(0)}to{opacity:1;transform:skewX(-18deg) translateX(480%)}}
+:root[data-style=glass] .unit.hw:is(:hover,:focus-visible){border-color:rgba(90,242,168,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 0 1px rgba(90,242,168,.08),0 0 16px rgba(90,242,168,.08)}
+:root[data-style=glass] .strip{box-shadow:0 0 8px var(--k)}
+:root[data-style=glass] .scr{background:linear-gradient(#6a7780,#6a7780) center/5px 1px no-repeat,linear-gradient(#6a7780,#6a7780) center/1px 5px no-repeat,radial-gradient(circle at 35% 35%,#2a3238,#151a1e)}
+:root[data-style=glass] .unit .gear.gl{width:90px;height:auto}
+:root[data-style=glass] .unit.ready{border-color:rgba(90,242,168,.3)}
+:root[data-style=glass] .unit.ready.pre{border-color:rgba(79,200,255,.3)}
+:root[data-style=glass] .unit.armed{border-color:rgba(255,181,71,.5);background:linear-gradient(rgba(255,181,71,.08),rgba(255,181,71,.02)),var(--tint)}
+:root[data-style=glass] .unit.bay{justify-content:center;background:rgba(0,0,0,.3);border:1px dashed rgba(255,255,255,.1);box-shadow:inset 0 3px 10px rgba(0,0,0,.6)}
+:root[data-style=glass] .unit.bay span{font-size:10px;letter-spacing:.08em;color:#3a444b}
+/* blanking plate: brushed faceplate screwed in at both sides */
+:root[data-style=glass] .unit.blank{justify-content:space-between;border-color:rgba(255,255,255,.08);
+  background:linear-gradient(rgba(255,255,255,.06),rgba(255,255,255,.01) 45%,rgba(0,0,0,.2)),repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 2px),linear-gradient(#1c2227,#14191d)}
+:root[data-style=glass] .unit.blank .vent{display:none}
+:root[data-style=glass] .unit.blank .lock{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#56626a}
