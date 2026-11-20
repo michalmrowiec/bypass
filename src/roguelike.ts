@@ -228,6 +228,7 @@ export const SURPLUS_PER_CREDIT = 20;
 export const SURPLUS_CAP = 2; // per room, so huge scores don't flood the economy
 export const SECTION_CREDIT = 2;
 export const SLOTS_PER_CREDIT = 2;
+export const IDLE_CAP = 3; // per matrix, so a big late buffer does not flood the economy
 export const FULL_CREDIT = 2;
 export const EXIT_CREDIT = 1; // per matrix skipped by leaving a room early
 export const EXIT_FULL_CREDIT = 3; // same, once a matrix in the room uploaded every target
@@ -350,7 +351,7 @@ export type MatrixOutcome = 'continue' | 'section' | 'loop' | 'win' | 'lose';
 // Banks a finished matrix; after the section's last one, checks the quota and pays the section credits.
 export function endMatrix(s: RunState, data: number, emptySlots: number, per = SLOTS_PER_CREDIT): MatrixOutcome {
   s.data += data;
-  if (data && minerIdle(s)) earn(s, 'Credit chip idle · ' + emptySlots + ' empty buffer slots (1 per ' + per + ')', Math.floor(emptySlots / per));
+  if (data && minerIdle(s)) earn(s, 'Credit chip idle · ' + emptySlots + ' empty buffer slots (1 per ' + per + ', max ' + IDLE_CAP + ')', Math.min(IDLE_CAP, Math.floor(emptySlots / per)));
   s.scores[s.section].push(data);
   s.total = (s.total ?? 0) + data;
   s.best = Math.max(s.best ?? 0, data);
@@ -892,7 +893,7 @@ export const ITEMS = {
   thumb: { name: 'Thumb drive', ver: '1.0', kind: 'USB stick', price: 2, text: '+3 data for every uploaded target' },
   thumb2: { name: 'Thumb drive', ver: '2.0', kind: 'USB 3 stick', price: 3, text: 'Upgrades v1.0: +10 data for every uploaded target', needs: 'thumb' },
   thumb3: { name: 'Thumb drive', ver: '3.0', kind: 'USB4 stick', price: 4, text: 'Upgrades v2.0: +25 data for every uploaded target', needs: 'thumb2' },
-  chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: 'Click to switch modes (not mid-matrix). pool: +$1 for every room you clear in pool mode. idle: +$1 per 2 empty buffer slots in a matrix with an upload' },
+  chip: { name: 'Credit chip', ver: '1.0', kind: 'smart card', price: 2, text: 'Click to switch modes (not mid-matrix). pool: +$1 for every room you clear in pool mode. idle: +$1 per 2 empty buffer slots in a matrix with an upload, max $3 per matrix' },
   ping: { name: 'Ping', ver: '1.0', kind: 'network probe', price: 2, text: 'Before your first move, marks a top-row cell where a solution starts' },
   heatsink: { name: 'Heatsink', ver: '1.0', kind: 'cooler', price: 2, text: 'Corruption locks cells 1 move shorter; for good becomes 2 moves' },
   sim: { name: 'Burner SIM', ver: '1.0', kind: 'prepaid SIM', price: 3, text: 'Once per room, before your first move, swap the matrix for a fresh one' },

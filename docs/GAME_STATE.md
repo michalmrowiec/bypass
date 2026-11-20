@@ -109,7 +109,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
 | Thumb drive v1/v2/v3 | 2/3/4 | +3 / +10 / +25 data za każdy wgrany target |
-| Credit chip | 2 | Dwa tryby, przełączane kliknięciem w racku (nie w trakcie macierzy, tryb zamyka się na 1. picku). `pool`: +$1 za pokój rozegrany w całości w trybie pool. `idle`: +$1 za każde 2 puste sloty bufora w macierzy z uploadem (także po Disconnect); złota dioda |
+| Credit chip | 2 | Dwa tryby, przełączane kliknięciem w racku (nie w trakcie macierzy, tryb zamyka się na 1. picku). `pool`: +$1 za pokój rozegrany w całości w trybie pool. `idle`: +$1 za każde 2 puste sloty bufora w macierzy z uploadem (także po Disconnect), max $3 na macierz; złota dioda |
 | Ping | 2 | zaznacza start rozwiązania |
 | Heatsink | 2 | Corruption krótsza o 1 ruch |
 | Burner SIM | 3 | raz na pokój, przed 1. ruchem, nowa macierz (klik w rack) |
@@ -141,7 +141,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 - **Nadwyżka:** $1 za każde 20 danych ponad próg, maks. $2 na pokój.
 - **Inne źródła:** +$2 za pokój; +$2 za matrycę z wgranymi wszystkimi targetami; wcześniejsze wyjście z pokoju $1 za pominiętą matrycę, $3 jeśli w pokoju był full.
 - **Sloty racka:** $4, $6, $8… (+$2 za każdy kolejny), maks. 9.
-- **Puste sloty bufora:** płacą tylko z Credit chip w trybie `idle`: $1 za każde 2 (także po Disconnect). Daemon Silent daje +$2 za Disconnect niezależnie od Credit chip.
+- **Puste sloty bufora:** płacą tylko z Credit chip w trybie `idle`: $1 za każde 2, max $3 na macierz (także po Disconnect). Daemon Silent daje +$2 za Disconnect niezależnie od Credit chip.
 - **Koszty:** pierwszy reroll w wizycie darmowy, potem $1, $2, $3… (od nowa w następnym sklepie); półka ma 4 itemy. Itemy odrzucone rerollem mają ×0,25 szansy na pierwszej półce następnego sklepu (`SKIPPED_ODDS`). Oferta daemonów pomija te z poprzedniej oferty.
 
 ## 10. UI (najważniejsze)

@@ -78,6 +78,8 @@ describe('roguelike run', () => {
     expect(s.credits).toBe(0);
     endMatrix(s, 10, 5);
     expect(s.credits).toBe(2);
+    endMatrix(s, 10, 13); // capped at $3 per matrix
+    expect(s.credits).toBe(5);
   });
 
   it('pays the section credit plus surplus over the quota', () => {
@@ -190,7 +192,7 @@ describe('daemons', () => {
     expect(s.earned).toEqual([['Silent daemon', 2]]);
     const m = { ...run('silent'), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
     finishMatrix(m, ctx, true);
-    expect(m.earned).toEqual([['Silent daemon', 2], ['Credit chip idle · 4 empty buffer slots (1 per 2)', 2]]);
+    expect(m.earned).toEqual([['Silent daemon', 2], ['Credit chip idle · 4 empty buffer slots (1 per 2, max 3)', 2]]);
   });
 
   it('a full upload pays a credit; a Miner in idle adds 1 per 2 empty slots when the matrix ends on its own', () => {
@@ -200,7 +202,7 @@ describe('daemons', () => {
     expect(s.earned).toEqual([['every target uploaded', 2]]);
     const m = { ...run(), items: ['chip'] as ItemId[], miner: 'idle' as const, section: 1 };
     finishMatrix(m, { ...ctx, targets: [['A', 'B'], ['B', 'C', 'D']] }, false);
-    expect(m.earned).toEqual([['every target uploaded', 2], ['Credit chip idle · 4 empty buffer slots (1 per 2)', 2]]);
+    expect(m.earned).toEqual([['every target uploaded', 2], ['Credit chip idle · 4 empty buffer slots (1 per 2, max 3)', 2]]);
   });
 
   it('switching to idle mid-room voids the Miner pool credit, also on an early exit; the next room pays again', () => {

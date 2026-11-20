@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -512,9 +512,9 @@ function runStatus() {
   const live = S.over ? 0 : scoreMatrix(runCtx(), R).total;
   // Ending early keeps the empty slots, which pay credits.
   const empty = S.puzzle.l - S.run.buffer.length, silent = R.daemons.includes('silent');
-  const slots = minerIdle(R) ? Math.floor(empty / SLOTS_PER_CREDIT) : 0, pay = slots + (silent ? 2 : 0);
+  const slots = minerIdle(R) ? Math.min(IDLE_CAP, Math.floor(empty / SLOTS_PER_CREDIT)) : 0, pay = slots + (silent ? 2 : 0);
   if (S.over || !canDisconnect(R)) return '';
-  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Credit chip idle · ' + empty + ' empty buffer slots: +$1 per ' + SLOTS_PER_CREDIT + ' = +$' + slots + '.' : '')
+  const tip = live ? 'Ends the matrix now and banks ' + live + ' data.' + (minerIdle(R) ? ' Credit chip idle · ' + empty + ' empty buffer slots: +$1 per ' + SLOTS_PER_CREDIT + ' (max $' + IDLE_CAP + ') = +$' + slots + '.' : '')
     + (silent ? ' Silent +$2.' : '') : 'Upload a target first: nothing to bank yet.';
   return "<button class='btn act' id='disconnect' data-tip-delay='350' data-tip='" + tip + "'" + (live ? '' : ' disabled') + '>Disconnect' + (live && pay ? ' · ' + money(pay, '+') : '') + '</button>';
 }
