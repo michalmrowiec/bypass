@@ -212,7 +212,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .term .ok{color:var(--done)}
 .term .bad,.term .bad:last-child{color:var(--pink)}
 @keyframes blink{50%{opacity:0}}
-@media (max-width:640px){.term{min-height:calc(3 * 1.5em + 12px)}.term div:nth-last-child(n+4){display:none}.exlong{display:none}}
+@media (max-width:640px){.term{display:none}.exlong{display:none}} /* phones: no terminal under the matrix */
 .exitopt{display:flex;align-items:center;gap:4px;cursor:var(--hit)}
 .exitopt input{margin:0;width:11px;height:11px;accent-color:var(--mint);cursor:inherit}
 /* Script run: charge sweep, flying codes, then the finale (checksum wave, upload bars) */
