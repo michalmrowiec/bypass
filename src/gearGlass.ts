@@ -170,7 +170,7 @@ function wildcard(t) {
     <circle cx="${cx}" cy="${cy}" r="10" fill="#071a12" stroke="#000" stroke-opacity=".6"/>
     <g class="ring spin"><circle cx="${cx}" cy="${cy}" r="12.5" fill="none" stroke="#5af2a8" stroke-opacity=".4" stroke-width=".6" stroke-dasharray="2 2"/></g>
     <g filter="url(#pd-glow)"><g class="w0">${txt(cx, cy + 6, '✱', 16)}</g>` +
-    glyphs.map((g, i) => `<g class="w" style="--i:${i}">${txt(cx, cy + 2.6, g, g === '**' ? 10 : 7.5, g === '**' ? 'style="fill:#ff4d7d"' : '')}</g>`).join('') + `</g>`;
+    glyphs.map((g, i) => `<g class="w" style="--i:${i}">${txt(cx, cy + (g === '**' ? 3.4 : 2.6), g, g === '**' ? 10 : 7.5, g === '**' ? 'style="fill:#ff4d7d"' : '')}</g>`).join('') + `</g>`;
   if (t) s += `<g class="ret"><g class="retspin spin"><circle cx="${cx}" cy="${cy}" r="19" fill="none" stroke="#ff4d7d" stroke-width=".8" stroke-dasharray="3 2.2" filter="url(#pd-glow)"/>
     <path d="M${cx} ${cy - 23}v6M${cx} ${cy + 17}v6M${cx - 23} ${cy}h6M${cx + 17} ${cy}h6" stroke="#ff4d7d" stroke-width="1"/></g></g>`;
   return [sh, s];
