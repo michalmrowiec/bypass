@@ -988,12 +988,10 @@ describe('entries', () => {
     expect(entryOf({ company: 0, entry: 'nope' }).id).toBe(COMPANIES[0].entries[0].id);
   });
 
-  it('Courier tablet starts with one v1 tool, the same for the same seed', () => {
+  it('Courier tablet starts with Mux v1, which cannot be sold', () => {
     const s = newRunState(7, co('kestrel'), 'courier');
-    expect(s.items.length).toBe(1);
-    expect(['rewind', 'loopback1', 'bridge', 'mux']).toContain(s.items[0]);
-    expect(newRunState(7, co('kestrel'), 'courier').items).toEqual(s.items);
-    expect(sell(s, s.items[0])).toBe(true);
+    expect(s.items).toEqual(['mux']);
+    expect(sell(s, 'mux')).toBe(false);
   });
 
   it("Partner's phone starts with a Burner SIM that works in the first room", () => {
@@ -1012,14 +1010,14 @@ describe('entries', () => {
     for (const id of Object.keys(PAYLOADS) as (keyof typeof PAYLOADS)[]) expect(payLevel(sig, id)).toBe(2);
   });
 
-  it('quota multiplier rounds to 5 on every iteration', () => {
-    const k = co('kestrel');
-    expect(quota(newRunState(1, k, 'dock'))).toBe(25);
-    for (let loop = 0; loop < LOOPS; loop++) COMPANIES[k].sections.forEach((_, i) => {
-      const q = quota({ ...newRunState(1, k, 'dock'), loop }, i);
-      expect(q % 5).toBe(0);
-      expect(q).toBeGreaterThanOrEqual(quota({ ...newRunState(1, k), loop }, i));
-    });
+  it('harder entries keep iteration 1 quotas and never lower later ones', () => {
+    COMPANIES.forEach((c, k) => c.entries.forEach((e) => {
+      for (let loop = 0; loop < LOOPS; loop++) c.sections.forEach((_, i) => {
+        const q = quota({ ...newRunState(1, k, e.id), loop }, i), base = quota({ ...newRunState(1, k), loop }, i);
+        expect(q % 5).toBe(0);
+        if (loop) expect(q).toBeGreaterThanOrEqual(base); else expect(q).toBe(base);
+      });
+    }));
   });
 
   it('Courier tablet shelf holds 3', () => {

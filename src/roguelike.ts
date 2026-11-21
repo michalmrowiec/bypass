@@ -30,10 +30,10 @@ export interface Company {
   dev?: boolean; // test company: dev server only, open from the start
   entries: Entry[]; // [0] is the default; a win on the newest open entry opens the next one
 }
-// Entry vector: how the run breaks in, one plus and one minus. startTool: one of these, drawn from the run seed.
+// Entry vector: how the run breaks in, one plus and one minus; #2 and #3 are harder than #1.
 export interface Entry {
   id: string; name: string; plus: string; minus: string;
-  startItems?: ItemId[]; startTool?: ItemId[]; payLevels?: Partial<Record<PayloadId, number>>; quotaMult?: number;
+  startItems?: ItemId[]; payLevels?: Partial<Record<PayloadId, number>>; quotaMult?: number;
   quotaGrowth?: number; // per-iteration quota growth instead of QUOTA_GROWTH; iteration 1 unchanged
   shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
   noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean;
@@ -78,9 +78,10 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'throttle', 'blackout'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption'],
   entries: [standard('wifi', 'Guest Wi‑Fi'),
-    { id: 'courier', name: 'Courier tablet', plus: 'Start with a random v1 tool: Rewind, Loopback, Bridge or Mux.', minus: 'The shop shelf holds 3 modules instead of 4.',
-      startTool: ['rewind', 'loopback1', 'bridge', 'mux'], shelf: 3 },
-    { id: 'dock', name: 'Dock scanner', plus: 'single.bin and multi.bin start at Lv3.', minus: 'Quotas +15%.', payLevels: { single: 3, multi: 3 }, quotaMult: 1.15 }],
+    { id: 'courier', name: 'Courier tablet', plus: 'Start with Mux v1.', minus: 'The shop shelf holds 3 modules instead of 4. Mux cannot be sold. Quotas ×2.7 per iteration (from iteration 2).',
+      startItems: ['mux'], shelf: 3, noSell: ['mux'], quotaGrowth: 2.7 },
+    { id: 'dock', name: 'Dock scanner', plus: 'single.bin and multi.bin start at Lv3.', minus: 'No Linker in the shop. Quotas ×2.9 per iteration (from iteration 2).',
+      payLevels: { single: 3, multi: 3 }, banned: ['linker1', 'linker2'], quotaGrowth: 2.9 }],
 }, {
   id: 'meridian',
   name: 'Meridian Health',
@@ -97,9 +98,10 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
   entries: [standard('nurse', 'Nurse station'),
-    { id: 'nightshift', name: 'Night shift', plus: 'Daemon offers show 4 cards instead of 3.', minus: 'Modules, patch.zip and rack slots cost $1 more.', offer: 4, priceDelta: 1 },
-    { id: 'phishing', name: 'Phishing', plus: 'linked.bin and all_linked.bin start at Lv3.', minus: 'No Disconnect: a matrix runs until no target is left in reach.',
-      payLevels: { linked: 3, all_linked: 3 }, noDisconnect: true }],
+    { id: 'nightshift', name: 'Night shift', plus: 'Daemon offers show 4 cards instead of 3.', minus: 'Runner daemons only. Modules, patch.zip and rack slots cost $1 more. Quotas ×2.7 per iteration (from iteration 2).',
+      offer: 4, family: 'Runner', priceDelta: 1, quotaGrowth: 2.7 },
+    { id: 'phishing', name: 'Phishing', plus: 'linked.bin and all_linked.bin start at Lv3.', minus: 'No Disconnect: a matrix runs until no target is left in reach. Modules cannot be sold. Quotas ×2.9 per iteration (from iteration 2).',
+      payLevels: { linked: 3, all_linked: 3 }, noDisconnect: true, noSell: true, quotaGrowth: 2.9 }],
 }, {
   id: 'ashgrove',
   name: 'Ashgrove & Pike',
@@ -119,9 +121,10 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells'],
   entries: [standard('portal', 'Client portal'),
-    { id: 'phone', name: "Partner's phone", plus: 'Start with a Burner SIM.', minus: 'Dead cells in every room.', startItems: ['sim'], always: ['deadcells'] },
-    { id: 'papertrail', name: 'Paper trail', plus: 'You pick the boss ICE from the company pool at the start.', minus: 'Every patch between iterations adds 2 ICE rules instead of 1.',
-      pickBossIce: true, doublePatch: true }],
+    { id: 'phone', name: "Partner's phone", plus: 'Start with a Burner SIM.', minus: 'Dead cells in every room. The Burner SIM cannot be sold. Quotas ×2.7 per iteration (from iteration 2).',
+      startItems: ['sim'], always: ['deadcells'], noSell: ['sim'], quotaGrowth: 2.7 },
+    { id: 'papertrail', name: 'Paper trail', plus: 'You pick the boss ICE from the company pool at the start.', minus: 'Every patch between iterations adds 2 ICE rules instead of 1. No Rewind or Burner SIM in the shop. Quotas ×2.9 per iteration (from iteration 2).',
+      pickBossIce: true, doublePatch: true, banned: ['rewind', 'sim'], quotaGrowth: 2.9 }],
 }, {
   id: 'argus',
   name: 'Argus Telecom',
@@ -140,9 +143,10 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
   entries: [standard('shared', 'Shared login'),
-    { id: 'signal', name: 'Signal flaw', plus: 'Every payload starts at Lv2.', minus: 'Daemon offers come from one family, picked at the start.',
-      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, family: 'Runner' },
-    { id: 'fibre', name: 'Fibre tap', plus: 'Start with Linker v1.', minus: 'Quotas +15%.', startItems: ['linker1'], quotaMult: 1.15 }],
+    { id: 'signal', name: 'Signal flaw', plus: 'Every payload starts at Lv2.', minus: 'Runner daemons only. Quotas ×2.7 per iteration (from iteration 2).',
+      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, family: 'Runner', quotaGrowth: 2.7 },
+    { id: 'fibre', name: 'Fibre tap', plus: 'Start with Linker v1.', minus: 'Linker cannot be sold. No Wildcard in the shop. The shop shelf holds 3 modules instead of 4. Quotas ×3 per iteration (from iteration 2).',
+      startItems: ['linker1'], noSell: ['linker1'], banned: ['wildcard1', 'wildcard2'], shelf: 3, quotaGrowth: 3 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || !!COMPANIES[i]?.dev || breached.includes(COMPANIES[i - 1]?.id);
@@ -305,8 +309,7 @@ const itemName = (id: ItemId) => ITEMS[id].name + ' v' + ITEMS[id].ver;
 
 export function newRunState(seed: number, company = 0, entry?: string): RunState {
   const { ice, sections: rooms } = COMPANIES[company];
-  const e = entryOf({ company, entry }), tools = e.startTool ?? [];
-  const items = [...(e.startItems ?? []), ...(tools.length ? [tools[Math.floor(rng(hashStr(seed + '/entry'))() * tools.length)]] : [])];
+  const e = entryOf({ company, entry }), items = [...(e.startItems ?? [])];
   return {
     seed, company, entry: e.id, items, restarts: restartsFor({ items }), payLevels: { ...e.payLevels }, loop: 0, patches: [], matrix: 0, section: 0, data: 0, scores: rooms.map(() => []), credits: 0, earned: [], daemons: [], stacks: {}, rack: RACK_BASE, shelf: [], rerolls: 0, bonusHits: [],
     ice: ice[Math.floor(rng(hashStr(seed + '/ice'))() * ice.length)],

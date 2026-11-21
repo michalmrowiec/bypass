@@ -46,10 +46,10 @@ Przy starcie runu wybierasz wejście firmy (kafelki pod kartą w karuzeli). Każ
 
 | firma | 1 (domyślne) | 2 | 3 |
 |---|---|---|---|
-| Kestrel | Guest Wi‑Fi | Courier tablet: start z losowym narzędziem v1 (Rewind/Loopback/Bridge/Mux, z seeda); półka 3 | Dock scanner: `single`/`multi` od Lv3; quoty ×1,15 |
-| Meridian | Nurse station | Night shift: oferta daemonów 4 karty; itemy, patch.zip i sloty racka +$1 | Phishing: `linked`/`all_linked` od Lv3; brak Disconnect |
-| Ashgrove | Client portal | Partner's phone: start z Burner SIM; Dead cells w każdym pokoju | Paper trail: ICE bossa wybierasz na starcie z puli firmy; każda łatka dokłada drugą regułę w tym samym pokoju |
-| Argus | Shared login | Signal flaw: wszystkie payloady od Lv2; oferty daemonów tylko z jednej rodziny, wybranej na starcie | Fibre tap: start z Linker v1; quoty ×1,15 |
+| Kestrel | Guest Wi‑Fi | Courier tablet: start z Mux v1 (nie do sprzedania); półka 3; quoty ×2,7 na iterację | Dock scanner: `single`/`multi` od Lv3; brak Linkera w sklepie; quoty ×2,9 |
+| Meridian | Nurse station | Night shift: oferta 4 karty, tylko rodzina Runner (gdy brak, dopełnia z poprzedniej oferty); itemy, patch.zip i sloty racka +$1; quoty ×2,7 | Phishing: `linked`/`all_linked` od Lv3; brak Disconnect; nic nie do sprzedania; quoty ×2,9 |
+| Ashgrove | Client portal | Partner's phone: start z Burner SIM (nie do sprzedania); Dead cells w każdym pokoju; quoty ×2,7 | Paper trail: ICE bossa wybierasz na starcie; każda łatka dokłada drugą regułę; brak Rewind i Burner SIM w sklepie; quoty ×2,9 |
+| Argus | Shared login | Signal flaw: wszystkie payloady od Lv2; tylko rodzina Runner; quoty ×2,7 | Fibre tap: start z Linker v1 (cała linia nie do sprzedania); brak Wildcard w sklepie; półka 3; quoty ×3,0 |
 
 Domyślne wejście = gra jak wcześniej, ale puste sloty płacą tylko przez Credit chip w trybie `idle`.
 
