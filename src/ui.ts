@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -1117,7 +1117,7 @@ function showPatch() {
   const fresh = R.patches.filter((p) => p.loop === R.loop), ids = [...new Set(fresh.map((p) => p.ice))];
   const hardened = (id: IceId) => id === 'corruption' && R.patches.filter((x) => x.ice === id).length > 1;
   showResult(false, "<p class='meta'>" + runName() + ' · iteration ' + (R.loop + 1) + '/' + LOOPS + "</p><h2>Patch notes</h2><ul class='patch'>"
-    + '<li>Quotas ×' + QUOTA_GROWTH + ': ' + sections(R).map((_, i) => quota(R, i)).join(' / ') + '</li>'
+    + '<li>Quotas ×' + growthOf(R) + ': ' + sections(R).map((_, i) => quota(R, i)).join(' / ') + '</li>'
     + ids.map((id) => "<li>" + (hardened(id) ? 'Hardened' : 'New') + " ICE <b class='iceName'>" + ICE[id].name + '</b>: ' + ICE[id].text
       + (id === 'corruption' ? '; it now ' + burnText(burnOf(R, fresh.find((p) => p.ice === id)!.room)) : '') + '</li>').join('')
     + '<li>Deployed in ' + (fresh.length === 1 ? 'one room' : fresh.length + ' rooms') + '. You will see which when you get there.</li>'

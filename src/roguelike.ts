@@ -34,6 +34,7 @@ export interface Company {
 export interface Entry {
   id: string; name: string; plus: string; minus: string;
   startItems?: ItemId[]; startTool?: ItemId[]; payLevels?: Partial<Record<PayloadId, number>>; quotaMult?: number;
+  quotaGrowth?: number; // per-iteration quota growth instead of QUOTA_GROWTH; iteration 1 unchanged
   shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
   noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean; familyLock?: boolean;
 }
@@ -157,7 +158,8 @@ export const isBoss = (s: RunState) => s.section === sections(s).length - 1;
 export const LOOPS = 3;
 export const QUOTA_GROWTH = 2.5;
 // Rounded to 5 so later iterations read as clean numbers.
-export const quota = (s: RunState, i = s.section) => Math.round((sections(s)[i].quota * QUOTA_GROWTH ** s.loop * (entryOf(s).quotaMult ?? 1)) / 5) * 5;
+export const growthOf = (s: { company: number; entry?: string }) => entryOf(s).quotaGrowth ?? QUOTA_GROWTH;
+export const quota = (s: RunState, i = s.section) => Math.round((sections(s)[i].quota * growthOf(s) ** s.loop * (entryOf(s).quotaMult ?? 1)) / 5) * 5;
 
 // Shared run result: a square per finished room and a line per iteration, by data over the quota.
 export function shareSquares(s: RunState): string[] {
