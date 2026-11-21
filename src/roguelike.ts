@@ -36,7 +36,8 @@ export interface Entry {
   startItems?: ItemId[]; startTool?: ItemId[]; payLevels?: Partial<Record<PayloadId, number>>; quotaMult?: number;
   quotaGrowth?: number; // per-iteration quota growth instead of QUOTA_GROWTH; iteration 1 unchanged
   shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
-  noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean; familyLock?: boolean;
+  noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean;
+  family?: Family; // daemon offers come only from this family
 }
 const standard = (id: string, name: string): Entry => ({ id, name, plus: '', minus: '' }); // the plain game, nothing to explain
 // Test bench for new board shapes, with no ICE; becomes a real company once the shape works.
@@ -138,7 +139,7 @@ export const COMPANIES: Company[] = [{
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
   entries: [standard('shared', 'Shared login'),
     { id: 'signal', name: 'Signal flaw', plus: 'Every payload starts at Lv2.', minus: 'Daemon offers come from one family, picked at the start.',
-      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, familyLock: true },
+      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, family: 'Runner' },
     { id: 'fibre', name: 'Fibre tap', plus: 'Start with Linker v1.', minus: 'Quotas +15%.', startItems: ['linker1'], quotaMult: 1.15 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
@@ -252,7 +253,6 @@ export interface RunState {
   seed: number;
   company: number; // index into COMPANIES
   entry?: string; // entry vector id; missing = the company's default
-  family?: Family; // Signal flaw: the one daemon family offers come from
   icePicked?: boolean; // Paper trail: the boss ICE was chosen
   miner?: 'pool' | 'idle'; // Miner mode; missing = pool
   roomIdle?: boolean; // a matrix in this room ended with the Credit chip in idle, so pool pays nothing here
@@ -315,18 +315,11 @@ export const played = (s: RunState) => s.scores[s.section].length;
 
 // Start choices some entries ask for, only before the first matrix of the run.
 const atStart = (s: RunState) => !s.loop && !s.section && !played(s);
-export const needsStartChoice = (s: RunState): 'ice' | 'family' | undefined =>
-  entryOf(s).pickBossIce && !s.icePicked ? 'ice' : entryOf(s).familyLock && !s.family ? 'family' : undefined;
+export const needsStartChoice = (s: RunState): 'ice' | undefined => (entryOf(s).pickBossIce && !s.icePicked ? 'ice' : undefined);
 export function setBossIce(s: RunState, id: IceId): boolean {
   if (!entryOf(s).pickBossIce || !atStart(s) || !COMPANIES[s.company].ice.includes(id)) return false;
   Object.assign(s, { ice: id, icePicked: true });
   logEvent(s, 'entry · boss ICE ' + ICE[id].name);
-  return true;
-}
-export function setFamily(s: RunState, f: Family): boolean {
-  if (!entryOf(s).familyLock || !atStart(s)) return false;
-  s.family = f;
-  logEvent(s, 'entry · daemon family ' + f);
   return true;
 }
 export const canDisconnect = (s: RunState) => !entryOf(s).noDisconnect;
@@ -825,13 +818,16 @@ const visit = (s: RunState) => s.section + (s.loop ? '.' + s.loop : '');
 // With every slot full the offer still comes; taking one swaps out an installed daemon.
 export function offerDaemons(s: RunState): DaemonId[] {
   const r = rng(hashStr(s.seed + '/offer/' + visit(s)));
-  const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && !s.lastOffer?.includes(id)
-    && (!s.family || DAEMONS[id].family === s.family)), r);
+  const fam = entryOf(s).family, size = entryOf(s).offer ?? 3;
+  const free = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && (!fam || DAEMONS[id].family === fam));
+  const pool = shuffled(free.filter((id) => !s.lastOffer?.includes(id)), r);
+  // A fixed family can run short: refill with what the last offer showed.
+  if (fam && pool.length < size) pool.push(...shuffled(free.filter((id) => s.lastOffer?.includes(id)), r));
   const out: DaemonId[] = [];
   const lead = s.legendOffer && (pool.find((id) => rarityOf(id) === 'legendary') ?? pool.find((id) => rarityOf(id) === 'rare'));
   if (lead) out.push(lead);
   // Each slot rolls a rarity, then takes the first unpicked daemon of it; an empty rarity falls back to any.
-  while (out.length < (entryOf(s).offer ?? 3) && out.length < pool.length) {
+  while (out.length < size && out.length < pool.length) {
     const x = r(), tier: Rarity = x < RARITY.legendary ? 'legendary' : x < RARITY.legendary + RARITY.rare ? 'rare' : 'common';
     const left = pool.filter((id) => !out.includes(id));
     out.push(left.find((id) => rarityOf(id) === tier) ?? left[0]);

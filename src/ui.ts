@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setFamily, setMiner, minerIdle, canDisconnect, type Family, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
@@ -1392,20 +1392,14 @@ function winUnlocks(co: Company, next: Company | undefined) {
   return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + entryTitle(co, fresh) + '</b> + ' + fresh.plus + ' − ' + fresh.minus + '</p>' : '')
     + (first && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
 }
-// Entries that ask for a choice before the first room (boss ICE or daemon family) get one dialog per choice.
-const RARITY_ORDER = ['common', 'rare', 'legendary'];
+// Entries that ask for a choice before the first room (the boss ICE) get a dialog.
 function startChoice() {
-  const need = needsStartChoice(R);
-  if (!need) return enterSection();
-  const ids = Object.keys(DAEMONS) as DaemonId[];
-  const families = [...new Set(ids.map((id) => DAEMONS[id].family))] as Family[];
-  const names = (f: Family) => ids.filter((id) => DAEMONS[id].family === f)
-    .sort((a, b) => RARITY_ORDER.indexOf(rarityOf(a)) - RARITY_ORDER.indexOf(rarityOf(b))).map((id) => DAEMONS[id].name).join(', ');
-  const opts = need === 'ice' ? COMPANIES[R.company].ice.map((id) => [id, ICE[id].name, ICE[id].text]) : families.map((f) => [f, f, names(f)]);
-  showResult(true, "<p class='meta'>" + runName() + '</p><h2>' + (need === 'ice' ? 'Pick the boss ICE' : 'Pick a daemon family') + "</h2><div class='choice'>"
+  if (!needsStartChoice(R)) return enterSection();
+  const opts = COMPANIES[R.company].ice.map((id) => [id, ICE[id].name, ICE[id].text]);
+  showResult(true, "<p class='meta'>" + runName() + "</p><h2>Pick the boss ICE</h2><div class='choice'>"
     + opts.map(([id, name, text]) => "<button class='btn' data-pick='" + id + "'><b>" + name + "</b><span class='meta'>" + text + '</span></button>').join('') + '</div>');
   for (const b of $('modalBox').querySelectorAll<HTMLElement>('[data-pick]'))
-    b.onclick = () => { if (need === 'ice' ? setBossIce(R, b.dataset.pick as IceId) : setFamily(R, b.dataset.pick as Family)) startChoice(); };
+    b.onclick = () => { if (setBossIce(R, b.dataset.pick as IceId)) startChoice(); };
 }
 const isOpen = (i: number) => companyOpen(breached(), i);
 let firmAt = 0;
