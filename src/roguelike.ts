@@ -38,6 +38,8 @@ export interface Entry {
   shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
   noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean;
   family?: Family; // daemon offers come only from this family
+  noSell?: true | ItemId[]; // true: nothing sells; a list locks those items and their upgrades
+  banned?: ItemId[]; // never on the shelf
 }
 const standard = (id: string, name: string): Entry => ({ id, name, plus: '', minus: '' }); // the plain game, nothing to explain
 // Test bench for new board shapes, with no ICE; becomes a real company once the shape works.
@@ -945,7 +947,7 @@ const item = (id: ItemId): Item => ITEMS[id];
 export const olderVersions = (id: ItemId): ItemId[] => { const n = item(id).needs as ItemId | undefined; return n ? [n, ...olderVersions(n)] : []; };
 
 // Not owned, not yet replaced by an upgrade, an upgrade only over the version it needs.
-export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter((id) => !s.items.includes(id)
+export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter((id) => !s.items.includes(id) && !entryOf(s).banned?.includes(id)
   && (!item(id).needs || s.items.includes(item(id).needs as ItemId)) && !s.items.some((o) => olderVersions(o).includes(id)));
 
 // Odds of an item rerolled away last visit, against 1 for the rest, on the next visit's first shelf.
@@ -1011,9 +1013,11 @@ export function buySlot(s: RunState): boolean {
   return true;
 }
 
+export const canSell = (s: RunState, id: ItemId) => { const n = entryOf(s).noSell; return n !== true && ![id, ...olderVersions(id)].some((x) => n?.includes(x)); };
+
 // Selling the Co-processor with every daemon slot full drops `drop`, at no cost.
 export function sell(s: RunState, id: ItemId, drop?: DaemonId): boolean {
-  if (!s.items.includes(id)) return false;
+  if (!s.items.includes(id) || !canSell(s, id)) return false;
   if (id === 'socket' && s.daemons.length > DAEMON_SLOTS) {
     if (!drop || !s.daemons.includes(drop)) return false;
     s.daemons = s.daemons.filter((d) => d !== drop);

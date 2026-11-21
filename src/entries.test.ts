@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMPANIES, DAEMONS, growthOf, needsStartChoice, newRunState, offerDaemons, quota, type DaemonId, type Entry } from './roguelike';
+import { canSell, COMPANIES, DAEMONS, forSale, growthOf, sell, stockShop, needsStartChoice, newRunState, offerDaemons, quota, type DaemonId, type Entry, type ItemId } from './roguelike';
 
 const runner = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => DAEMONS[id].family === 'Runner');
 
@@ -46,6 +46,33 @@ describe('entry challenge fields', () => {
     withEntry({ family: 'Runner' }, (s) => {
       Object.assign(s, { family: 'Ghost' });
       for (const id of offerDaemons(s)) expect(DAEMONS[id].family).toBe('Runner');
+    });
+  });
+
+  it('noSell true blocks every sale', () => {
+    withEntry({ noSell: true }, (s) => {
+      s.items = ['thumb'];
+      const cash = s.credits;
+      expect(sell(s, 'thumb')).toBe(false);
+      expect([s.items, s.credits]).toEqual([['thumb'], cash]);
+    });
+  });
+
+  it('a noSell list covers the whole item line', () => {
+    withEntry({ noSell: ['linker1'] }, (s) => {
+      s.items = ['linker2', 'thumb'];
+      expect(canSell(s, 'linker2')).toBe(false);
+      expect(canSell(s, 'thumb')).toBe(true);
+      expect(sell(s, 'thumb')).toBe(true);
+    });
+  });
+
+  it('banned items never reach the shelf', () => {
+    const ban: ItemId[] = ['wildcard1', 'wildcard2', 'linker1', 'linker2'];
+    withEntry({ banned: ban }, (s) => {
+      s.items = ['linker1'];
+      expect(forSale(s).filter((id) => ban.includes(id))).toEqual([]);
+      for (let i = 0; i < 20; i++) { s.credits = 99; stockShop(s, i > 0); expect(s.shelf.filter((id) => ban.includes(id))).toEqual([]); }
     });
   });
 });
