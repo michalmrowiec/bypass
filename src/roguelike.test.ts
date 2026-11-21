@@ -1026,9 +1026,10 @@ describe('entries', () => {
     expect(s.shelf.length).toBe(3);
   });
 
-  it('Night shift offers 4 daemons and adds $1 to modules, patch.zip and rack slots', () => {
+  it('Night shift offers 3 Runner daemons and adds $1 to modules, patch.zip and rack slots', () => {
     const s = { ...newRunState(1, co('meridian'), 'nightshift'), credits: 10, shelf: ['thumb'] as ItemId[] };
-    expect(offerDaemons(s).length).toBe(4);
+    const o = offerDaemons(s);
+    expect([o.length, o.every((id) => DAEMONS[id].family === 'Runner')]).toEqual([3, true]);
     expect([priceOf(s, 'thumb'), zipPrice(s), slotCost(s)]).toEqual([3, 2, 5]);
     expect(buy(s, 'thumb')).toBe(true);
     expect(s.credits).toBe(7);
