@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canSell, COMPANIES, DAEMONS, forSale, growthOf, sell, stockShop, needsStartChoice, newRunState, offerDaemons, quota, type DaemonId, type Entry, type ItemId } from './roguelike';
+import { canSell, leadsBonus, rarityOf, COMPANIES, DAEMONS, forSale, growthOf, sell, stockShop, needsStartChoice, newRunState, offerDaemons, quota, type DaemonId, type Entry, type ItemId } from './roguelike';
 
 const runner = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => DAEMONS[id].family === 'Runner');
 
@@ -73,6 +73,18 @@ describe('entry challenge fields', () => {
       s.items = ['linker1'];
       expect(forSale(s).filter((id) => ban.includes(id))).toEqual([]);
       for (let i = 0; i < 20; i++) { s.credits = 99; stockShop(s, i > 0); expect(s.shelf.filter((id) => ban.includes(id))).toEqual([]); }
+    });
+  });
+
+  it('the bonus label only marks a rare or legendary lead', () => {
+    withEntry({ family: 'Runner' }, (s) => {
+      s.legendOffer = true;
+      s.daemons = runner.filter((id) => rarityOf(id) !== 'common');
+      const o = offerDaemons(s);
+      expect(o.every((id) => rarityOf(id) === 'common')).toBe(true);
+      expect(leadsBonus(s, o)).toBe(false);
+      s.daemons = [];
+      expect(leadsBonus(s, offerDaemons(s))).toBe(true);
     });
   });
 });

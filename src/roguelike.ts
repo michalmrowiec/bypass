@@ -821,6 +821,9 @@ export function globTarget(seed: number, targets: string[][]): void {
 const visit = (s: RunState) => s.section + (s.loop ? '.' + s.loop : '');
 
 // With every slot full the offer still comes; taking one swaps out an installed daemon.
+// The legend reward led the offer only when a rare or legendary was left to lead with.
+export const leadsBonus = (s: RunState, offer: DaemonId[]) => !!s.legendOffer && !!offer[0] && rarityOf(offer[0]) !== 'common';
+
 export function offerDaemons(s: RunState): DaemonId[] {
   const r = rng(hashStr(s.seed + '/offer/' + visit(s)));
   const fam = entryOf(s).family, size = entryOf(s).offer ?? 3;
