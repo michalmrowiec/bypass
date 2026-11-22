@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyPick, dealBoard, replayRoute, TOOLS } from './matrix';
 import { generate } from './generator';
 import { stageSeed } from './game';
-import { sellFor, sellValue, rechargeUps, UPS_BATTERY, migratePayloads, canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
+import { sellFor, rechargeUps, UPS_BATTERY, migratePayloads, canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -51,7 +51,7 @@ describe('UPS', () => {
     expect(s.events!.at(-1)).toBe('UPS · kept the Heartbeat streak');
     daemonsAfterMatrix(ctx, s, false);
     expect([s.stacks.heartbeat, s.stacks.rotate]).toEqual([2, 0]);
-    expect([sellFor(s, 'ups'), sellFor({ ...s, upsUsed: undefined }, 'ups')]).toEqual([sellValue('ups') - UPS_BATTERY, sellValue('ups')]);
+    expect([sellFor(s, 'ups'), sellFor({ ...s, upsUsed: undefined }, 'ups')]).toEqual([2, 3]);
     nextSection(s);
     expect(s.upsUsed).toBe(true); // a spent battery stays spent
     expect(rechargeUps({ ...s, credits: UPS_BATTERY - 1 })).toBe(false);

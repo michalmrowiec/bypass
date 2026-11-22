@@ -1023,8 +1023,9 @@ export const usedSlots = (s: RunState) => s.items.reduce((a, id) => a + unitsOf(
 // An upgrade frees the slots of the version it replaces.
 export const rackFull = (s: RunState, id: ItemId) => { const n = item(id).needs as ItemId | undefined; return s.rack - usedSlots(s) + (n ? unitsOf(n) : 0) < unitsOf(id); };
 export const sellValue = (id: ItemId) => Math.floor([id, ...olderVersions(id)].reduce((a, x) => a + item(x).price, 0) / 2);
-// What selling pays in this run: a UPS with a spent battery is worth a battery less.
-export const sellFor = (s: RunState, id: ItemId) => Math.max(0, sellValue(id) - (id === 'ups' && s.upsUsed ? UPS_BATTERY : 0));
+// What selling pays in this run: a charged UPS sells for UPS_SELL, a spent one for a battery less.
+export const UPS_SELL = 3;
+export const sellFor = (s: RunState, id: ItemId) => (id === 'ups' ? UPS_SELL - (s.upsUsed ? UPS_BATTERY : 0) : sellValue(id));
 export const REROLL_COST = 0;
 // The first reroll on a shop visit is free, each next one costs $1 more; bonus rerolls cover the paid steps.
 export const rerollCost = (s: RunState) => REROLL_COST + s.rerolls;
