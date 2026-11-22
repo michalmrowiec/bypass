@@ -657,6 +657,16 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     sc.flat += v;
     sc.gear.push([thumb, { flat: v }]);
   }
+  const gearFlat = (id: ItemId, v: number) => { if (v && s.items.includes(id)) { sc.flat += v; sc.gear.push([id, { flat: v }]); } };
+  if (f.done.length) {
+    gearFlat('nullpad', NULLPAD_DATA * f.empty);
+    // Zip tie: targets whose window shares a buffer slot with another uploaded target.
+    const cover = coverage(ctx.buf, f.done);
+    const tied = ctx.targets.reduce((a, t, i) => a + (f.done.includes(t) && windowOf(ctx.buf, t).some((j) => cover[j] >= 2) ? ctx.worth?.[i] ?? DATA_BY_LEN[t.length] : 0), 0);
+    gearFlat('ziptie', Math.floor(ZIPTIE_SHARE * tied));
+    gearFlat('slingshot', SLINGSHOT_DATA * Math.max(0, ...f.moves));
+    if (s.items.includes('overclock')) { sc.mult *= OVERCLOCK_MULT; sc.gear.push(['overclock', { mult: OVERCLOCK_MULT }]); }
+  }
   for (const id of s.daemons) {
     const d = DAEMONS[id] as Daemon;
     const n = d.streak?.next(s.stacks[id] ?? 0, f, s, false);
@@ -928,6 +938,7 @@ export const THUMB_DATA = { thumb: 3, thumb2: 10, thumb3: 25 } as const;
 const thumbId = (items: ItemId[]) => (['thumb3', 'thumb2', 'thumb'] as const).find((id) => items.includes(id));
 export const thumbData = (items: ItemId[]) => { const id = thumbId(items); return id ? THUMB_DATA[id] : 0; };
 export const PRIO_MULT = { prio1: 2, prio2: 4 } as const;
+export const NULLPAD_DATA = 8, ZIPTIE_SHARE = 0.5, SLINGSHOT_DATA = 10, OVERCLOCK_MULT = 1.5;
 // Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
 // Index of the first uploaded target (the richer one on a tie), -1 if none.
 export function firstTarget(buf: string[], targets: string[][], worth?: number[]): number {
