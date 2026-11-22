@@ -501,6 +501,7 @@ button.unit{cursor:var(--hit)}
 .vplate.v3{background:linear-gradient(115deg,#7a4f33,#b98a62 30%,#7d5236 55%,#a87a55 80%,#6f472e);color:#24150c} /* copper, never gold (cash only) */
 .unit:is(:hover,:focus-visible){border-color:#46525a;outline:none}
 .unit .gear{flex:none;width:56px;height:32px}
+.unit.u2 .gear{width:96px;height:54px} /* 2U: the art fills the double unit */
 /* Phillips screw heads, so they never read as LEDs. */
 .scr{flex:none;width:9px;height:9px;border-radius:50%;border:1px solid #39434a;
   background:linear-gradient(#5d6a71,#5d6a71) center/5px 1px no-repeat,linear-gradient(#5d6a71,#5d6a71) center/1px 5px no-repeat,#1c2125}

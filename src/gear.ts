@@ -139,6 +139,60 @@ const socket = contacts(51, 99, 8, [0, 0]) + contacts(51, 99, 70, [0, 0]) + side
   + [0, 1, 2, 3].map((i) => "<rect class='g-core' style='animation-delay:" + i * 0.2 + "s' x='" + (61 + i * 7.5) + "' y='42' width='5' height='12'/>").join('')
   + "<circle class='g-act' cx='52' cy='19' r='2'/>";
 
+// Laptop RAM (SO-DIMM): a label, three chips with codes and two empty ones worth +8; the contacts shimmer on hover.
+const soDimm = "<path class='g-pcb' d='M22 16h106v40h-3v6H82v-6h-3v6H25v-6h-3z'/>"
+  + [25, 29.5, 34, 38.5, 43, 47.5, 52, 56.5, 61, 65.5, 70, 74.5, 83, 87.5, 92, 96.5, 101, 105.5, 110, 114.5, 119].map((x, i) => "<rect class='g-pin g-read' style='animation-delay:" + (i % 7) * 0.1 + "s' x='" + x + "' y='57' width='2.4' height='5'/>").join('')
+  + "<text class='g-silk' x='30' y='26'>NULL PAD · SO-DIMM</text>"
+  + ['1C', 'E9', '55'].map((c, i) => "<rect class='g-chip' x='" + (28 + i * 19.4) + "' y='31' width='16' height='20'/><text class='g-silk' x='" + (36 + i * 19.4) + "' y='44' text-anchor='middle'>" + c + '</text>').join('')
+  + [0, 1].map((i) => "<rect class='g-hole' x='" + (86.2 + i * 19.4) + "' y='31' width='16' height='20' rx='1'/><text class='g-silk' x='" + (94.2 + i * 19.4) + "' y='44' text-anchor='middle' style='fill:var(--data)'>+8</text>").join('');
+
+// Zip tie: two plugs whose cables are bound where they share a code; pulses run the cables on hover.
+const ziptie = plug(6, false, 12) + plug(6, false, 46) + cable('M28 21C56 21 60 39 75 39') + cable('M28 55C56 55 60 45 75 45', true)
+  + cable('M75 39C96 39 112 28 142 28') + cable('M75 45C96 45 112 56 142 56', true)
+  + "<rect class='g-plug' x='69' y='32' width='12' height='20' rx='3'/><rect class='g-steel' x='67' y='27' width='16' height='7' rx='1.5'/><path class='g-shaft' d='M83 30l9-6'/>";
+
+// UPS: a battery gauge whose cells light in turn on hover, an outlet and the AC/BAT lamps.
+const ups = "<rect class='g-plug' x='26' y='10' width='98' height='64' rx='5'/><rect class='g-hole' x='36' y='22' width='44' height='26' rx='2.5'/><rect class='g-steel' x='80' y='30' width='3.5' height='10' rx='1'/>"
+  + [0, 1, 2, 3].map((i) => "<rect class='g-core' style='animation-delay:" + i * 0.2 + "s' x='" + (39 + i * 10.2) + "' y='25' width='8.4' height='20'/>").join('')
+  + "<circle class='g-hole' cx='104' cy='35' r='11'/><rect class='g-steel' x='99.5' y='29' width='2' height='6'/><rect class='g-steel' x='106.5' y='29' width='2' height='6'/><circle class='g-steel' cx='104' cy='40' r='1.6'/>"
+  + "<text class='g-silk' x='36' y='62'>UPS · STACK HOLD</text><circle class='g-act' cx='98' cy='62' r='2'/><circle class='g-act g-pink g-off' cx='110' cy='62' r='2'/>";
+
+// Mechanical macro key: a keycap on its switch stem.
+const keycap = (x: number, y: number, w: number, h: number, label: string) => "<rect class='g-hole' x='" + x + "' y='" + (y + 3) + "' width='" + w + "' height='" + h + "' rx='3'/>"
+  + "<rect class='g-steel' x='" + x + "' y='" + y + "' width='" + w + "' height='" + h + "' rx='3'/><rect class='g-plug' x='" + (x + 3) + "' y='" + (y + 2) + "' width='" + (w - 6) + "' height='" + (h - 7) + "' rx='2'/>"
+  + "<text class='g-silk' x='" + (x + w / 2) + "' y='" + (y + h * .55) + "' text-anchor='middle'>" + label + '</text>';
+
+// Build server: three build steps light in turn on hover, then the payload level.
+const compiler = "<rect class='g-plug' x='20' y='12' width='110' height='60' rx='3'/>" + Array.from({ length: 25 }, (_, i) => "<rect class='g-hole' x='" + (26 + i * 4) + "' y='15' width='2' height='5'/>").join('')
+  + "<text class='g-silk' x='28' y='31'>$ make payload</text>"
+  + [0, 1, 2].map((i) => "<rect class='g-core' style='animation-delay:" + i * 0.25 + "s' x='" + (28 + i * 19) + "' y='35' width='16' height='14'/><text class='g-silk' x='" + (36 + i * 19) + "' y='45' text-anchor='middle'>" + (i + 1) + '</text>').join('')
+  + "<path class='g-shaft' d='M88 42h8m-3-3 3 3-3 3'/><rect class='g-hole' x='100' y='33' width='22' height='18' rx='2'/><text class='g-silk' x='111' y='45' text-anchor='middle'>Lv+1</text>"
+  + "<rect class='g-pcb' x='28' y='56' width='44' height='5' rx='1'/><circle class='g-act' cx='68' cy='58.5' r='1.4'/>";
+
+// Shift register: a DIP chip with a window of codes A B C and a wrap-around arrow; the pins shimmer on hover.
+const bitshift = Array.from({ length: 12 }, (_, i) => "<rect class='g-pin g-read' style='animation-delay:" + (i % 6) * 0.1 + "s' x='" + (28 + i * 8.4) + "' y='17' width='3.2' height='8'/><rect class='g-pin g-read' style='animation-delay:" + (i % 6) * 0.1 + "s' x='" + (28 + i * 8.4) + "' y='59' width='3.2' height='8'/>").join('')
+  + "<rect class='g-plug' x='22' y='24' width='106' height='36' rx='3'/><circle class='g-hole' cx='30' cy='42' r='3'/><text class='g-silk' x='36' y='33'>74HC595 · SHIFT</text>"
+  + ['A', 'B', 'C'].map((c, i) => "<rect class='g-pcb' x='" + (44 + i * 20) + "' y='37' width='16' height='14' rx='1.5'/><text class='g-silk' x='" + (52 + i * 20) + "' y='48' text-anchor='middle'>" + c + '</text>').join('')
+  + "<path class='g-shaft' d='M112 38v6a4 4 0 0 1-4 4h-1m2-3-2 3 2 3'/>";
+
+// Overclocked CPU: one wide package, a steel lid with ×1.5 and a clock meter whose bars light on hover.
+const overclock = contacts(21, 128, 7, [0, 0]) + contacts(21, 128, 71, [0, 0])
+  + "<rect class='g-pcb' x='16' y='12' width='118' height='60' rx='3'/><rect class='g-steel' x='24' y='18' width='102' height='48' rx='4'/>"
+  + "<text class='g-silk' x='30' y='31'>OVERCLOCK</text><text class='g-mult' x='34' y='56' style='fill:var(--pink)'>×1.5</text>"
+  + "<rect class='g-hole' x='92' y='23' width='28' height='38' rx='2'/>"
+  + [0, 1, 2, 3, 4].map((i) => "<rect class='g-core' style='animation-delay:" + i * 0.15 + "s' x='96' y='" + (54 - i * 5.6) + "' width='20' height='4'/>").join('');
+
+// Zero-day memory card: notched, gold contacts, a 0-DAY label and a $ (gold = cash).
+const zeroDay = (x: number, y: number) => "<path class='g-plug' d='M" + x + ' ' + y + "h40v46h-34l-6-6z'/>"
+  + [0, 1, 2, 3, 4, 5, 6].map((i) => "<rect class='g-gold' x='" + (x + 7 + i * 4.4) + "' y='" + (y + 2) + "' width='2.6' height='7' rx='.5'/>").join('')
+  + "<rect class='g-chip' x='" + (x + 5) + "' y='" + (y + 13) + "' width='30' height='12' rx='1'/><text class='g-silk' x='" + (x + 20) + "' y='" + (y + 22) + "' text-anchor='middle'>0-DAY</text>"
+  + "<text class='g-cash' x='" + (x + 20) + "' y='" + (y + 40) + "' text-anchor='middle'>$</text>";
+
+// 3.5" floppy: the steel shutter, a SNAPSHOT label and the write-protect tab; its activity lamp blinks on hover.
+const floppy = "<path class='g-plug' d='M44 10h58l6 6v58H44z'/><rect class='g-steel' x='56' y='10' width='32' height='21' rx='1'/><rect class='g-hole' x='77' y='13' width='7' height='14' rx='1'/>"
+  + "<rect class='g-chip' x='50' y='37' width='46' height='33' rx='1.5'/><text class='g-silk' x='73' y='53' text-anchor='middle'>SNAPSHOT</text><text class='g-silk' x='73' y='62' text-anchor='middle'>.IMG</text>"
+  + "<rect class='g-hole' x='47' y='64' width='5' height='5'/><circle class='g-act' cx='101' cy='66' r='1.8'/>";
+
 const ART: Record<ItemId, string> = {
   buffer1: ram(11, 6), // module spans x 10..118, so +11 centres it in the 150 box
   buffer2: ram(10, 0) + ram(-4, 14),
@@ -174,18 +228,17 @@ const ART: Record<ItemId, string> = {
   repeater,
   rewind: tape,
   socket,
-  // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
-  nullpad: ram(11, 6),
-  ziptie: cable('M28 35C55 -6 85 76 120 35') + plugs,
-  ups: socket,
-  hotkey: key,
-  hotkey2: key,
-  compiler: socket,
-  bitshift: splitter(false),
-  overclock: heatsink,
-  exploit: chip,
-  exploit2: chip,
-  snapshot: tape,
+  nullpad: soDimm,
+  ziptie,
+  ups,
+  hotkey: keycap(52, 16, 46, 36, 'F13') + "<rect class='g-plug' x='44' y='54' width='62' height='14' rx='3'/><circle class='g-act' cx='98' cy='61' r='2'/><text class='g-silk' x='50' y='64'>MACRO</text>",
+  hotkey2: "<rect class='g-plug' x='30' y='14' width='90' height='56' rx='5'/>" + [[36, 18, 'F13'], [76, 18, 'F14'], [36, 44, 'F15'], [76, 44, 'F16']].map(([x, y, l]) => keycap(+x, +y, 38, 22, '' + l)).join(''),
+  compiler,
+  bitshift,
+  overclock,
+  exploit: zeroDay(55, 18),
+  exploit2: zeroDay(46, 14) + zeroDay(64, 22),
+  snapshot: floppy,
 };
 
 // Every upgrade id ends in 2 or 3; those get the v2 accents (.gear.v2 in style.css), v3.0 also .v3.
