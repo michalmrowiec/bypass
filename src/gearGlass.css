@@ -295,14 +295,14 @@
 /* hotkey: the keycap goes down, its stem light flares (v2: the four keys in turn) */
 .hw:is(:hover,:focus-visible) .gl .q-kcap{animation:qkey 1.6s infinite;animation-delay:calc(var(--i) * .4s)}
 @keyframes qkey{0%,30%,100%{transform:none}10%,20%{transform:translateY(2.5px)}}
-/* bitshift: the code row turns about the mirror axis (fake perspective: scaleX + skewY), comes back mirrored (C9 7F 4B) and turns back; a glint crosses the glass */
+/* bitshift: the code row turns about the mirror axis (fake perspective: scaleX + skewY), comes back mirrored (C9 7F 4B) and turns back; the glint crosses the glass on the first turn only (every item already has the hover sheen) */
 .gl :is(.q-mfront,.q-mback){transform-origin:67.5px 45px}
 .gl .q-mback{transform:scaleX(0)}
 .gl .q-mglint{opacity:0}
-.hw:is(:hover,:focus-visible) .gl .q-mfront{animation:qmf 2.4s infinite}
-.hw:is(:hover,:focus-visible) .gl .q-mback{animation:qmb 2.4s infinite}
-.hw:is(:hover,:focus-visible) .gl .q-mglint{animation:qmg 2.4s infinite}
-.hw:is(:hover,:focus-visible) .gl .q-maxis{animation:qmax 2.4s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-mfront{animation:qmf 2s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-mback{animation:qmb 2s infinite}
+.hw:is(:hover,:focus-visible) .gl .q-mglint{animation:qmg 2s}
+.hw:is(:hover,:focus-visible) .gl .q-maxis{animation:qmax 2s infinite}
 @keyframes qmf{0%,12%{transform:none;animation-timing-function:ease-in}28%,72%{transform:scaleX(0) skewY(-9deg);animation-timing-function:ease-out}88%,100%{transform:none}}
 @keyframes qmb{0%,28%{transform:scaleX(0) skewY(9deg);animation-timing-function:ease-out}44%,56%{transform:none;animation-timing-function:ease-in}72%,100%{transform:scaleX(0) skewY(9deg)}}
 @keyframes qmg{0%,10%{opacity:0;transform:translateX(-46px)}28%{opacity:.9}46%,100%{opacity:0;transform:translateX(46px)}}
