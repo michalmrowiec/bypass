@@ -292,3 +292,18 @@
 .q-zpop{opacity:0}
 .hw:is(:hover,:focus-visible) .gl .q-tie{transform:scale(.88)}
 .hw:is(:hover,:focus-visible) .gl .q-zpop{animation:qcodeIn .3s .3s forwards}
+/* hotkey: the keycap goes down, its stem light flares (v2: the four keys in turn) */
+.hw:is(:hover,:focus-visible) .gl .q-kcap{animation:qkey 1.6s infinite;animation-delay:calc(var(--i) * .4s)}
+@keyframes qkey{0%,30%,100%{transform:none}10%,20%{transform:translateY(2.5px)}}
+/* bitshift: the codes roll one place left, the first wraps to the end */
+.hw:is(:hover,:focus-visible) .gl .q-roll{animation:qroll 1.4s infinite}
+@keyframes qroll{0%,30%{transform:none;opacity:1}55%{transform:translateX(-6px);opacity:.3}56%{transform:translateX(6px);opacity:.3}80%,100%{transform:none;opacity:1}}
+/* exploit: the card rises, +$1 pops (shared .q-cpop) */
+.q-ecard{transition:transform .3s}
+.hw:is(:hover,:focus-visible) .gl .q-ecard{transform:translateY(-2px)}
+/* snapshot: the platter spins, the head sweeps */
+.q-arm{transform-origin:108px 60px;transition:transform .4s}
+.hw:is(:hover,:focus-visible) .gl .q-platter{animation:qspinP 1.2s linear infinite}
+.hw:is(:hover,:focus-visible) .gl .q-arm{animation:qarm 1.6s ease-in-out infinite}
+@keyframes qspinP{to{transform:rotate(360deg)}}
+@keyframes qarm{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}

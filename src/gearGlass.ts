@@ -454,6 +454,62 @@ function ziptie() {
     `<g class="zpop">${txt(75, 66, '+50%', 7, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')}</g>`;
   return [sh, s];
 }
+function hotkey(t) {
+  // mechanical macro key: a glass keycap on a switch with a lit stem; v2 is a 2x2 macro pad. On hover a key goes down
+  const cap = (x, y, w, h, label, k) => `<g class="kcap" style="--i:${k}">
+    <rect x="${x}" y="${y + 3}" width="${w}" height="${h}" rx="3.2" fill="#05080a" opacity=".7"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3.2" fill="#5af2a8" fill-opacity=".1" stroke="#5af2a8" stroke-opacity=".5" stroke-width=".7"/>
+    <rect x="${x + 3}" y="${y + 2}" width="${w - 6}" height="${h - 7}" rx="2.2" fill="url(#pd-dark)" opacity=".85"/>
+    <rect x="${x + 3}" y="${y + 2}" width="${w - 6}" height="${(h - 7) * .4}" rx="2.2" fill="#fff" opacity=".07"/>
+    ${txt(x + w / 2, y + h * .55, label, Math.min(w, h * 1.6) * .26)}</g>`;
+  if (!t) {
+    const sh = R(44, 52, 62, 14, 3) + R(52, 16, 46, 40, 4);
+    return [sh, withFill(R(44, 52, 62, 14, 3), 'fill="url(#pd-case)"') + bevel(44, 52, 62, 14, 3) +
+      `<rect x="68" y="44" width="14" height="10" rx="1.5" fill="#5af2a8" opacity=".55" filter="url(#pd-glow)"/>` + cap(52, 16, 46, 36, 'F13', 0) +
+      `<text class="silk" x="50" y="61.5" font-size="4">MACRO</text>` + led(98, 59)];
+  }
+  const sh = R(30, 14, 90, 56, 5);
+  return [sh, withFill(sh, 'fill="url(#pd-case)"') + bevel(30, 14, 90, 56, 5) +
+    [[36, 18, 'F13'], [76, 18, 'F14'], [36, 44, 'F15'], [76, 44, 'F16']].map(([x, y, l], k) => `<rect x="${x + 12}" y="${y + 12}" width="14" height="6" rx="1" fill="#5af2a8" opacity=".45" filter="url(#pd-glow)"/>` + cap(x, y, 38, 22, l, k)).join('')];
+}
+function bitshift() {
+  // shift register: a DIP chip with a window where the codes roll one place left, the first wrapping to the end
+  const sh = R(22, 24, 106, 36, 3);
+  let s = '';
+  for (let i = 0; i < 12; i++) {
+    const x = 28 + i * 8.4;
+    s += `<rect x="${x}" y="17" width="3.2" height="8" rx=".6" fill="url(#pd-key)"/><rect x="${x}" y="59" width="3.2" height="8" rx=".6" fill="url(#pd-key)"/>`;
+  }
+  s += withFill(sh, 'fill="url(#pd-case)"') + bevel(22, 24, 106, 36, 3) + `<circle cx="30" cy="42" r="3" fill="#0a0e12"/><text class="engr" x="36" y="33" font-size="4.6">74HC595 · SHIFT</text>` +
+    `<rect x="40" y="36" width="66" height="18" rx="2" fill="#05080a" stroke="#5af2a8" stroke-opacity=".3" stroke-width=".5"/>` +
+    `<g class="roll">` + ['A', 'B', 'C'].map((c, i) => `<rect x="${44 + i * 20}" y="39" width="16" height="12" rx="1.4" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".5"/>${txt(52 + i * 20, 47.6, c, 7)}`).join('') + `</g>` +
+    `<path d="M112 38v6a4 4 0 0 1-4 4h-1m2-3-2 3 2 3" fill="none" stroke="#5af2a8" stroke-width=".9" filter="url(#pd-glow)"/>`;
+  return [sh, s];
+}
+function exploit(t) {
+  // zero-day memory card: notched card, gold contacts and a gold $ (gold = cash); v2 fans out a second card
+  const card = (x, y, k) => `<g class="ecard" style="--i:${k}"><path d="M${x} ${y}h40v46h-34l-6-6z" fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6" stroke-width=".5"/>
+    <path d="M${x + .6} ${y + .6}h38.8" stroke="#fff" stroke-opacity=".18"/>
+    ${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${x + 7 + i * 4.4}" y="${y + 2}" width="2.6" height="7" rx=".5" fill="url(#pd-gold)"/>`).join('')}
+    <rect x="${x + 5}" y="${y + 13}" width="30" height="12" rx="1.2" fill="#d9dee3"/><text class="engr" x="${x + 20}" y="${y + 21.2}" font-size="6" text-anchor="middle">0-DAY</text>
+    <text class="t" x="${x + 20}" y="${y + 40}" font-size="11" text-anchor="middle" style="fill:#ffd23f" filter="url(#pd-glow)">$</text></g>`;
+  const sh = t ? R(46, 16, 40, 46, 3) + R(64, 22, 40, 46, 3) : R(55, 18, 40, 46, 3);
+  return [sh, (t ? card(46, 16, 0) + card(64, 22, 1) : card(55, 18, 0)) +
+    `<g class="cpop"><text class="t" x="${t ? 112 : 104}" y="30" font-size="6.5" text-anchor="middle" style="fill:#ffd23f">+$1</text></g>`];
+}
+function snapshot() {
+  // VM image on an open hard disk: a platter, the read head over it and a SNAP label; on hover the platter spins and the head sweeps
+  const sh = R(30, 10, 90, 64, 4);
+  let s = withFill(sh, 'fill="url(#pd-alu)"') + bevel(30, 10, 90, 64, 4) + `<rect x="30" y="10" width="90" height="64" rx="4" fill="url(#pd-brush)"/>` +
+    [[34, 14], [116, 14], [34, 70], [116, 70]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4" fill="url(#pd-key)" stroke="#000" stroke-opacity=".4" stroke-width=".3"/>`).join('') +
+    `<g class="spin platter"><circle cx="66" cy="42" r="26" fill="#0b0f13" stroke="#000" stroke-opacity=".6"/>` +
+    [24, 19, 14].map((r) => `<circle cx="66" cy="42" r="${r}" fill="none" stroke="#fff" stroke-opacity=".06"/>`).join('') +
+    `<path d="M66 16a26 26 0 0 1 22 12" fill="none" stroke="#5af2a8" stroke-opacity=".5" stroke-width="2.4" filter="url(#pd-glow)"/></g>` +
+    `<circle cx="66" cy="42" r="6" fill="url(#pd-key)"/><circle cx="66" cy="42" r="2" fill="#0a0e12"/>` +
+    `<g class="arm"><path d="M108 60L80 30" stroke="url(#pd-key)" stroke-width="3" stroke-linecap="round"/><circle cx="108" cy="60" r="5" fill="url(#pd-case)" stroke="#000" stroke-opacity=".5" stroke-width=".5"/><rect x="77" y="27" width="5" height="3" rx=".6" fill="#5af2a8" filter="url(#pd-glow)"/></g>` +
+    `<rect x="96" y="16" width="20" height="8" rx="1" fill="#d9dee3"/><text class="engr" x="106" y="21.8" font-size="4.6" text-anchor="middle">SNAP</text>`;
+  return [sh, s];
+}
 function coproc() {
   // expansion card: the co-processor chip and the spare daemon slot (+1) on one board
   const sh = R(22, 21, 112, 40, 2);
@@ -522,14 +578,14 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   nullpad: [() => nullpad(), '16 12 118 54', 0],
   ziptie: [() => ziptie(), '6 16 138 54', 0],
   ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height
-  hotkey: [() => shortkey(), 0, 0],
-  hotkey2: [() => shortkey(), 0, 0],
+  hotkey: [() => hotkey(0), '24 10 102 60', 0],
+  hotkey2: [() => hotkey(1), '24 10 102 64', 0],
   compiler: [() => compiler(), '14 8 122 68', 0],
-  bitshift: [() => split(0), 0, 0],
+  bitshift: [() => bitshift(), '16 14 118 56', 0],
   overclock: [() => overclock(), '12 4 126 76', 0],
-  exploit: [() => chip(), '12 14 126 56', 0],
-  exploit2: [() => chip(), '12 14 126 56', 0],
-  snapshot: [() => rewind(), 0, 0],
+  exploit: [() => exploit(0), '30 14 90 54', 0],
+  exploit2: [() => exploit(1), '30 12 94 58', 0],
+  snapshot: [() => snapshot(), '24 8 102 68', 0],
 };
 const prefix = (s: string) => s.replace(/class="([^"]*)"/g, (_, c) => 'class="' + c.split(/\s+/).filter(Boolean).map((x) => 'q-' + x).join(' ') + '"');
 const cache: Partial<Record<ItemId, [string, string]>> = {};
