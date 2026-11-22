@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { TOOLS } from './matrix';
 import { generate } from './generator';
-import { placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
+import { stageSeed } from './game';
+import { canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -137,5 +138,42 @@ describe('Exploit', () => {
     const none = { ...newRunState(1), items: ['exploit'] as ItemId[] };
     finishMatrix(none, { ...ctx, buf: ['Q'] }, true); // no upload still pays
     expect(none.earned.filter(([why]) => why === 'Exploit')).toEqual([['Exploit', 1]]);
+  });
+});
+
+describe('Snapshot', () => {
+  // A room with more than one matrix, one of them played.
+  const room = () => {
+    const s = { ...newRunState(1), items: ['snapshot'] as ItemId[] };
+    s.section = sections(s).findIndex((x) => x.matrices > 1);
+    s.scores[s.section] = [100];
+    return s;
+  };
+  it('is offered once per room, after a full matrix with another matrix to come', () => {
+    const s = room();
+    expect([canSnapshot(s, true), canSnapshot(s, false), canSnapshot({ ...s, items: [] }, true)]).toEqual([true, false, false]);
+    const last = { ...s, scores: s.scores.map((x, k) => (k === s.section ? Array(sections(s)[k].matrices).fill(1) : x)) };
+    expect(canSnapshot(last, true)).toBe(false);
+    takeSnapshot(s, 42);
+    expect(canSnapshot(s, true)).toBe(false);
+    s.data = quota(s);
+    nextSection(s);
+    s.section = room().section;
+    s.scores[s.section] = [100];
+    expect([s.snap, canSnapshot(s, true)]).toEqual([undefined, true]);
+  });
+  it('the next matrix replays the saved board, then the run goes on', () => {
+    const s = room();
+    s.matrix = 5;
+    takeSnapshot(s, 42);
+    expect([nextSeed(s), s.matrix]).toEqual([42, 6]);
+    expect([nextSeed(s), s.matrix]).toEqual([stageSeed(s.seed, 6), 7]);
+  });
+  it('an early exit drops a saved board', () => {
+    const s = room();
+    s.data = quota(s);
+    takeSnapshot(s, 42);
+    expect(exitRoom(s)).not.toBe('continue');
+    expect(s.snap).toBeUndefined();
   });
 });

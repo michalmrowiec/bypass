@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -1711,8 +1711,8 @@ function resumeRun(sv: SavedRun) {
     R.matrix = keep;
     return sv.screen === 'patch' ? showPatch() : sv.screen === 'offer' ? showOffer() : showShop(false);
   }
-  R.matrix--; // the checkpoint was taken after the deal
-  dealMatrix();
+  // The checkpoint was taken after the deal; a save from before R.dealt counts back instead.
+  if (R.dealt !== undefined) dealMatrix(R.dealt); else { R.matrix--; dealMatrix(); }
   cur = sv;
   replaying = true;
   S.dealing = false;
@@ -1745,15 +1745,18 @@ function enterSection() {
   };
 }
 
-function dealMatrix() {
+// Snapshot: the route of the saved board, loaded as the replay's script.
+let snapPlan: [number, number][] | null = null;
+function dealMatrix(seed?: number) {
   // Company look: its logo as a watermark under the matrix, its motif behind the contract.
   $('wmark').innerHTML = logo(COMPANIES[R.company].id);
   $('steps').dataset.co = COMPANIES[R.company].id;
   $('meta').textContent = 'Run ' + (R.loop + 1) + '/' + LOOPS + ' · ' + sections(R)[R.section].name + ' ' + (R.section + 1) + '/' + sections(R).length;
-  ({ puzzle: S.puzzle, m: M } = dealBoard(stageSeed(R.seed, R.matrix++), R));
+  ({ puzzle: S.puzzle, m: M } = dealBoard(seed ?? nextSeed(R), R));
   tOrder = [];
   armed = null;
   resetRun();
+  if (snapPlan) { plan = snapPlan; planRun = S.run; planning = true; snapPlan = null; }
   if (M.bounty && R.matrix > 0) bonusIntro(M.bounty); // not on the throwaway board behind the resume dialog
 }
 
@@ -2018,8 +2021,10 @@ function finish(sc: number, disconnected = false) {
   } else if (S.mode === 'run') {
     R.ms = (R.ms ?? 0) + S.elapsed;
     const goal = quota(R), before = R.data, room = sections(R)[R.section].name;
+    const full = S.puzzle.targets.every((t) => contains(S.run.buffer, t));
     const { score: bill, met, out } = finishMatrix(R, runCtx(), disconnected);
     lastBill = bill;
+    const snapOk = out === 'continue' && canSnapshot(R, full);
     if (out === 'win' || out === 'lose') endSave();
     const co = COMPANIES[R.company], next = COMPANIES[R.company + 1];
     const line = ([why, n]: [string, number]) => "<p class='meta'>" + (n ? money(n, '+') + ' · ' : '') + why + '</p>';
@@ -2033,7 +2038,8 @@ function finish(sc: number, disconnected = false) {
       + (out === 'win' ? winUnlocks(co, next) : '');
     const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button>" + SUM_CATALOG + "<button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
-      ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›').replace("<button class='btn go'", (canExitRoom(R)
+      ? matrixSummary(bill, credits) + btn('runNext', 'Next matrix ›').replace("<button class='btn go'", (snapOk
+        ? "<button class='btn' id='runSnap' data-tip='Snapshot: the next matrix is this board again, with your route as its script. Once per room.'" + (claim ? ' disabled' : '') + '>Snapshot · replay this board ›</button>' : '') + (canExitRoom(R)
         ? "<button class='btn' id='runExit' data-tip='Quota met: leave now and skip the rest of this room. +$" + exitCredit(R) + " per skipped matrix" + (R.roomFull ? ' (after a full)' : ', $' + EXIT_FULL_CREDIT + ' after a full') + ".'"
           + (claim ? ' disabled' : '') + '>Exit room · ' + money(exitCredit(R) * (sections(R)[R.section].matrices - played(R)), '+') + ' ›</button>' : '') + "<button class='btn go'")
       : out === 'section' || out === 'loop' ? roomSummary(bill, credits) + btn(out === 'loop' ? 'runLoop' : 'runSection', out === 'loop' ? 'Patch notes ›' : 'Exit room ›', 'go exit')
@@ -2044,6 +2050,12 @@ function finish(sc: number, disconnected = false) {
       wireCopy('shareRun', () => txt);
     }
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
+    document.getElementById('runSnap')?.addEventListener('click', () => {
+      snapPlan = S.run.path.map(([r, c]) => [r, c]);
+      takeSnapshot(R, R.dealt!);
+      hideResult();
+      newMatrix();
+    });
     if (hold) { $('modal').hidden = true; hold.push(() => playBill(bill, room, before, goal)); } else playBill(bill, room, before, goal);
     return;
   } else {

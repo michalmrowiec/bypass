@@ -1,4 +1,4 @@
-import { contains, fits, newRun, partner, pick, WILD, type Run } from './game';
+import { contains, fits, newRun, partner, pick, stageSeed, WILD, type Run } from './game';
 import { beltSrc, BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
 
@@ -263,6 +263,9 @@ export interface RunState {
   miner?: 'pool' | 'idle'; // Miner mode; missing = pool
   roomIdle?: boolean; // a matrix in this room ended with the Credit chip in idle, so pool pays nothing here
   upsUsed?: boolean; // the UPS saved the streaks in this room
+  snap?: number; // Snapshot: the seed of the saved board, dealt as the next matrix
+  snapUsed?: boolean; // the Snapshot was taken in this room
+  dealt?: number; // the seed of the matrix in play, so a resumed save deals the same board
   hotkey?: PayloadId; // the payload the Hotkey is bound to
   compiled?: Partial<Record<string, number>>; // scoring plays counted by the Compiler, by payload id
   loop: number; // iteration, 0-based
@@ -320,6 +323,21 @@ export function newRunState(seed: number, company = 0, entry?: string): RunState
 }
 
 export const played = (s: RunState) => s.scores[s.section].length;
+// Snapshot: after a matrix with every target, once per room, while the room has another matrix to deal.
+export const canSnapshot = (s: RunState, all: boolean) => all && s.items.includes('snapshot') && !s.snapUsed && played(s) < sections(s)[s.section].matrices;
+export function takeSnapshot(s: RunState, seed: number): void {
+  s.snap = seed;
+  s.snapUsed = true;
+  logEvent(s, 'Snapshot · board saved');
+}
+// The seed of the next run matrix: a saved board first, then the run's own sequence. The count moves on either way.
+export function nextSeed(s: RunState): number {
+  const seed = s.snap ?? stageSeed(s.seed, s.matrix);
+  delete s.snap;
+  s.matrix++;
+  s.dealt = seed;
+  return seed;
+}
 
 // Start choices some entries ask for, only before the first matrix of the run.
 const atStart = (s: RunState) => !s.loop && !s.section && !played(s);
@@ -371,6 +389,7 @@ export function exitRoom(s: RunState): MatrixOutcome {
   s.earned = [];
   logEvent(s, 'room exited early · ' + left + ' matrices skipped');
   earn(s, left + ' matrices skipped (early exit' + (s.roomFull ? ' after a full' : '') + ')', left * exitCredit(s));
+  delete s.snap;
   const out = closeRoom(s);
   for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
   return out;
@@ -401,6 +420,8 @@ export function nextSection(s: RunState): Patch[] | undefined {
   delete s.roomFull;
   delete s.roomIdle;
   delete s.upsUsed;
+  delete s.snap;
+  delete s.snapUsed;
   if (s.section < sections(s).length) return;
   // A save from before bonus tracking starts recording with the new iteration.
   Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, bonusHits: s.bonusHits ?? [] });
