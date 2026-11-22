@@ -737,12 +737,12 @@ export function daemonsAfterMatrix(ctx: MatrixCtx, s: RunState, disconnected: bo
   const f = facts(ctx);
   if (!f.done.length) return;
   const next = new Map(s.daemons.flatMap((id) => { const st = streakOf(id); return st ? [[id, st.next(s.stacks[id] ?? 0, f, s, disconnected)] as const] : []; }));
-  const breaks = [...next].some(([id, n]) => n < (s.stacks[id] ?? 0));
-  const ups = breaks && s.items.includes('ups') && !s.upsUsed;
-  if (ups) { s.upsUsed = true; logEvent(s, 'UPS · kept the streaks'); }
+  // UPS: its one charge saves the first breaking streak, in daemon order.
+  const saved = s.items.includes('ups') && !s.upsUsed ? [...next].find(([id, n]) => n < (s.stacks[id] ?? 0))?.[0] : undefined;
+  if (saved) { s.upsUsed = true; logEvent(s, 'UPS · kept the ' + DAEMONS[saved].name + ' streak'); }
   for (const id of s.daemons) {
     const d = DAEMONS[id] as Daemon;
-    if (next.has(id)) s.stacks[id] = ups ? Math.max(next.get(id)!, s.stacks[id] ?? 0) : next.get(id)!;
+    if (next.has(id) && id !== saved) s.stacks[id] = next.get(id)!;
     d.end?.(s, f, disconnected);
   }
   s.lastStart = f.start;
@@ -977,7 +977,7 @@ export const ITEMS = {
   mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
   nullpad: { name: 'Null pad', ver: '1.0', kind: 'padding ROM', price: 3, text: '+8 data per empty buffer slot in a matrix with an upload' },
   ziptie: { name: 'Zip tie', ver: '1.0', kind: 'cable tie', price: 4, text: 'An uploaded target that shares a code with another uploaded target pays +50% data' },
-  ups: { name: 'UPS', ver: '1.0', kind: 'battery backup', price: 4, u: 2, text: 'One charge: the first time daemon streaks would break, they keep their stacks. A new battery in the shop recharges it' },
+  ups: { name: 'UPS', ver: '1.0', kind: 'battery backup', price: 4, u: 2, text: 'One charge: the first daemon streak that would break keeps its stacks. A new battery in the shop recharges it; a spent UPS sells for less' },
   hotkey: { name: 'Hotkey', ver: '1.0', kind: 'macro key', price: 3, text: 'Choose a payload: while installed it is 2 levels higher' },
   hotkey2: { name: 'Hotkey', ver: '2.0', kind: 'macro pad', price: 3, text: 'Upgrades v1.0: the chosen payload is 3 levels higher', needs: 'hotkey' },
   compiler: { name: 'Compiler', ver: '1.0', kind: 'build server', price: 6, u: 2, text: 'Every 3rd time a payload scores, it gains a level for good' },
@@ -1023,6 +1023,8 @@ export const usedSlots = (s: RunState) => s.items.reduce((a, id) => a + unitsOf(
 // An upgrade frees the slots of the version it replaces.
 export const rackFull = (s: RunState, id: ItemId) => { const n = item(id).needs as ItemId | undefined; return s.rack - usedSlots(s) + (n ? unitsOf(n) : 0) < unitsOf(id); };
 export const sellValue = (id: ItemId) => Math.floor([id, ...olderVersions(id)].reduce((a, x) => a + item(x).price, 0) / 2);
+// What selling pays in this run: a UPS with a spent battery is worth a battery less.
+export const sellFor = (s: RunState, id: ItemId) => Math.max(0, sellValue(id) - (id === 'ups' && s.upsUsed ? UPS_BATTERY : 0));
 export const REROLL_COST = 0;
 // The first reroll on a shop visit is free, each next one costs $1 more; bonus rerolls cover the paid steps.
 export const rerollCost = (s: RunState) => REROLL_COST + s.rerolls;
@@ -1110,12 +1112,13 @@ export function sell(s: RunState, id: ItemId, drop?: DaemonId): boolean {
     if (!drop || !s.daemons.includes(drop)) return false;
     s.daemons = s.daemons.filter((d) => d !== drop);
   }
-  s.credits += sellValue(id);
+  const paid = sellFor(s, id);
+  s.credits += paid;
   s.items = s.items.filter((o) => o !== id);
   if (id.startsWith('hotkey')) delete s.hotkey;
   if (id === 'ups') delete s.upsUsed;
   s.restarts = Math.min(s.restarts, restartsFor(s));
-  logEvent(s, 'shop · sold ' + itemName(id) + ' +$' + sellValue(id) + (drop && !s.daemons.includes(drop) ? ' · dropped ' + dmnFile(drop) : ''));
+  logEvent(s, 'shop · sold ' + itemName(id) + ' +$' + paid + (drop && !s.daemons.includes(drop) ? ' · dropped ' + dmnFile(drop) : ''));
   return true;
 }
 
