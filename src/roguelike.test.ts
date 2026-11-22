@@ -1003,7 +1003,7 @@ describe('entries', () => {
   it('Fibre tap starts with Linker v1; payload entries start levelled', () => {
     expect(newRunState(1, co('argus'), 'fibre').items).toEqual(['linker1']);
     const dock = newRunState(1, co('kestrel'), 'dock');
-    expect([payLevel(dock, 'single'), payLevel(dock, 'multi'), payLevel(dock, 'linked')]).toEqual([3, 3, 1]);
+    expect([payLevel(dock, 'single'), payLevel(dock, 'multi'), payLevel(dock, 'linked')]).toEqual([2, 2, 1]);
     const phish = newRunState(1, co('meridian'), 'phishing');
     expect([payLevel(phish, 'linked'), payLevel(phish, 'all_linked')]).toEqual([3, 3]);
     const sig = newRunState(1, co('argus'), 'signal');

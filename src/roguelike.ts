@@ -80,8 +80,8 @@ export const COMPANIES: Company[] = [{
   entries: [standard('wifi', 'Guest Wi‑Fi'),
     { id: 'courier', name: 'Courier tablet', plus: 'Start with Mux v1.', minus: 'The shop shelf holds 3 modules instead of 4. Mux cannot be sold. Quotas ×3.2 per iteration (from iteration 2).',
       startItems: ['mux'], shelf: 3, noSell: ['mux'], quotaGrowth: 3.2 },
-    { id: 'dock', name: 'Dock scanner', plus: 'single.bin and multi.bin start at Lv3.', minus: 'No Linker in the shop. Quotas ×3.5 per iteration (from iteration 2).',
-      payLevels: { single: 3, multi: 3 }, banned: ['linker1', 'linker2'], quotaGrowth: 3.5 }],
+    { id: 'dock', name: 'Dock scanner', plus: 'single.bin and multi.bin start at Lv2.', minus: 'No Linker in the shop. Quotas ×3.5 per iteration (from iteration 2).',
+      payLevels: { single: 2, multi: 2 }, banned: ['linker1', 'linker2'], quotaGrowth: 3.5 }],
 }, {
   id: 'meridian',
   name: 'Meridian Health',
@@ -98,8 +98,8 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
   entries: [standard('nurse', 'Nurse station'),
-    { id: 'nightshift', name: 'Night shift', plus: 'Every daemon offer is Runner: easy to build around.', minus: 'No other daemon family. Modules, patch.zip and rack slots cost $1 more. Quotas ×2.9 per iteration (from iteration 2).',
-      family: 'Runner', priceDelta: 1, quotaGrowth: 2.9 },
+    { id: 'nightshift', name: 'Night shift', plus: 'Every daemon offer is Runner: easy to build around.', minus: 'No other daemon family. Modules, patch.zip and rack slots cost $1 more. Quotas ×3.3 per iteration (from iteration 2).',
+      family: 'Runner', priceDelta: 1, quotaGrowth: 3.3 },
     { id: 'phishing', name: 'Phishing', plus: 'linked.bin and all_linked.bin start at Lv3.', minus: 'No Disconnect: a matrix runs until no target is left in reach. Modules cannot be sold. Quotas ×3.1 per iteration (from iteration 2).',
       payLevels: { linked: 3, all_linked: 3 }, noDisconnect: true, noSell: true, quotaGrowth: 3.1 }],
 }, {
@@ -123,8 +123,8 @@ export const COMPANIES: Company[] = [{
   entries: [standard('portal', 'Client portal'),
     { id: 'phone', name: "Partner's phone", plus: 'Start with a Burner SIM.', minus: 'Dead cells in every room. The Burner SIM cannot be sold. Quotas ×3 per iteration (from iteration 2).',
       startItems: ['sim'], always: ['deadcells'], noSell: ['sim'], quotaGrowth: 3 },
-    { id: 'papertrail', name: 'Paper trail', plus: 'You pick the boss ICE from the company pool at the start.', minus: 'Every patch between iterations adds 2 ICE rules instead of 1. No Rewind in the shop. Quotas ×2.9 per iteration (from iteration 2).',
-      pickBossIce: true, doublePatch: true, banned: ['rewind'], quotaGrowth: 2.9 }],
+    { id: 'papertrail', name: 'Paper trail', plus: 'You pick the boss ICE from the company pool at the start.', minus: 'Every patch between iterations adds 2 ICE rules instead of 1. Quotas ×2.6 per iteration (from iteration 2).',
+      pickBossIce: true, doublePatch: true, quotaGrowth: 2.6 }],
 }, {
   id: 'argus',
   name: 'Argus Telecom',
@@ -143,8 +143,8 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
   entries: [standard('shared', 'Shared login'),
-    { id: 'signal', name: 'Signal flaw', plus: 'Every payload starts at Lv2.', minus: 'Runner daemons only. Quotas ×3 per iteration (from iteration 2).',
-      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, family: 'Runner', quotaGrowth: 3 },
+    { id: 'signal', name: 'Signal flaw', plus: 'Every payload starts at Lv2.', minus: 'Runner daemons only. Quotas ×3.4 per iteration (from iteration 2).',
+      payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, family: 'Runner', quotaGrowth: 3.4 },
     { id: 'fibre', name: 'Fibre tap', plus: 'Start with Linker v1.', minus: 'Linker cannot be sold. No Wildcard in the shop. The shop shelf holds 3 modules instead of 4. Quotas ×3 per iteration (from iteration 2).',
       startItems: ['linker1'], noSell: ['linker1'], banned: ['wildcard1', 'wildcard2'], shelf: 3, quotaGrowth: 3 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
