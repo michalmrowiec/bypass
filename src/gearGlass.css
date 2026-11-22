@@ -244,6 +244,7 @@
 :root[data-style=glass] .strip{box-shadow:0 0 8px var(--k)}
 :root[data-style=glass] .scr{background:linear-gradient(#6a7780,#6a7780) center/5px 1px no-repeat,linear-gradient(#6a7780,#6a7780) center/1px 5px no-repeat,radial-gradient(circle at 35% 35%,#2a3238,#151a1e)}
 :root[data-style=glass] .unit .gear.gl{width:90px;height:auto}
+:root[data-style=glass] .unit.u2 .gear.gl{width:118px} /* 2U art is cropped taller, so it fills the double unit */
 :root[data-style=glass] .unit.ready{border-color:rgba(90,242,168,.3)}
 :root[data-style=glass] .unit.ready.pre{border-color:rgba(79,200,255,.3)}
 :root[data-style=glass] .unit.armed{border-color:rgba(255,181,71,.5);background:linear-gradient(rgba(255,181,71,.08),rgba(255,181,71,.02)),var(--tint)}
@@ -259,3 +260,26 @@
 .unit.miner.idle .gl .q-mPool{opacity:0}
 .unit.miner.idle .gl .q-mIdle{opacity:1}
 .unit.miner.idle .gl .q-mode{transform:translateX(24px)}
+
+/* UPS: mains (AC) drops on hover, the battery LED takes over and the cells hold */
+.q-acled{fill:var(--acc);transition:fill .2s}
+.q-bled{fill:#2b333b;transition:fill .2s}
+.q-bcell{fill-opacity:.55}
+.hw:is(:hover,:focus-visible) .gl .q-acled{fill:#ff3d8b;animation:qblink .5s steps(2) 3}
+.hw:is(:hover,:focus-visible) .gl .q-bled{fill:var(--amber)}
+.hw:is(:hover,:focus-visible) .gl .q-bcell{animation:qbcell 1.6s infinite;animation-delay:calc(var(--i) * .1s)}
+@keyframes qbcell{0%,100%{fill-opacity:.9}50%{fill-opacity:.45}}
+/* compiler: the three build steps fill in turn, then +1 Lv pops */
+.q-cstep{fill-opacity:0}
+.q-lvpop{opacity:0}
+.hw:is(:hover,:focus-visible) .gl .q-cstep{animation:qcstep 2.4s infinite;animation-delay:calc(var(--i) * .35s)}
+.hw:is(:hover,:focus-visible) .gl .q-lvpop{animation:qlvpop 2.4s infinite}
+@keyframes qcstep{0%{fill-opacity:0}10%,80%{fill-opacity:.3}100%{fill-opacity:0}}
+@keyframes qlvpop{0%,45%{opacity:0;transform:translateY(2px)}55%,85%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}
+/* overclock: the core heats up and the clock meter climbs into the red */
+.q-heat{opacity:.12;transition:opacity .4s}
+.q-clk{fill-opacity:.15}
+.q-clk.q-on{fill-opacity:.8} /* idle: the stock clock */
+.hw:is(:hover,:focus-visible) .gl .q-heat{opacity:.55}
+.hw:is(:hover,:focus-visible) .gl .q-clk{animation:qclk .9s forwards;animation-delay:calc(var(--i) * .12s)}
+@keyframes qclk{to{fill-opacity:.9}}

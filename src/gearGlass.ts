@@ -377,6 +377,54 @@ function chip() {
     <text class="t" x="119" y="59.5" font-size="10" text-anchor="middle" style="fill:#ffd23f" filter="url(#pd-glow)">$</text>
     <g class="cpop"><text class="t" x="102" y="61" font-size="5.5" text-anchor="middle" style="fill:#ffd23f">+$1</text></g>`];
 }
+function ups() {
+  // battery backup: a 4-cell gauge and an outlet; on hover mains (AC) drops, the battery holds the stacks
+  const sh = R(26, 10, 98, 64, 5);
+  let s = withFill(sh, 'fill="url(#pd-case)"') + bevel(26, 10, 98, 64, 5);
+  for (let y = 60; y <= 66; y += 3) s += `<rect x="36" y="${y}" width="44" height="1.3" rx=".6" fill="#05080a"/>`;
+  s += `<rect x="36" y="22" width="44" height="26" rx="2.5" fill="#05080a" stroke="#fff" stroke-opacity=".12" stroke-width=".6"/><rect x="80" y="30" width="3.5" height="10" rx="1" fill="url(#pd-key)"/>` +
+    [0, 1, 2, 3].map(i => `<rect class="bcell" style="--i:${i}" x="${39 + i * 10.2}" y="25" width="8.4" height="20" rx="1" fill="#5af2a8" filter="url(#pd-glow)"/>`).join('') +
+    `<text class="silk" x="36" y="18.5" font-size="4.4">BATT</text><text class="silk" x="80" y="18.5" font-size="4.4" text-anchor="end">STACK HOLD</text>` +
+    // outlet: two slits and a ground hole
+    `<circle cx="104" cy="35" r="11" fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6"/>${bevel(93, 24, 22, 22, 11, .7)}
+    <rect x="99.5" y="29" width="2" height="6" rx=".6" fill="#05080a"/><rect x="106.5" y="29" width="2" height="6" rx=".6" fill="#05080a"/><circle cx="104" cy="40" r="1.6" fill="#05080a"/>` +
+    `<text class="silk" x="96" y="58" font-size="4" text-anchor="middle">AC</text><text class="silk" x="112" y="58" font-size="4" text-anchor="middle">BAT</text>
+    <circle class="acled" cx="96" cy="63" r="1.6" filter="url(#pd-glow)"/><circle class="bled" cx="112" cy="63" r="1.6" filter="url(#pd-glow)"/>` +
+    `<text class="engr" x="58" y="57" font-size="5.5" text-anchor="middle">UPS</text>`;
+  return [sh, s];
+}
+function compiler() {
+  // build server: three build steps fill, the payload gains a level
+  const sh = R(20, 12, 110, 60, 3);
+  let s = withFill(sh, 'fill="url(#pd-case)"') + bevel(20, 12, 110, 60, 3);
+  for (let x = 26; x < 124; x += 4) s += `<rect x="${x}" y="15" width="2" height="5" rx=".5" fill="#05080a"/>`;
+  s += `<text class="silk" x="28" y="31" font-size="4.6">$ make payload</text>` +
+    [0, 1, 2].map(i => `<rect x="${28 + i * 19}" y="35" width="16" height="14" rx="1.5" fill="#070b0e" stroke="#5af2a8" stroke-opacity=".35" stroke-width=".5"/>
+      <rect class="cstep" style="--i:${i}" x="${28 + i * 19}" y="35" width="16" height="14" rx="1.5" fill="#5af2a8" filter="url(#pd-glow)"/>${txt(36 + i * 19, 44.5, i + 1, 6, 'opacity=".75"')}`).join('') +
+    `<path d="M88 42h8m-3-3 3 3-3 3" fill="none" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".9"/>` +
+    `<rect x="100" y="33" width="22" height="18" rx="2" fill="#05080a" stroke="#fff" stroke-opacity=".12" stroke-width=".5"/>${txt(111, 41.5, 'Lv', 5.5, 'opacity=".7"')}
+    <g class="lvpop">${txt(111, 48.5, '+1', 6.5, 'filter="url(#pd-glow)"')}</g>` +
+    [0, 1].map(i => `<rect x="28" y="${55 + i * 7}" width="44" height="5" rx="1" fill="url(#pd-dark)" stroke="#000" stroke-opacity=".5" stroke-width=".4"/><circle class="core" style="--i:${i}" cx="68" cy="${57.5 + i * 7}" r="1.1" fill="#5af2a8" filter="url(#pd-glow)"/>`).join('') +
+    `<text class="engr" x="111" y="64" font-size="4.4" text-anchor="middle">BUILD</text>`;
+  return [sh, s];
+}
+function overclock() {
+  // overclocked CPU: steel lid over a gold-pinned package, ×1.5 and a clock meter; on hover it heats up and the meter climbs
+  const sh = R(34, 12, 62, 60, 3) + R(104, 16, 18, 52, 2);
+  let s = `<circle class="heat" cx="65" cy="42" r="34" fill="url(#pd-ember)"/>`;
+  for (let i = 0; i < 9; i++) {
+    const p = 39 + i * 6.2;
+    s += `<rect x="${p}" y="8" width="2.4" height="5" rx=".5" fill="url(#pd-gold)"/><rect x="${p}" y="71" width="2.4" height="5" rx=".5" fill="url(#pd-gold)"/>`;
+  }
+  s += withFill(R(34, 12, 62, 60, 3), 'fill="url(#pd-pcb)" stroke="#000" stroke-opacity=".5" stroke-width=".5"') + bevel(34, 12, 62, 60, 3, .7) +
+    withFill(R(42, 20, 46, 44, 4), 'fill="url(#pd-steel)"') + bevel(42, 20, 46, 44, 4) + `<rect x="42" y="20" width="46" height="44" rx="4" fill="url(#pd-brush)"/>` +
+    `<text class="engr" x="65" y="33" font-size="4.6" text-anchor="middle">OC · UNLOCKED</text>` +
+    txt(65, 52, '×1.5', 13, 'style="fill:#ff3d8b" filter="url(#pd-glow)"') +
+    withFill(R(104, 16, 18, 52, 2), 'fill="url(#pd-case)"') + bevel(104, 16, 18, 52, 2) +
+    [0, 1, 2, 3, 4].map(i => `<rect class="clk${i < 2 ? ' on' : ''}" style="--i:${i}" x="108" y="${58 - i * 9}" width="10" height="6" rx="1" fill="${i > 2 ? '#ff3d8b' : '#5af2a8'}" filter="url(#pd-glow)"/>`).join('') +
+    `<text class="silk" x="113" y="13.5" font-size="3.8" text-anchor="middle">CLK</text>`;
+  return [sh, s];
+}
 function coproc() {
   // expansion card: the co-processor chip and the spare daemon slot (+1) on one board
   const sh = R(22, 21, 112, 40, 2);
@@ -445,12 +493,12 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   nullpad: [() => buffer(0), 0, 0],
   ziptie: [() => linker(0), 0, 0],
   slingshot: [() => bridge(0), '12 14 126 52', 0],
-  ups: [() => coproc(), 0, 0],
+  ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height
   hotkey: [() => shortkey(), 0, 0],
   hotkey2: [() => shortkey(), 0, 0],
-  compiler: [() => coproc(), 0, 0],
+  compiler: [() => compiler(), '14 8 122 68', 0],
   bitshift: [() => split(0), 0, 0],
-  overclock: [() => heatsink(), 0, 0],
+  overclock: [() => overclock(), '26 4 102 76', 0],
   exploit: [() => chip(), '12 14 126 56', 0],
   exploit2: [() => chip(), '12 14 126 56', 0],
   snapshot: [() => rewind(), 0, 0],
