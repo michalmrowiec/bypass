@@ -276,11 +276,9 @@
 .hw:is(:hover,:focus-visible) .gl .q-lvpop{animation:qlvpop 2.4s infinite}
 @keyframes qcstep{0%{fill-opacity:0}10%,80%{fill-opacity:.3}100%{fill-opacity:0}}
 @keyframes qlvpop{0%,45%{opacity:0;transform:translateY(2px)}55%,85%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}
-/* overclock: the core heats up and the clock meter climbs into the red */
-.q-heat{opacity:.12;transition:opacity .4s}
+/* overclock: the clock meter climbs into the red */
 .q-clk{fill-opacity:.15}
 .q-clk.q-on{fill-opacity:.8} /* idle: the stock clock */
-.hw:is(:hover,:focus-visible) .gl .q-heat{opacity:.55}
 .hw:is(:hover,:focus-visible) .gl .q-clk{animation:qclk .9s forwards;animation-delay:calc(var(--i) * .12s)}
 @keyframes qclk{to{fill-opacity:.9}}
 /* null pad: the empty chips light in the data colour one by one */

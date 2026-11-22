@@ -409,9 +409,9 @@ function compiler() {
   return [sh, s];
 }
 function overclock() {
-  // overclocked CPU: one wide package, the clock meter set into its steel lid; on hover it heats up and the meter climbs
+  // overclocked CPU: one wide package, the clock meter set into its steel lid; on hover the meter climbs into the red
   const sh = R(16, 12, 118, 60, 3);
-  let s = `<circle class="heat" cx="75" cy="42" r="44" fill="url(#pd-ember)"/>`;
+  let s = '';
   for (let i = 0; i < 15; i++) {
     const p = 21 + i * 7.4;
     s += `<rect x="${p}" y="8" width="2.4" height="5" rx=".5" fill="url(#pd-gold)"/><rect x="${p}" y="71" width="2.4" height="5" rx=".5" fill="url(#pd-gold)"/>`;
