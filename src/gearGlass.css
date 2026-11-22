@@ -301,9 +301,6 @@
 /* exploit: the card rises, +$1 pops (shared .q-cpop) */
 .q-ecard{transition:transform .3s}
 .hw:is(:hover,:focus-visible) .gl .q-ecard{transform:translateY(-2px)}
-/* snapshot: the platter spins, the head sweeps */
-.q-arm{transform-origin:108px 60px;transition:transform .4s}
-.hw:is(:hover,:focus-visible) .gl .q-platter{animation:qspinP 1.2s linear infinite}
-.hw:is(:hover,:focus-visible) .gl .q-arm{animation:qarm 1.6s ease-in-out infinite}
-@keyframes qspinP{to{transform:rotate(360deg)}}
-@keyframes qarm{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}
+/* snapshot: the floppy shutter slides open on the disk */
+.q-shutter{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.hw:is(:hover,:focus-visible) .gl .q-shutter{transform:translateX(-12px)}

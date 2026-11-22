@@ -498,16 +498,15 @@ function exploit(t) {
     `<g class="cpop"><text class="t" x="${t ? 112 : 104}" y="30" font-size="6.5" text-anchor="middle" style="fill:#ffd23f">+$1</text></g>`];
 }
 function snapshot() {
-  // VM image on an open hard disk: a platter, the read head over it and a SNAP label; on hover the platter spins and the head sweeps
-  const sh = R(30, 10, 90, 64, 4);
-  let s = withFill(sh, 'fill="url(#pd-alu)"') + bevel(30, 10, 90, 64, 4) + `<rect x="30" y="10" width="90" height="64" rx="4" fill="url(#pd-brush)"/>` +
-    [[34, 14], [116, 14], [34, 70], [116, 70]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4" fill="url(#pd-key)" stroke="#000" stroke-opacity=".4" stroke-width=".3"/>`).join('') +
-    `<g class="spin platter"><circle cx="66" cy="42" r="26" fill="#0b0f13" stroke="#000" stroke-opacity=".6"/>` +
-    [24, 19, 14].map((r) => `<circle cx="66" cy="42" r="${r}" fill="none" stroke="#fff" stroke-opacity=".06"/>`).join('') +
-    `<path d="M66 16a26 26 0 0 1 22 12" fill="none" stroke="#5af2a8" stroke-opacity=".5" stroke-width="2.4" filter="url(#pd-glow)"/></g>` +
-    `<circle cx="66" cy="42" r="6" fill="url(#pd-key)"/><circle cx="66" cy="42" r="2" fill="#0a0e12"/>` +
-    `<g class="arm"><path d="M108 60L80 30" stroke="url(#pd-key)" stroke-width="3" stroke-linecap="round"/><circle cx="108" cy="60" r="5" fill="url(#pd-case)" stroke="#000" stroke-opacity=".5" stroke-width=".5"/><rect x="77" y="27" width="5" height="3" rx=".6" fill="#5af2a8" filter="url(#pd-glow)"/></g>` +
-    `<rect x="96" y="16" width="20" height="8" rx="1" fill="#d9dee3"/><text class="engr" x="106" y="21.8" font-size="4.6" text-anchor="middle">SNAP</text>`;
+  // 3.5" floppy, the universal "save state": a steel shutter, the SNAPSHOT.IMG label and the write-protect tab; on hover the shutter slides open
+  const sh = `<path d="M44 10h58l6 6v58H44z"/>`;
+  let s = withFill(sh, 'fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6" stroke-width=".5"') + `<path d="M44.6 10.6h57.2" stroke="#fff" stroke-opacity=".18"/>` +
+    // the disk under the shutter: a hub ring and the media, shown when it opens
+    `<rect x="58" y="10" width="30" height="20" fill="#05080a"/><rect x="66" y="13" width="8" height="14" rx="1" fill="#2a2f35"/><rect x="66" y="13" width="8" height="14" rx="1" fill="#5af2a8" fill-opacity=".2" filter="url(#pd-glow)"/>` +
+    `<g class="shutter"><rect x="56" y="10" width="32" height="21" rx="1" fill="url(#pd-steel)"/><rect x="56" y="10" width="32" height="21" rx="1" fill="url(#pd-brush)"/><rect x="77" y="13" width="7" height="14" rx="1" fill="#05080a" opacity=".85"/></g>` +
+    `<rect x="50" y="37" width="46" height="33" rx="1.5" fill="#d9dee3"/><path d="M50 43h46" stroke="#5af2a8" stroke-width="2.4"/>` +
+    `<text class="engr" x="73" y="53" font-size="5.6" text-anchor="middle">SNAPSHOT</text><text class="engr" x="73" y="60" font-size="4.4" text-anchor="middle" opacity=".7">.IMG · 1.44MB</text>` +
+    `<rect x="47" y="64" width="5" height="5" rx=".6" fill="#05080a"/><rect x="47" y="64" width="2.4" height="5" fill="#9aa5af"/><rect x="99" y="64" width="5" height="5" rx=".6" fill="#05080a"/>`;
   return [sh, s];
 }
 function coproc() {
@@ -584,7 +583,7 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   overclock: [() => overclock(), '12 4 126 76', 0],
   exploit: [() => exploit(0), '30 14 90 54', 0],
   exploit2: [() => exploit(1), '30 12 94 58', 0],
-  snapshot: [() => snapshot(), '24 8 102 68', 0],
+  snapshot: [() => snapshot(), '20 8 110 66', 0],
 };
 const prefix = (s: string) => s.replace(/class="([^"]*)"/g, (_, c) => 'class="' + c.split(/\s+/).filter(Boolean).map((x) => 'q-' + x).join(' ') + '"');
 const cache: Partial<Record<ItemId, [string, string]>> = {};
