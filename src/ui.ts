@@ -815,7 +815,7 @@ function renderDaemons() {
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'>" + scr(i, 0) + "<i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i>" + scr(i, 1) + '</div>' + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
+      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && R.upsUsed ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
         + "<span class='nm'><b>" + it.name + (it.ver === '1.0' ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
@@ -1277,7 +1277,7 @@ const hotkeyZone = () => !R.hotkey && (R.items.includes('hotkey') || R.items.inc
   : '';
 // A spent UPS battery can be replaced in the shop.
 const upsZone = () => R.items.includes('ups') && R.upsUsed
-  ? "<div class='zipzone'><p class='meta zhead'>UPS · battery spent</p><div class='row'><button class='btn' id='upsBattery'" + (R.credits < UPS_BATTERY ? ' disabled' : '') + '>Replace battery · ' + money(UPS_BATTERY) + '</button></div></div>'
+  ? "<div class='upszone'><span class='hw spent'>" + gear('ups') + "</span><p><b>UPS</b> <small>battery spent · streaks unprotected</small></p><button class='btn' id='upsBattery'" + (R.credits < UPS_BATTERY ? ' disabled' : '') + '>Replace battery · ' + money(UPS_BATTERY) + '</button></div>'
   : '';
 // The 3D zone renders as a skeleton at its mounted size, so the dialog eases to the right height.
 function zipZone() {

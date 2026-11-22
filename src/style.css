@@ -782,6 +782,13 @@ button.unit{cursor:var(--hit)}
 /* patch.zip in the shop: data-colour archive, never gold (gold is money). */
 .zipzone{position:relative;margin:12px 0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--data) 40%,transparent);background:color-mix(in srgb,var(--data) 4%,transparent)}
 .zipzone .zhead{margin:0 0 8px;color:var(--data)}
+/* spent UPS in the shop: a module chip with its drained art and the battery swap */
+.upszone{display:flex;align-items:center;gap:12px;margin:12px 0;padding:8px 12px;border:1px solid color-mix(in srgb,var(--mint-dim) 45%,transparent);background:var(--bg)}
+.upszone .gear{flex:none;width:90px;height:auto}
+.upszone p{flex:1;margin:0}
+.upszone b{color:var(--ink)}
+.upszone small{display:block;color:var(--pink)}
+.unit.drained .led{background:var(--pink);opacity:.9;box-shadow:0 0 5px color-mix(in srgb,var(--pink) 55%,transparent)} /* UPS battery spent */
 .zstage{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .zstage>.meta{flex:1;min-width:180px;margin:0}
 /* Glass style: a 3D case replaces the flat archive; .z3try hides the 2D fallback while three.js loads. */
