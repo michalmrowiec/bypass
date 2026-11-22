@@ -295,16 +295,17 @@
 /* hotkey: the keycap goes down, its stem light flares (v2: the four keys in turn) */
 .hw:is(:hover,:focus-visible) .gl .q-kcap{animation:qkey 1.6s infinite;animation-delay:calc(var(--i) * .4s)}
 @keyframes qkey{0%,30%,100%{transform:none}10%,20%{transform:translateY(2.5px)}}
-/* bitshift: first and last codes swap; x and y on separate groups: the slide eases once end to end while the hop rises and falls, so nothing stops midway */
-.hw:is(:hover,:focus-visible) .gl :is(.q-sw0,.q-sw2,.q-swy0,.q-swy2){animation:2.6s infinite}
-.hw:is(:hover,:focus-visible) .gl .q-sw0{animation-name:qsw0}
-.hw:is(:hover,:focus-visible) .gl .q-sw2{animation-name:qsw2}
-.hw:is(:hover,:focus-visible) .gl .q-swy0{animation-name:qswu}
-.hw:is(:hover,:focus-visible) .gl .q-swy2{animation-name:qswd}
-@keyframes qsw0{0%{transform:none;animation-timing-function:ease-in-out}30%,50%{transform:translateX(52px);animation-timing-function:ease-in-out}80%,100%{transform:none}}
-@keyframes qsw2{0%{transform:none;animation-timing-function:ease-in-out}30%,50%{transform:translateX(-52px);animation-timing-function:ease-in-out}80%,100%{transform:none}}
-@keyframes qswu{0%,50%{transform:none;animation-timing-function:ease-out}15%,65%{transform:translateY(-8px);animation-timing-function:ease-in}30%,80%,100%{transform:none}}
-@keyframes qswd{0%,50%{transform:none;animation-timing-function:ease-out}15%,65%{transform:translateY(8px);animation-timing-function:ease-in}30%,80%,100%{transform:none}}
+/* bitshift: the whole code rotates one place left per step, the first hopping over the rest to the end; x and y on separate groups so the hop never stalls the slide */
+.hw:is(:hover,:focus-visible) .gl :is(.q-sw0,.q-sw1,.q-sw2,.q-swy0,.q-swy1,.q-swy2){animation:3.6s ease-in-out infinite}
+.hw:is(:hover,:focus-visible) .gl .q-sw0{animation-name:qsx0}.hw:is(:hover,:focus-visible) .gl .q-swy0{animation-name:qsy0}
+.hw:is(:hover,:focus-visible) .gl .q-sw1{animation-name:qsx1}.hw:is(:hover,:focus-visible) .gl .q-swy1{animation-name:qsy1}
+.hw:is(:hover,:focus-visible) .gl .q-sw2{animation-name:qsx2}.hw:is(:hover,:focus-visible) .gl .q-swy2{animation-name:qsy2}
+@keyframes qsx0{0%{transform:none}22%,33%{transform:translateX(52px)}55%,66%{transform:translateX(26px)}88%,100%{transform:none}}
+@keyframes qsx1{0%{transform:none}22%,33%{transform:translateX(-26px)}55%,66%{transform:translateX(26px)}88%,100%{transform:none}}
+@keyframes qsx2{0%{transform:none}22%,33%{transform:translateX(-26px)}55%,66%{transform:translateX(-52px)}88%,100%{transform:none}}
+@keyframes qsy0{0%{transform:none;animation-timing-function:ease-out}11%{transform:translateY(-8px);animation-timing-function:ease-in}22%,100%{transform:none}}
+@keyframes qsy1{0%,33%{transform:none;animation-timing-function:ease-out}44%{transform:translateY(-8px);animation-timing-function:ease-in}55%,100%{transform:none}}
+@keyframes qsy2{0%,66%{transform:none;animation-timing-function:ease-out}77%{transform:translateY(-8px);animation-timing-function:ease-in}88%,100%{transform:none}}
 /* exploit: the card rises, +$1 pops (shared .q-cpop) */
 .q-ecard{transition:transform .3s}
 .hw:is(:hover,:focus-visible) .gl .q-ecard{transform:translateY(-2px)}

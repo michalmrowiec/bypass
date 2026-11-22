@@ -476,7 +476,7 @@ function hotkey(t) {
     `<text class="silk" x="24" y="61.5" font-size="4">MACRO PAD</text>` + led(124, 59)];
 }
 function bitshift() {
-  // shift register: a DIP chip with a wide code window; on hover the first and last codes swap places
+  // shift register: a DIP chip with a wide code window; on hover the code rotates one place left per step
   const sh = R(22, 24, 106, 36, 3);
   let s = '';
   for (let i = 0; i < 12; i++) {
