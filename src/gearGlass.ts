@@ -443,10 +443,14 @@ function nullpad() {
 function ziptie() {
   // two targets' cables bound by a zip tie at the code they share; on hover the tie cinches and +50% pops
   const sh = R(8, 20, 30, 14, 3) + R(8, 50, 30, 14, 3) + R(66, 30, 18, 24, 3);
-  let s = wire('M38 27C56 27 60 39 75 39', '#24543f', '#5af2a8') + wire('M38 57C56 57 60 45 75 45', '#1f4a5c', '#4fc8ff') +
-    wire('M75 39C96 39 110 30 142 30', '#24543f', '#5af2a8') + wire('M75 45C96 45 110 54 142 54', '#1f4a5c', '#4fc8ff') +
+  // shared code in the buffer's shared colour (cyan, .slot.shared); the rest dim like unlit cells
+  const cell = (x, y, c, shared) => shared
+    ? `<rect x="${x}" y="${y}" width="9" height="8" rx="1" fill="#3dd9ff" fill-opacity=".2" stroke="#3dd9ff" stroke-opacity=".9" stroke-width=".5" filter="url(#pd-glow)"/>${txt(x + 4.5, y + 5.6, c, 3.8, 'style="fill:#3dd9ff"')}`
+    : ccell(x, y, c, false);
+  // one cable per target, end to end through the tie, so each pulse runs once
+  let s = wire('M38 27C56 27 60 39 75 39C96 39 110 30 142 30', '#24543f', '#5af2a8') + wire('M38 57C56 57 60 45 75 45C96 45 110 54 142 54', '#24543f', '#5af2a8') +
     withFill(R(8, 20, 30, 14, 3), 'fill="url(#pd-case)"') + bevel(8, 20, 30, 14, 3) + withFill(R(8, 50, 30, 14, 3), 'fill="url(#pd-case)"') + bevel(8, 50, 30, 14, 3) +
-    ccell(11, 23, '1C', false) + ccell(22, 23, 'E9', true) + ccell(11, 53, 'E9', true) + ccell(22, 53, '55', false) +
+    cell(11, 23, '1C', false) + cell(22, 23, 'E9', true) + cell(11, 53, 'E9', true) + cell(22, 53, '55', false) +
     // the tie: a band round the bundle, its ratchet head on top and the cut tail
     `<g class="tie"><rect x="70" y="33" width="10" height="18" rx="3" fill="none" stroke="#0d1115" stroke-width="3.2"/><rect x="70" y="33" width="10" height="18" rx="3" fill="none" stroke="#3a434c" stroke-width="1.6"/>
     <rect x="68" y="28" width="14" height="7" rx="1.5" fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6" stroke-width=".5"/><path d="M71 31.5h8" stroke="#56626a" stroke-width=".6"/>
