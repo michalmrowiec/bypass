@@ -87,7 +87,8 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 
 ## 7. Itemy (hardware w racku)
 - **Rack:** 4 sloty, dokup do 9 (coraz drożej). Sprzedaż za połowę ceny.
-- Upgrade v1.0 → v2.0 pojawia się tylko, gdy masz v1.0, i nie zajmuje nowego slotu.
+- Upgrade v1.0 → v2.0 pojawia się tylko, gdy masz v1.0, i nie zajmuje nowego slotu (chyba że v2 jest większy: Bridge v2 ma 2U).
+- **Moduły 2U** (UPS, Compiler, Overclock, Bridge v2) zajmują 2 sloty racka i mają podwójną wysokość; kupno wymaga 2 wolnych slotów.
 - Każdy item ma własną ilustrację SVG z animacją na hover (`src/gear.ts`).
 - Diody w racku (jak na sprzęcie; miga/pulsuje = możesz działać, świeci stale = informacja):
   - **online** zielona stała: item pasywny;
@@ -106,7 +107,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Data node v1/v2/v3 | 3/3/5 | komórka +15 / +40 data; v3 dwie komórki po +60 |
 | Split v1/v2 | 4/3 | przed 1. ruchem tniesz target; v1 w losowym miejscu, v2 tam, gdzie chcesz |
 | Side door | 3 | pierwszy wybór z dowolnej krawędzi |
-| Bridge v1/v2 | 3/4 | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
+| Bridge v1/v2 | 3/4 (v2: 2U) | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
 | Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
 | Thumb drive v1/v2/v3 | 2/3/4 | +3 / +10 / +25 data za każdy wgrany target |
 | Credit chip | 2 | Dwa tryby, przełączane kliknięciem w racku (nie w trakcie macierzy, tryb zamyka się na 1. picku). `pool`: +$1 za pokój rozegrany w całości w trybie pool. `idle`: +$1 za każde 2 puste sloty bufora w macierzy z uploadem (także po Disconnect), max $3 na macierz; złota dioda |
@@ -118,6 +119,138 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Rewind | 4 | raz na matrycę cofasz ostatni pick, kod zostaje |
 | Mux | 3 | raz na matrycę następny ruch w tej samej albo krzyżującej się linii |
 | Co-processor | 8 | +1 slot daemona |
+| Null pad | 3 | +8 data za każdy pusty slot bufora w matrycy z uploadem |
+| Zip tie | 4 | target dzielący kod z innym wgranym płaci +50% data |
+| Slingshot | 3 | +10 data za każdą komórkę najdłuższego ruchu |
+| UPS (2U) | 5 | raz na pokój serie daemonów, które by się przerwały, zostają; dioda gaśnie po użyciu |
+| Hotkey v1/v2 | 3/3 | w sklepie wiążesz payload; dopóki jest w racku, ten payload ma +2 / +3 poziomy |
+| Compiler (2U) | 6 | co 3. punktujące zagranie payloadu daje mu +1 poziom na stałe |
+| Bitshift | 4 | raz na matrycę, przed 1. ruchem, obracasz kody jednego targetu (`A B C` → `B C A`), ile razy chcesz |
+| Overclock (2U) | 8 | ×1,5 na każdej matrycy |
+| Exploit v1/v2 | 3/3 | 1 / 2 komórki `# BYPASS: co już jest w grze (stan 2026-11-06)
+
+> Jedno źródło prawdy o stanie gry. Liczby pochodzą z `src/roguelike.ts`. Gdy coś się zmieni, popraw tutaj.
+
+## 1. Tryby
+- `0:daily`, `1:training` (5×5 / 6×6 / 7×7) i `2:sprint` (3 / 5 macierzy na czas). Stare tryby, nie ruszamy.
+- `3:run` to tryb roguelike opisany niżej.
+
+## 2. Rdzeń
+- Macierz kodów, wybór naprzemiennie wiersz / kolumna, start w górnym wierszu.
+- Bufor ma długość zaplanowanej trasy plus zapas (`slack`) z itemów. Rośnie z targetami, nie z rozmiarem macierzy.
+- Target to ciągła sekwencja w buforze. Dane za target wg długości: 2 kody → 10, 3 → 25, 4 → 45, 5 → 70, 6 → 100.
+- **Wynik macierzy = (dane + płaskie bonusy) × (1 + boosty) × mnożniki.** Na żywo widać podgląd i rachunek.
+- Macierz zalicza się od 1 wgranego targetu. Kończy się, gdy żaden target nie jest osiągalny, albo przez **Disconnect** (od 1 targetu).
+- Generator gwarantuje, że wszystkie targety są osiągalne. Solver zna itemy (Bridge, Loopback, Repeater, Rewind, Corruption).
+
+## 3. Run
+- **Run = jedna firma.** Pokoje mają po kilka macierzy i próg danych (quota). Brak progu kończy run.
+- Po każdym pokoju jest **darmowy wybór 1 z 3 daemonów** (można pominąć), potem **sklep**.
+- Ostatni pokój to **SOC** (boss) z ICE z puli firmy.
+- **3 iteracje** (`LOOPS`). Po SOC firma się łata („Patch notes”: 1 ICE do losowego pokoju) i rundy lecą od nowa.
+  - Progi ×2,5 na iterację (`QUOTA_GROWTH`), zaokrąglone do 5.
+  - Od 2. iteracji najdłuższy target ma +1 kod.
+  - 3. SOC oznacza firmę zhakowaną i odblokowuje następną.
+- Zapis runu: checkpoint plus log akcji (replay). Jest też eksport i import save'a.
+- Na koniec runu jest podsumowanie (×quota przy każdym pokoju). Rekord to suma danych + czas, widoczny jako „best” na karcie firmy.
+- Wybór firmy: karuzela kart 3D. Następna zablokowana firma jest widoczna w pełni, dalsze jako „???”.
+
+## 4. Firmy
+Każda firma ma własne kody, logo, etykiety wierszy i kolumn oraz motyw w tle.
+- Kody firm: Kestrel `4B 7F C9 1D E5`, Meridian `00 LL 77 H3 5K` (charakter: podwójne), Ashgrove `3s r7 m2 A4 Xk` (charakter: małe litery), Argus `E1 T3 4G 7F B2`. Zasady: różne sylwetki, cyfra może być pierwsza; firma bez charakteru ma najwyżej 1 kod z powtórzonym znakiem; nigdy ta sama litera mała i wielka na jednej planszy.
+
+| firma | pokoje (rozmiar, macierze, próg it1) | ICE bossa | łatki |
+|---|---|---|---|
+| **Kestrel Logistics** (spedycja) | Reception 5×5·1·20 → Offices 6×6·2·70 → Server Room 7×7·3·190 → SOC 7×7·2·160 | Firewall, Throttle, Blackout | + Corruption |
+| **Meridian Health** (szpital) | Lobby 6×6·1·35 → Wards 7×7·2·140 → Records 8×8·2·200 → SOC 8×8·2·270 | + Encryption | + Encryption |
+| **Ashgrove & Pike** (kancelaria) | wszystko 5×5: Lobby 1·35 · Mailroom 1·45 · Paralegals 1·55 · Partners 2·155 · **Archive 2·180 (porty)** · SOC 2·240 | + Honeypot, Dead cells | + Honeypot, Dead cells |
+| **Argus Telecom** (telekom) | 6×6, 4–5 krótkich targetów (2–3 kody): Call Center 2·90 · **Switching 5×5⇄5×5·2·115 (porty)** · Backbone 3·300 · SOC 3·380. **Throttle w każdym pokoju**, Conveyor w Backbone i SOC | poprzednie bez Throttle | + Conveyor |
+
+**Nowe rodzaje plansz wchodzą stopniowo:** najpierw jeden pokój w firmie, w następnej kilka, a dany rodzaj może dominować w jakiejś firmie. Porty: 1 pokój w Ashgrove, 2 w Argusie. Firma testowa **Lab** (tylko dev server): pokój **Dual** i plansze z portami. **Dual cell** (`Size.dual`, `Puzzle.alt`): 1–N losowych komórek ma drugi kod (cienka szara przekątna; połówka pod kursorem miętowa, druga przygaszona); myszką klikasz połówkę, dotykiem i klawiaturą wybierasz z małego menu. Solver sprawdza oba kody; na ## i ** drugi kod znika. Na razie tylko w Lab. Lab ma też: 3 pary portów, **parę portów w jednej matrycy** (`Size.solo`), plansze 4×4 i 7×7 oraz **kształty** (`Size.mask`, `#` = brak komórki: L i krzyż; puste pola są niewidoczne, `Puzzle.shape`). Pary portów nazywają się losowo z puli prawdziwych portów (`PORT_NAMES` w `ui.ts`, seed z położenia portów).
+
+Każda firma ma ICE poprzedniej i dokłada własne. ICE może też być stałe dla firmy (`always`, w każdym pokoju) albo przypisane do pokoju (`Section.ice`).
+
+### Wejścia (entry vectors)
+Przy starcie runu wybierasz wejście firmy (kafelki pod kartą w karuzeli). Każda firma ma 3: domyślne + 2 do odblokowania; łańcuch jak stawki w Balatro: dopiero wygrana na najnowszym otwartym wejściu otwiera następne, wygrana na starszym nic nie odblokowuje (`winUnlocks`) (`entriesOpen`, licznik `bypass:wins`; firma zhakowana przed wejściami liczy się jako 1 wygrana). Rekord osobno dla każdego wejścia (domyślne trzyma stary klucz firmy). Nazwa wejścia jest w nagłówkach runu i w udostępnianym wyniku; +/− w oknie pokoju. Dane w `Company.entries` (`src/roguelike.ts`), odczyt przez `entryOf`.
+
+| firma | 1 (domyślne) | 2 | 3 |
+|---|---|---|---|
+| Kestrel | Guest Wi‑Fi | Courier tablet: start z Mux v1 (nie do sprzedania); półka 3; quoty ×3,2 na iterację | Dock scanner: `single`/`multi` od Lv2; brak Linkera w sklepie; quoty ×3,5 |
+| Meridian | Nurse station | Night shift: tylko rodzina Runner (gdy brak, oferta dopełnia się z poprzedniej); itemy, patch.zip i sloty racka +$1; quoty ×3,3 | Phishing: `linked`/`all_linked` od Lv3; brak Disconnect; nic nie do sprzedania; quoty ×3,1 |
+| Ashgrove | Client portal | Partner's phone: start z Burner SIM (nie do sprzedania); Dead cells w każdym pokoju; quoty ×3,0 | Paper trail: ICE bossa wybierasz na starcie; każda łatka dokłada drugą regułę; quoty ×2,6 |
+| Argus | Shared login | Signal flaw: wszystkie payloady od Lv2; tylko rodzina Runner; quoty ×3,4 | Fibre tap: start z Linker v1 (cała linia nie do sprzedania); brak Wildcard w sklepie; półka 3; quoty ×3,0 |
+
+Domyślne wejście = gra jak wcześniej, ale puste sloty płacą tylko przez Credit chip w trybie `idle`.
+
+### Plansze z portami
+Dwie macierze n×n obok siebie (A po lewej, B po prawej). Linia ruchu zostaje w swojej macierzy; start w wierszu 0 macierzy A. 2 pary portów `⇄1`, `⇄2` (para 1 chłodny hologram, para 2 ciepły). Port ma zwykły kod; po jego picku następny ruch idzie w linii partnera w drugiej macierzy (wziąłeś w wierszu → kolumna partnera, w kolumnie → wiersz partnera). Posadzona trasa przechodzi przez ≥1 port. Pierścień wciąga się w port w Twojej linii i wychodzi z partnera; najechanie podświetla parę.
+- Bridge v1 sięga 8 pól wokół ostatniego picku w tej samej macierzy, a po porcie wokół partnera; v2 w obu macierzach. Loopback v1 może wziąć zużyty port, gdy jego partner jest w linii: kod drugi raz do bufora i powrót do macierzy portu (dalej linią przez sam port, bez drugiego skoku). Rewind cofa skok przez port. **Gdzie stoisz:** po porcie u partnera (po powrocie Loopbackiem na samym porcie); od tego miejsca liczą Bridge v1, Mux oraz długość ruchu dla Long jump i Zigzag; Side door: krawędzie A; Corner: rogi obu macierzy; Long jump i Zigzag mierzą ruch po porcie od partnera.
+- Łatki nie dają pokojom z portami Firewall, Corruption ani Conveyor (`NO_PORT_ICE`; generator ich tam nie obsługuje).
+
+## 5. ICE
+- **Firewall:** zablokowany wiersz albo kolumna `##`, nigdy wiersz 0.
+- **Throttle:** bufor −1.
+- **Blackout:** targety `??` do pierwszego ruchu.
+- **Corruption:** wybór blokuje 4 sąsiadów na N ruchów. Licznik rośnie z łatkami, od 3. łatki blokada jest na stałe.
+- **Encryption:** kody `??` poza liniami, w których już wybierałeś (wiersz startowy + wiersz i kolumna każdego wyboru).
+- **Honeypot:** pułapka poza trasą, ×0,5 wyniku.
+- **Dead cells:** 2–3 martwe pola `##`.
+- **Conveyor:** jeden wiersz (nigdy górny) to taśma: różowe strzałki biegną wzdłuż górnej i dolnej krawędzi komórek, a etykieta wiersza jest różowa ze znacznikiem `»`. Zużyte komórki taśmy pokazują wyszarzony kod, który akurat pod nimi stoi. Po każdym wyborze jego kody przesuwają się o 1 w prawo, z zawinięciem, także pod zużytymi komórkami; pola `##` stoją. Zaplanowane rozwiązanie uwzględnia przesunięcia. Skrót: przy taśmie wykrywanie „no target left” jest wyłączone.
+
+Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Hot breach.
+
+## 6. Daemony (software, pliki `.dmn`)
+- **Sloty:** 4. Piąty daje item Co-processor. Wymiana daemona przy pełnych slotach kosztuje wg rzadkości wyrzucanego: common $2, rare $4, legendary $6.
+- **Rzadkość w ofercie:** common 70%, rare 25%, legendary 5%. Ramka i foil zależą od rzadkości.
+- **Zasięg:** `◇ matrix`, `▣ room` (przerywana ramka), `∞ run` (stack, podwójna ramka).
+- Kolejność daemonów zmienia się przytrzymaniem i przeciągnięciem. Jest tylko kosmetyczna.
+
+| rodzina | daemony |
+|---|---|
+| **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×(1 + 0,2 za slot bufora) (legendary), All-in ×2/×0,5 (rare) |
+| **Ghost** (minimalizm) | Overflow, Light footprint (legendary), Silent, Cache (rare, stack; zeruje się przy wgraniu wszystkich targetów), Echo (rare), Sandbag (rare, room) |
+| **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler |
+| **Cron** (serie) | Heartbeat (rare), Rotate (+5), Backup (rare), Uptime (+8), Overtime (rare, room), Warm-up (room) |
+
+Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
+
+## 7. Itemy (hardware w racku)
+- **Rack:** 4 sloty, dokup do 9 (coraz drożej). Sprzedaż za połowę ceny.
+- Upgrade v1.0 → v2.0 pojawia się tylko, gdy masz v1.0, i nie zajmuje nowego slotu (chyba że v2 jest większy: Bridge v2 ma 2U).
+- **Moduły 2U** (UPS, Compiler, Overclock, Bridge v2) zajmują 2 sloty racka i mają podwójną wysokość; kupno wymaga 2 wolnych slotów.
+- Każdy item ma własną ilustrację SVG z animacją na hover (`src/gear.ts`).
+- Diody w racku (jak na sprzęcie; miga/pulsuje = możesz działać, świeci stale = informacja):
+  - **online** zielona stała: item pasywny;
+  - **ready** zielona pulsuje (klik uzbraja); niebieska: tylko teraz, przed 1. ruchem (Wildcard v2, Split, SIM);
+  - **armed** pomarańczowa miga: czeka na klik w matrycę;
+  - **waiting** pomarańczowa stała: naładowany, ale nie teraz (przed 1. pickiem albo nic w zasięgu, np. Loopback przy samej zużytej `**`);
+  - **spent** zgaszona, moduł przygaszony: użyty, do następnej macierzy (SIM do następnego pokoju);
+  - **unused** zgaszona, moduł lekko przygaszony: nieużyty, a jego okno minęło (Wildcard v2, Split, SIM po 1. ruchu; reszta po końcu macierzy), wraca w następnej macierzy.
+
+| item | cena | efekt |
+|---|---|---|
+| Buffer v1/v2 | 4/4 | +1 / +2 slot bufora |
+| Short key | 3 | najdłuższy target −1 kod, bufor bez zmian |
+| Linker v1/v2 | 4/4 | +1 połączenie targetów; v2 jedno połączenie na 2 kody |
+| Wildcard v1/v2 | 4/4 | komórka `**` pasuje do wszystkiego; v1 losowa poza trasą, v2 wybierasz (nie na ×2); jednorazowa, Loopback ani Rewind jej nie powtórzą |
+| Data node v1/v2/v3 | 3/3/5 | komórka +15 / +40 data; v3 dwie komórki po +60 |
+| Split v1/v2 | 4/3 | przed 1. ruchem tniesz target; v1 w losowym miejscu, v2 tam, gdzie chcesz |
+| Side door | 3 | pierwszy wybór z dowolnej krawędzi |
+| Bridge v1/v2 | 3/4 (v2: 2U) | raz na matrycę skok poza linię; v1 na 8 pól wokół ostatniego wyboru, v2 na dowolną wolną komórkę (pod Encryption widzi tylko 8 pól wokół). Najechanie na gotowy Bridge w racku podświetla zasięg |
+| Loopback v1/v2 | 3/3 | ponowny wybór zużytej komórki; v1 w linii, v2 dowolnej |
+| Thumb drive v1/v2/v3 | 2/3/4 | +3 / +10 / +25 data za każdy wgrany target |
+| Credit chip | 2 | Dwa tryby, przełączane kliknięciem w racku (nie w trakcie macierzy, tryb zamyka się na 1. picku). `pool`: +$1 za pokój rozegrany w całości w trybie pool. `idle`: +$1 za każde 2 puste sloty bufora w macierzy z uploadem (także po Disconnect), max $3 na macierz; złota dioda |
+| Ping | 2 | zaznacza start rozwiązania |
+| Heatsink | 2 | Corruption krótsza o 1 ruch |
+| Burner SIM | 3 | raz na pokój, przed 1. ruchem, nowa macierz (klik w rack) |
+| Glob | 4 | jeden kod targetu staje się `**` |
+| Repeater | 3 | komórka `×2` (fiolet) wrzuca kod dwa razy |
+| Rewind | 4 | raz na matrycę cofasz ostatni pick, kod zostaje |
+| Mux | 3 | raz na matrycę następny ruch w tej samej albo krzyżującej się linii |
+ (złote) w matrycy; pick daje +$1, także bez uploadu |
+| Snapshot | 5 | raz na pokój, po matrycy z kompletem: przycisk w podsumowaniu daje tę samą planszę jeszcze raz, z twoją trasą jako skryptem |
+
+Nowe itemy z 2026-11-22 mają tymczasowe ikony istniejących itemów (do narysowania w `.notes/item-svg`).
 
 ## 8. Bonusy (cele bonusowe)
 - **1 matryca na iterację** (`BOUNTIES_PER_LOOP`), nigdy w SOC ani na pierwszej matrycy runu. Na starcie pokazuje się plansza celu, która znika po kliknięciu „Got it” albo po pierwszym ruchu.
