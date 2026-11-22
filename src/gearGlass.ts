@@ -476,7 +476,7 @@ function hotkey(t) {
     `<text class="silk" x="24" y="61.5" font-size="4">MACRO PAD</text>` + led(124, 59)];
 }
 function bitshift() {
-  // shift register: a DIP chip with a wide code window; on hover the code rotates one place left per step
+  // shift register: a DIP chip with a wide code window; on hover the target flips to its mirror image
   const sh = R(22, 24, 106, 36, 3);
   let s = '';
   for (let i = 0; i < 12; i++) {
@@ -485,8 +485,9 @@ function bitshift() {
   }
   s += withFill(sh, 'fill="url(#pd-case)"') + bevel(22, 24, 106, 36, 3) + `<text class="engr" x="27" y="32" font-size="4.6">74HC595 · SHIFT</text>` +
     `<rect x="26" y="34" width="83" height="22" rx="2" fill="#05080a" stroke="#5af2a8" stroke-opacity=".3" stroke-width=".5"/>` +
-    ['4B', '7F', 'C9'].map((c, i) => `<g class="sw${i}"><g class="swy${i}"><rect x="${30 + i * 26}" y="37.5" width="23" height="15" rx="1.6" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".6"/>${txt(41.5 + i * 26, 48, c, 8)}</g></g>`).join('') +
-    // swap mark: two opposite arrows
+    // mirror: on hover the row flips edge-on and comes back as the reversed target, then flips back
+    [['4B', '7F', 'C9'], ['C9', '7F', '4B']].map((row, k) => `<g class="${k ? 'mback' : 'mfront'}">` + row.map((c, i) => `<rect x="${30 + i * 26}" y="37.5" width="23" height="15" rx="1.6" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".6"/>${txt(41.5 + i * 26, 48, c, 8)}`).join('') + '</g>').join('') +
+    // mirror mark: two opposite arrows
     `<path d="M113.5 41h8m-2.4-2.4 2.4 2.4-2.4 2.4M121.5 49h-8m2.4-2.4-2.4 2.4 2.4 2.4" fill="none" stroke="#5af2a8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" filter="url(#pd-glow)"/>`;
   return [sh, s];
 }
