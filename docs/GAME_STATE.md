@@ -124,8 +124,8 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | UPS (2U) | 4 | jeden ładunek: pierwsza seria daemona (w kolejności slotów), która by się przerwała, zostaje (w tej matrycy płaci swoje stacki, ale nie rośnie; UPS w racku gaśnie od razu); potem bateria jest rozładowana (czerwone ogniwa i dioda), nowa w sklepie za $1; sprzedaż: naładowany $3, rozładowany $2 |
 | Hotkey v1/v2 | 3/3 | w sklepie wiążesz payload; dopóki jest w racku, ten payload ma +2 / +3 poziomy |
 | Compiler (2U) | 6 | co 3. punktujące zagranie payloadu daje mu +1 poziom na stałe |
-| Bitshift | 4 | raz na matrycę, przed 1. ruchem, obracasz kody jednego targetu (`A B C` → `B C A`), ile razy chcesz |
-| Overclock (2U) | 8 | ×1,5 na każdej matrycy |
+| Bitshift | 3 | raz na matrycę, przed 1. ruchem, obracasz kody jednego targetu (`A B C` → `B C A`), ile razy chcesz |
+| Overclock (2U) | 7 | ×1,5 na każdej matrycy |
 | Exploit v1/v2 | 3/3 | 1 / 2 komórki `$` (złote) w matrycy; pick daje +$1, także bez uploadu |
 | Snapshot | 5 | raz na pokój, po matrycy z kompletem: przycisk w podsumowaniu daje tę samą planszę jeszcze raz, z twoją trasą jako skryptem |
 
