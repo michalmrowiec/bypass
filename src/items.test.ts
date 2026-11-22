@@ -208,3 +208,15 @@ describe('old saves', () => {
     expect([s.items, s.shelf, s.skipped]).toEqual([['thumb'], ['ping'], []]);
   });
 });
+
+describe('UPS on the bill', () => {
+  // 2 of 3 targets: Heartbeat (4 stacks) breaks in this matrix
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
+  const run = (items: ItemId[]) => ({ ...newRunState(1), items, daemons: ['heartbeat'] as DaemonId[], stacks: { heartbeat: 4 } });
+  it('the saved streak pays its stacks in that matrix, without growing', () => {
+    const sc = scoreMatrix(ctx, run(['ups']));
+    expect([sc.fired, sc.ups]).toEqual([[['heartbeat', { boost: 0.8 }]], 'heartbeat']);
+    expect(scoreMatrix(ctx, run([])).fired).toEqual([['heartbeat', { boost: 0.4 }]]);
+    expect(scoreMatrix(ctx, { ...run(['ups']), upsUsed: true }).ups).toBeUndefined();
+  });
+});

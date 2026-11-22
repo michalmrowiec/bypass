@@ -773,6 +773,8 @@ function renderDaemons() {
   // Deck as a rack of units. A ready tool pulses; clicking it arms it, clicking again puts it down.
   // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
   const start = !S.run.path.length, hosted = R.daemons[DAEMON_SLOTS];
+  // The UPS shows drained as soon as this matrix spends its charge, not only once the matrix ends.
+  const drained = !!R.upsUsed || !!sc.ups;
   const units = R.items.map((id) => {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
@@ -786,12 +788,12 @@ function renderDaemons() {
     // Credit chip: its mode switches only outside a matrix in play, so a matrix scores in one mode.
     const miner = id === 'chip' ? { mode: R.miner ?? 'pool', free: S.mode === 'run' && (start || S.over) } : undefined;
     const spent = !ready && (used || missed);
-    const hint = !ready ? (!t ? (id === 'ups' && R.upsUsed ? 'battery spent · a new one in the shop' : '') : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
+    const hint = !ready ? (!t ? (id === 'ups' && drained ? (sc.ups && !R.upsUsed ? 'holding the ' + DAEMONS[sc.ups].name + ' streak · battery spent' : 'battery spent · a new one in the shop') : '') : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
       : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
       : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' || t === 'shift' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
-    return { id, t, ready, miner, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && R.upsUsed ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
+    return { id, t, ready, miner, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && drained ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
         + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });
@@ -815,7 +817,7 @@ function renderDaemons() {
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'>" + scr(i, 0) + "<i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i>" + scr(i, 1) + '</div>' + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && R.upsUsed ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
+      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && drained ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
         + "<span class='nm'><b>" + it.name + (it.ver === '1.0' ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')

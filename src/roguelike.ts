@@ -671,7 +671,12 @@ export function restartMatrix(s: RunState): void {
 
 // gear: shop items that added something to this matrix, like daemons in fired.
 // pay: the payload this matrix scores, its level and what that level adds.
-export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean; pay?: [PayloadId, number, Effect] }
+// ups: the daemon whose breaking streak the UPS charge saves in this matrix.
+export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean; pay?: [PayloadId, number, Effect]; ups?: DaemonId }
+
+// UPS: its one charge saves the first breaking streak, in daemon order; that streak keeps its stacks and does not grow.
+const upsSave = (s: RunState, f: Facts, disconnected: boolean): DaemonId | undefined => !s.items.includes('ups') || s.upsUsed ? undefined
+  : s.daemons.find((id) => { const st = streakOf(id), n = s.stacks[id] ?? 0; return !!st && st.next(n, f, s, disconnected) < n; });
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
@@ -711,9 +716,10 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     gearFlat('ziptie', Math.floor(ZIPTIE_SHARE * tied));
     if (s.items.includes('overclock')) { sc.mult *= OVERCLOCK_MULT; sc.gear.push(['overclock', { mult: OVERCLOCK_MULT }]); }
   }
+  sc.ups = upsSave(s, f, false);
   for (const id of s.daemons) {
     const d = DAEMONS[id] as Daemon;
-    const n = d.streak?.next(s.stacks[id] ?? 0, f, s, false);
+    const n = id === sc.ups ? s.stacks[id] : d.streak?.next(s.stacks[id] ?? 0, f, s, false);
     const e = d.streak ? (n ? d.streak.effect(n) : null) : d.score?.(f, s);
     if (!e) continue;
     sc.flat += e.flat ?? 0;
@@ -737,8 +743,7 @@ export function daemonsAfterMatrix(ctx: MatrixCtx, s: RunState, disconnected: bo
   const f = facts(ctx);
   if (!f.done.length) return;
   const next = new Map(s.daemons.flatMap((id) => { const st = streakOf(id); return st ? [[id, st.next(s.stacks[id] ?? 0, f, s, disconnected)] as const] : []; }));
-  // UPS: its one charge saves the first breaking streak, in daemon order.
-  const saved = s.items.includes('ups') && !s.upsUsed ? [...next].find(([id, n]) => n < (s.stacks[id] ?? 0))?.[0] : undefined;
+  const saved = upsSave(s, f, disconnected);
   if (saved) { s.upsUsed = true; logEvent(s, 'UPS · kept the ' + DAEMONS[saved].name + ' streak'); }
   for (const id of s.daemons) {
     const d = DAEMONS[id] as Daemon;
