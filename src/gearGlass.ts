@@ -579,11 +579,11 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   hotkey: [() => hotkey(0), '24 10 102 60', 0],
   hotkey2: [() => hotkey(1), '24 10 102 64', 0],
   compiler: [() => compiler(), '14 8 122 68', 0],
-  bitshift: [() => bitshift(), '16 14 118 56', 0],
+  bitshift: [() => bitshift(), '16 10 118 60', 0],
   overclock: [() => overclock(), '12 4 126 76', 0],
-  exploit: [() => exploit(0), '30 14 90 54', 0],
-  exploit2: [() => exploit(1), '30 12 94 58', 0],
-  snapshot: [() => snapshot(), '20 8 110 66', 0],
+  exploit: [() => exploit(0), '20 6 110 66', 0], // headroom: the card rises on hover
+  exploit2: [() => exploit(1), '20 6 110 66', 0],
+  snapshot: [() => snapshot(), '14 4 120 72', 0],
 };
 const prefix = (s: string) => s.replace(/class="([^"]*)"/g, (_, c) => 'class="' + c.split(/\s+/).filter(Boolean).map((x) => 'q-' + x).join(' ') + '"');
 const cache: Partial<Record<ItemId, [string, string]>> = {};
