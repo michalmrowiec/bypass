@@ -642,6 +642,11 @@ export const payloadFor = (ctx: MatrixCtx) => payOf(facts(ctx));
 // Saves from before multi/single: renamed payloads keep their levels and plays, half_buffer is dropped.
 const PAY_RENAME: Record<string, string> = { two_targets: 'multi', one_target: 'single' };
 export function migratePayloads(s: RunState): void {
+  // Items removed from the game (Slingshot) leave the rack, shelf and skip list.
+  const known = (id: string) => id in ITEMS;
+  s.items = s.items.filter(known);
+  s.shelf = s.shelf.filter(known);
+  if (s.skipped) s.skipped = s.skipped.filter(known);
   for (const m of [s.payLevels, s.payPlays]) for (const k of Object.keys(m ?? {})) if (!(k in PAYLOADS)) {
     if (PAY_RENAME[k]) m![PAY_RENAME[k]] = m![k];
     delete m![k];
@@ -696,7 +701,6 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     const cover = coverage(ctx.buf, f.done);
     const tied = ctx.targets.reduce((a, t, i) => a + (f.done.includes(t) && windowOf(ctx.buf, t).some((j) => cover[j] >= 2) ? ctx.worth?.[i] ?? DATA_BY_LEN[t.length] : 0), 0);
     gearFlat('ziptie', Math.floor(ZIPTIE_SHARE * tied));
-    gearFlat('slingshot', SLINGSHOT_DATA * Math.max(0, ...f.moves));
     if (s.items.includes('overclock')) { sc.mult *= OVERCLOCK_MULT; sc.gear.push(['overclock', { mult: OVERCLOCK_MULT }]); }
   }
   for (const id of s.daemons) {
@@ -965,7 +969,6 @@ export const ITEMS = {
   mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
   nullpad: { name: 'Null pad', ver: '1.0', kind: 'padding ROM', price: 3, text: '+8 data per empty buffer slot in a matrix with an upload' },
   ziptie: { name: 'Zip tie', ver: '1.0', kind: 'cable tie', price: 4, text: 'An uploaded target that shares a code with another uploaded target pays +50% data' },
-  slingshot: { name: 'Slingshot', ver: '1.0', kind: 'launcher', price: 3, text: '+10 data per cell of your longest move' },
   ups: { name: 'UPS', ver: '1.0', kind: 'battery backup', price: 5, u: 2, text: 'Once per room, a daemon streak that would break keeps its stacks' },
   hotkey: { name: 'Hotkey', ver: '1.0', kind: 'macro key', price: 3, text: 'Choose a payload: while installed it is 2 levels higher' },
   hotkey2: { name: 'Hotkey', ver: '2.0', kind: 'macro pad', price: 3, text: 'Upgrades v1.0: the chosen payload is 3 levels higher', needs: 'hotkey' },
@@ -983,7 +986,7 @@ export const THUMB_DATA = { thumb: 3, thumb2: 10, thumb3: 25 } as const;
 const thumbId = (items: ItemId[]) => (['thumb3', 'thumb2', 'thumb'] as const).find((id) => items.includes(id));
 export const thumbData = (items: ItemId[]) => { const id = thumbId(items); return id ? THUMB_DATA[id] : 0; };
 export const PRIO_MULT = { prio1: 2, prio2: 4 } as const;
-export const NULLPAD_DATA = 8, ZIPTIE_SHARE = 0.5, SLINGSHOT_DATA = 10, OVERCLOCK_MULT = 1.5;
+export const NULLPAD_DATA = 8, ZIPTIE_SHARE = 0.5, OVERCLOCK_MULT = 1.5;
 // Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
 // Index of the first uploaded target (the richer one on a tie), -1 if none.
 export function firstTarget(buf: string[], targets: string[][], worth?: number[]): number {

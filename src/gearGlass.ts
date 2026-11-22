@@ -454,20 +454,6 @@ function ziptie() {
     `<g class="zpop">${txt(75, 66, '+50%', 7, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')}</g>`;
   return [sh, s];
 }
-function slingshot() {
-  // Y-frame and an elastic band; on hover the code flies down the longest lane, every cell it crosses pays
-  const sh = R(14, 16, 36, 60, 4) + R(58, 33, 84, 17, 3);
-  let s = `<path d="M32 50L21 22M32 50L43 22" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="7.4" stroke-linecap="round"/>
-    <path d="M32 50L21 22M32 50L43 22" fill="none" stroke="url(#pd-steel)" stroke-width="5.6" stroke-linecap="round"/>` +
-    withFill(R(28, 48, 8, 26, 2.5), 'fill="url(#pd-case)"') + bevel(28, 48, 8, 26, 2.5) +
-    `<path class="band" d="M21 23Q32 42 43 23" fill="none" stroke="#ffb547" stroke-width="1.4" filter="url(#pd-glow)"/>` +
-    withFill(R(58, 33, 84, 17, 3), 'fill="url(#pd-case)"') + bevel(58, 33, 84, 17, 3) +
-    [0, 1, 2, 3, 4].map(i => `<rect x="${62 + i * 16}" y="36" width="13" height="11" rx="1.2" fill="#070b0e" stroke="#5af2a8" stroke-opacity=".25" stroke-width=".5"/>
-      <rect class="lane" style="--i:${i}" x="${62 + i * 16}" y="36" width="13" height="11" rx="1.2" fill="#5af2a8" filter="url(#pd-glow)"/>`).join('') +
-    `<g class="shot">${ccell(27.5, 29, 'C9', true)}</g>` +
-    `<g class="spop">${txt(126, 29, '+50', 6.5, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')}</g>`;
-  return [sh, s];
-}
 function coproc() {
   // expansion card: the co-processor chip and the spare daemon slot (+1) on one board
   const sh = R(22, 21, 112, 40, 2);
@@ -535,7 +521,6 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
   nullpad: [() => nullpad(), '16 12 118 54', 0],
   ziptie: [() => ziptie(), '6 16 138 54', 0],
-  slingshot: [() => slingshot(), '10 12 134 66', 0],
   ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height
   hotkey: [() => shortkey(), 0, 0],
   hotkey2: [() => shortkey(), 0, 0],

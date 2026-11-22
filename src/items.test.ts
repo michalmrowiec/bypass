@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyPick, dealBoard, replayRoute, TOOLS } from './matrix';
 import { generate } from './generator';
 import { stageSeed } from './game';
-import { canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
+import { migratePayloads, canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -31,9 +31,6 @@ describe('passive bill items', () => {
   it('Zip tie adds half the data of targets sharing a code', () => {
     expect(scoreMatrix(ctx, with_('ziptie')).gear).toEqual([['ziptie', { flat: 17 }]]);
     expect(scoreMatrix({ ...ctx, buf: ['A', 'B', 'X', 'Y'] }, with_('ziptie')).gear).toEqual([]);
-  });
-  it('Slingshot pays for the longest move', () => {
-    expect(scoreMatrix(ctx, with_('slingshot')).gear).toEqual([['slingshot', { flat: 40 }]]);
   });
   it('Overclock multiplies the matrix by 1.5', () => {
     const sc = scoreMatrix(ctx, with_('overclock'));
@@ -192,5 +189,13 @@ describe('review fixes', () => {
     b.armed = 'shift';
     applyPick(b, 0, 0);
     expect([b.m.tools, b.armed, b.run.path.length]).toEqual([false, null, 1]);
+  });
+});
+
+describe('old saves', () => {
+  it('drop items the game no longer has', () => {
+    const s = { ...newRunState(1), items: ['thumb', 'slingshot'] as ItemId[], shelf: ['slingshot', 'ping'] as ItemId[], skipped: ['slingshot'] as unknown as ItemId[] };
+    migratePayloads(s);
+    expect([s.items, s.shelf, s.skipped]).toEqual([['thumb'], ['ping'], []]);
   });
 });

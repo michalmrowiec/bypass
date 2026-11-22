@@ -46,6 +46,8 @@ Liczby to punkt startowy do simu.
 
 ## Decyzje gracza
 
+- **Slingshot usunięty** (2026-11-22, po wdrożeniu): prawie dublował daemona Long jump; zostaje 9 nowych itemów.
+
 - Mechanika zamiast nazwy rodziny; mieszanka z 2 itemami pod hands.
 - UPS mocny, więc 2U; Compiler 2U; Overclock 2U i drogi; Bridge v2 2U.
 - Hotkey wzmocniony do +2/+3 (mocny na początku runu, to OK).

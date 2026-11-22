@@ -177,7 +177,6 @@ const ART: Record<ItemId, string> = {
   // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
   nullpad: ram(11, 6),
   ziptie: cable('M28 35C55 -6 85 76 120 35') + plugs,
-  slingshot: antenna,
   ups: socket,
   hotkey: key,
   hotkey2: key,
