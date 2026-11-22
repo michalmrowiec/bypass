@@ -880,7 +880,7 @@ const daemonText = (id: DaemonId) => {
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
 const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
   const it = ITEMS[id];
-  return '<' + tag + " class='ware hw" + cls + "'><span class='stage'>" + gear(id) + '</span><b>' + it.name + ' <small>v' + it.ver + '</small></b><small>' + it.kind
+  return '<' + tag + " class='ware hw" + cls + "'><span class='stage'>" + gear(id) + '</span><b>' + it.name + ' <small>v' + it.ver + '</small></b><small>' + it.kind + " · <span class='" + (unitsOf(id) > 1 ? 'big' : '') + "'>" + unitsOf(id) + 'U</span>'
     + '</small><p>' + rich(it.text) + "</p><span class='price'>" + foot + '</span></' + tag + '>';
 };
 

@@ -1096,6 +1096,7 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .chip.mod{--fc:var(--mint-dim);padding:2px 8px 2px 2px}
 .chip.mod .gear{width:48px;height:27px}
 .chip.mod b{font-weight:600;color:var(--ink)}
+.ware small .big{color:var(--mint);font-weight:700} /* a 2U module: takes two rack slots */
 .chip.mod small{color:var(--muted);font-weight:400}
 .chip.none{color:var(--muted);border-style:dashed}
 .dcard.poor{opacity:.5;cursor:not-allowed}
