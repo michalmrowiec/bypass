@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newRunState, rackFull, scoreMatrix, unitsOf, usedSlots, type ItemId } from './roguelike';
+import { daemonsAfterMatrix, newRunState, nextSection, rackFull, scoreMatrix, unitsOf, usedSlots, type DaemonId, type ItemId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -36,5 +36,29 @@ describe('passive bill items', () => {
     const sc = scoreMatrix(ctx, with_('overclock'));
     expect([sc.total, sc.gear]).toEqual([60, [['overclock', { mult: 1.5 }]]]);
     expect(scoreMatrix({ ...ctx, buf: ['Q'] }, with_('overclock')).total).toBe(0);
+  });
+});
+
+describe('UPS', () => {
+  // 2 of 3 targets: Heartbeat would halve; starting in column 0 again resets Rotate.
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
+  const run = () => ({ ...newRunState(1), items: ['ups'] as ItemId[], daemons: ['heartbeat', 'rotate'] as DaemonId[], stacks: { heartbeat: 4, rotate: 3 }, lastStart: 0 });
+  it('keeps every breaking streak once per room', () => {
+    const s = run();
+    daemonsAfterMatrix(ctx, s, false);
+    expect([s.stacks.heartbeat, s.stacks.rotate, s.upsUsed]).toEqual([4, 3, true]);
+    expect(s.events!.at(-1)).toBe('UPS · kept the streaks');
+    daemonsAfterMatrix(ctx, s, false);
+    expect([s.stacks.heartbeat, s.stacks.rotate]).toEqual([2, 0]);
+    nextSection(s);
+    expect(s.upsUsed).toBeUndefined();
+  });
+  it('does nothing without UPS or when nothing breaks', () => {
+    const s = { ...run(), items: [] as ItemId[] };
+    daemonsAfterMatrix(ctx, s, false);
+    expect([s.stacks.heartbeat, s.stacks.rotate]).toEqual([2, 0]);
+    const g = { ...run(), lastStart: 3, daemons: ['rotate'] as DaemonId[] };
+    daemonsAfterMatrix(ctx, g, false);
+    expect([g.stacks.rotate, g.upsUsed]).toEqual([4, undefined]);
   });
 });

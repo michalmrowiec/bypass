@@ -262,6 +262,7 @@ export interface RunState {
   icePicked?: boolean; // Paper trail: the boss ICE was chosen
   miner?: 'pool' | 'idle'; // Miner mode; missing = pool
   roomIdle?: boolean; // a matrix in this room ended with the Credit chip in idle, so pool pays nothing here
+  upsUsed?: boolean; // the UPS saved the streaks in this room
   loop: number; // iteration, 0-based
   patches: Patch[];
   matrix: number; // matrices dealt so far (restarts included), feeds the per-matrix seed
@@ -397,6 +398,7 @@ export function nextSection(s: RunState): Patch[] | undefined {
   delete s.stacks.sandbag; // room-scoped
   delete s.roomFull;
   delete s.roomIdle;
+  delete s.upsUsed;
   if (s.section < sections(s).length) return;
   // A save from before bonus tracking starts recording with the new iteration.
   Object.assign(s, { section: 0, loop: s.loop + 1, scores: sections(s).map(() => []), data: 0, carry: 0, bonusHits: s.bonusHits ?? [] });
@@ -692,9 +694,13 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
 export function daemonsAfterMatrix(ctx: MatrixCtx, s: RunState, disconnected: boolean): void {
   const f = facts(ctx);
   if (!f.done.length) return;
+  const next = new Map(s.daemons.flatMap((id) => { const st = streakOf(id); return st ? [[id, st.next(s.stacks[id] ?? 0, f, s, disconnected)] as const] : []; }));
+  const breaks = [...next].some(([id, n]) => n < (s.stacks[id] ?? 0));
+  const ups = breaks && s.items.includes('ups') && !s.upsUsed;
+  if (ups) { s.upsUsed = true; logEvent(s, 'UPS · kept the streaks'); }
   for (const id of s.daemons) {
     const d = DAEMONS[id] as Daemon;
-    if (d.streak) s.stacks[id] = d.streak.next(s.stacks[id] ?? 0, f, s, disconnected);
+    if (next.has(id)) s.stacks[id] = ups ? Math.max(next.get(id)!, s.stacks[id] ?? 0) : next.get(id)!;
     d.end?.(s, f, disconnected);
   }
   s.lastStart = f.start;
