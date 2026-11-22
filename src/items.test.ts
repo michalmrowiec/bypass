@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyPick, dealBoard, replayRoute, TOOLS } from './matrix';
 import { generate } from './generator';
 import { stageSeed } from './game';
-import { migratePayloads, canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
+import { rechargeUps, UPS_BATTERY, migratePayloads, canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -43,7 +43,7 @@ describe('UPS', () => {
   // 2 of 3 targets: Heartbeat would halve; starting in column 0 again resets Rotate.
   const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
   const run = () => ({ ...newRunState(1), items: ['ups'] as ItemId[], daemons: ['heartbeat', 'rotate'] as DaemonId[], stacks: { heartbeat: 4, rotate: 3 }, lastStart: 0 });
-  it('keeps every breaking streak once per room', () => {
+  it('keeps every breaking streak once, until its battery is replaced', () => {
     const s = run();
     daemonsAfterMatrix(ctx, s, false);
     expect([s.stacks.heartbeat, s.stacks.rotate, s.upsUsed]).toEqual([4, 3, true]);
@@ -51,7 +51,14 @@ describe('UPS', () => {
     daemonsAfterMatrix(ctx, s, false);
     expect([s.stacks.heartbeat, s.stacks.rotate]).toEqual([2, 0]);
     nextSection(s);
-    expect(s.upsUsed).toBeUndefined();
+    expect(s.upsUsed).toBe(true); // a spent battery stays spent
+    expect(rechargeUps({ ...s, credits: UPS_BATTERY - 1 })).toBe(false);
+    s.credits = UPS_BATTERY + 1;
+    expect(rechargeUps(s)).toBe(true);
+    expect([s.upsUsed, s.credits, rechargeUps(s)]).toEqual([undefined, 1, false]);
+    s.upsUsed = true;
+    sell(s, 'ups');
+    expect(s.upsUsed).toBeUndefined(); // a new UPS comes charged
   });
   it('does nothing without UPS or when nothing breaks', () => {
     const s = { ...run(), items: [] as ItemId[] };

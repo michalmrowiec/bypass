@@ -46,6 +46,8 @@ Liczby to punkt startowy do simu.
 
 ## Decyzje gracza
 
+- **UPS zmieniony** (2026-11-22, po wdrożeniu): raz na pokój było zbyt OP i zwalniało z myślenia przy Cronie. Teraz jeden ładunek, a w sklepie „Replace battery” za $2 (UPS_BATTERY). Zostaje 2U.
+
 - **Slingshot usunięty** (2026-11-22, po wdrożeniu): prawie dublował daemona Long jump; zostaje 9 nowych itemów.
 
 - Mechanika zamiast nazwy rodziny; mieszanka z 2 itemami pod hands.

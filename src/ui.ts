@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
@@ -786,7 +786,7 @@ function renderDaemons() {
     // Credit chip: its mode switches only outside a matrix in play, so a matrix scores in one mode.
     const miner = id === 'chip' ? { mode: R.miner ?? 'pool', free: S.mode === 'run' && (start || S.over) } : undefined;
     const spent = !ready && (used || missed);
-    const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
+    const hint = !ready ? (!t ? (id === 'ups' && R.upsUsed ? 'battery spent · a new one in the shop' : '') : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
       : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
       : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' || t === 'shift' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
@@ -1195,7 +1195,7 @@ function showShop(restock = true) {
       : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
     + "<div class='wares shelf" + (R.zipOpen ? ' mini' : '') + "'>" + R.shelf.map((id) => ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '')).join('')
-    + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + hotkeyZone() + zipZone() + "<div class='row'>"
+    + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + hotkeyZone() + upsZone() + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
@@ -1205,6 +1205,7 @@ function showShop(restock = true) {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
   document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
+  document.getElementById('upsBattery')?.addEventListener('click', () => { if (rechargeUps(R)) showShop(false); });
   $('modalBox').querySelectorAll<HTMLElement>('[data-hotkey]').forEach((b) => { b.onclick = () => { setHotkey(R, b.dataset.hotkey as PayloadId); showShop(false); }; });
   document.getElementById('buySlot')?.addEventListener('click', () => { if (buySlot(R)) showShop(false); });
   $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => {
@@ -1273,6 +1274,10 @@ const zipCard = ([id, n]: [string, number], i: number) => {
 const hotkeyZone = () => !R.hotkey && (R.items.includes('hotkey') || R.items.includes('hotkey2'))
   ? "<div class='zipzone'><p class='meta zhead'>hotkey · bind a payload, it plays higher while installed</p><div class='row'>"
     + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => "<button class='btn' data-hotkey='" + id + "'>" + payName(id, payLevel(R, id)) + '</button>').join('') + '</div></div>'
+  : '';
+// A spent UPS battery can be replaced in the shop.
+const upsZone = () => R.items.includes('ups') && R.upsUsed
+  ? "<div class='zipzone'><p class='meta zhead'>UPS · battery spent</p><div class='row'><button class='btn' id='upsBattery'" + (R.credits < UPS_BATTERY ? ' disabled' : '') + '>Replace battery · ' + money(UPS_BATTERY) + '</button></div></div>'
   : '';
 // The 3D zone renders as a skeleton at its mounted size, so the dialog eases to the right height.
 function zipZone() {

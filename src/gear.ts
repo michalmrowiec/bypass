@@ -158,9 +158,9 @@ const ups = "<rect class='g-plug' x='26' y='10' width='98' height='64' rx='5'/><
   + "<text class='g-silk' x='36' y='62'>UPS · STACK HOLD</text><circle class='g-act' cx='98' cy='62' r='2'/><circle class='g-act g-pink g-off' cx='110' cy='62' r='2'/>";
 
 // Mechanical macro key: a keycap on its switch stem.
-const keycap = (x: number, y: number, w: number, h: number, label: string) => "<rect class='g-hole' x='" + x + "' y='" + (y + 3) + "' width='" + w + "' height='" + h + "' rx='3'/>"
+const keycap = (x: number, y: number, w: number, h: number, label: string, c = '') => "<rect class='g-hole' x='" + x + "' y='" + (y + 3) + "' width='" + w + "' height='" + h + "' rx='3'/>"
   + "<rect class='g-steel' x='" + x + "' y='" + y + "' width='" + w + "' height='" + h + "' rx='3'/><rect class='g-plug' x='" + (x + 3) + "' y='" + (y + 2) + "' width='" + (w - 6) + "' height='" + (h - 7) + "' rx='2'/>"
-  + "<text class='g-silk' x='" + (x + w / 2) + "' y='" + (y + h * .55) + "' text-anchor='middle'>" + label + '</text>';
+  + "<text class='g-silk' x='" + (x + w / 2) + "' y='" + (y + h * .55) + "' text-anchor='middle'" + (c && " style='fill:" + c + "'") + '>' + label + '</text>';
 
 // Build server: three build steps light in turn on hover, then the payload level.
 const compiler = "<rect class='g-plug' x='20' y='12' width='110' height='60' rx='3'/>" + Array.from({ length: 25 }, (_, i) => "<rect class='g-hole' x='" + (26 + i * 4) + "' y='15' width='2' height='5'/>").join('')
@@ -232,7 +232,9 @@ const ART: Record<ItemId, string> = {
   ziptie,
   ups,
   hotkey: keycap(52, 16, 46, 36, 'F13') + "<rect class='g-plug' x='44' y='54' width='62' height='14' rx='3'/><circle class='g-act' cx='98' cy='61' r='2'/><text class='g-silk' x='50' y='64'>MACRO</text>",
-  hotkey2: "<rect class='g-plug' x='30' y='14' width='90' height='56' rx='5'/>" + [[36, 18, 'F13'], [76, 18, 'F14'], [36, 44, 'F15'], [76, 44, 'F16']].map(([x, y, l]) => keycap(+x, +y, 38, 22, '' + l)).join(''),
+  // v2.0: the same base, wider, with three keys in mint, data blue and pink
+  hotkey2: "<rect class='g-plug' x='18' y='54' width='114' height='14' rx='3'/><circle class='g-act' cx='124' cy='61' r='2'/><text class='g-silk' x='24' y='64'>MACRO PAD</text>"
+    + ([[24, 'F13', 'var(--mint)'], [60, 'F14', 'var(--data)'], [96, 'F15', 'var(--pink)']] as const).map(([x, l, c]) => keycap(x, 22, 30, 30, l, c)).join(''),
   compiler,
   bitshift,
   overclock,

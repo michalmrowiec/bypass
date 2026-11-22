@@ -455,22 +455,25 @@ function ziptie() {
   return [sh, s];
 }
 function hotkey(t) {
-  // mechanical macro key: a glass keycap on a switch with a lit stem; v2 is a 2x2 macro pad. On hover a key goes down
-  const cap = (x, y, w, h, label, k) => `<g class="kcap" style="--i:${k}">
+  // mechanical macro key: a glass keycap on a switch with a lit stem; v2 is the same base, wider, with three coloured keys. On hover a key goes down
+  const cap = (x, y, w, h, label, k, c = '#5af2a8') => `<g class="kcap" style="--i:${k}">
     <rect x="${x}" y="${y + 3}" width="${w}" height="${h}" rx="3.2" fill="#05080a" opacity=".7"/>
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3.2" fill="#5af2a8" fill-opacity=".1" stroke="#5af2a8" stroke-opacity=".5" stroke-width=".7"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3.2" fill="${c}" fill-opacity=".1" stroke="${c}" stroke-opacity=".55" stroke-width=".7"/>
     <rect x="${x + 3}" y="${y + 2}" width="${w - 6}" height="${h - 7}" rx="2.2" fill="url(#pd-dark)" opacity=".85"/>
     <rect x="${x + 3}" y="${y + 2}" width="${w - 6}" height="${(h - 7) * .4}" rx="2.2" fill="#fff" opacity=".07"/>
-    ${txt(x + w / 2, y + h * .55, label, Math.min(w, h * 1.6) * .26)}</g>`;
+    ${txt(x + w / 2, y + h * .55, label, Math.min(w, h * 1.6) * .26, `style="fill:${c}"`)}</g>`;
+  const stem = (x, c) => `<rect x="${x}" y="44" width="14" height="10" rx="1.5" fill="${c}" opacity=".55" filter="url(#pd-glow)"/>`;
   if (!t) {
     const sh = R(44, 52, 62, 14, 3) + R(52, 16, 46, 40, 4);
     return [sh, withFill(R(44, 52, 62, 14, 3), 'fill="url(#pd-case)"') + bevel(44, 52, 62, 14, 3) +
-      `<rect x="68" y="44" width="14" height="10" rx="1.5" fill="#5af2a8" opacity=".55" filter="url(#pd-glow)"/>` + cap(52, 16, 46, 36, 'F13', 0) +
+      stem(68, '#5af2a8') + cap(52, 16, 46, 36, 'F13', 0) +
       `<text class="silk" x="50" y="61.5" font-size="4">MACRO</text>` + led(98, 59)];
   }
-  const sh = R(30, 14, 90, 56, 5);
-  return [sh, withFill(sh, 'fill="url(#pd-case)"') + bevel(30, 14, 90, 56, 5) +
-    [[36, 18, 'F13'], [76, 18, 'F14'], [36, 44, 'F15'], [76, 44, 'F16']].map(([x, y, l], k) => `<rect x="${x + 12}" y="${y + 12}" width="14" height="6" rx="1" fill="#5af2a8" opacity=".45" filter="url(#pd-glow)"/>` + cap(x, y, 38, 22, l, k)).join('')];
+  const keys = [[24, 'F13', '#5af2a8'], [60, 'F14', '#4fc8ff'], [96, 'F15', '#ff3d8b']];
+  const sh = R(18, 52, 114, 14, 3) + R(24, 22, 102, 34, 4);
+  return [sh, withFill(R(18, 52, 114, 14, 3), 'fill="url(#pd-case)"') + bevel(18, 52, 114, 14, 3) +
+    keys.map(([x, l, c], k) => stem(x + 8, c) + cap(x, 22, 30, 30, l, k, c)).join('') +
+    `<text class="silk" x="24" y="61.5" font-size="4">MACRO PAD</text>` + led(124, 59)];
 }
 function bitshift() {
   // shift register: a DIP chip with a window where the codes roll one place left, the first wrapping to the end
@@ -577,7 +580,7 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   ziptie: [() => ziptie(), '6 16 138 54', 0],
   ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height
   hotkey: [() => hotkey(0), '24 10 102 60', 0],
-  hotkey2: [() => hotkey(1), '24 10 102 64', 0],
+  hotkey2: [() => hotkey(1), '12 14 126 56', 0],
   compiler: [() => compiler(), '14 8 122 68', 0],
   bitshift: [() => bitshift(), '16 10 118 60', 0],
   overclock: [() => overclock(), '12 4 126 76', 0],

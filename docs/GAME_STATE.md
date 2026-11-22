@@ -121,7 +121,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Co-processor | 8 | +1 slot daemona |
 | Null pad | 3 | +8 data za każdy pusty slot bufora w matrycy z uploadem |
 | Zip tie | 4 | target dzielący kod z innym wgranym płaci +50% data |
-| UPS (2U) | 5 | raz na pokój serie daemonów, które by się przerwały, zostają; dioda gaśnie po użyciu |
+| UPS (2U) | 5 | jeden ładunek: pierwszy raz, gdy serie daemonów by się przerwały, zostają; potem bateria jest rozładowana (dioda gaśnie), nowa w sklepie za $2 |
 | Hotkey v1/v2 | 3/3 | w sklepie wiążesz payload; dopóki jest w racku, ten payload ma +2 / +3 poziomy |
 | Compiler (2U) | 6 | co 3. punktujące zagranie payloadu daje mu +1 poziom na stałe |
 | Bitshift | 4 | raz na matrycę, przed 1. ruchem, obracasz kody jednego targetu (`A B C` → `B C A`), ile razy chcesz |
