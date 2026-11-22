@@ -11,7 +11,7 @@ import {
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
@@ -1186,7 +1186,7 @@ function showShop(restock = true) {
       : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
     + "<div class='wares shelf" + (R.zipOpen ? ' mini' : '') + "'>" + R.shelf.map((id) => ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
       R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '')).join('')
-    + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + zipZone() + "<div class='row'>"
+    + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + hotkeyZone() + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
@@ -1196,6 +1196,7 @@ function showShop(restock = true) {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
   document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-hotkey]').forEach((b) => { b.onclick = () => { setHotkey(R, b.dataset.hotkey as PayloadId); showShop(false); }; });
   document.getElementById('buySlot')?.addEventListener('click', () => { if (buySlot(R)) showShop(false); });
   $('modalBox').querySelectorAll<HTMLElement>('[data-sell]').forEach((b) => {
     b.onclick = () => { const id = b.dataset.sell as ItemId; if (id === 'socket' && R.daemons.length > DAEMON_SLOTS) showDrop(); else if (sell(R, id)) showShop(false); };
@@ -1259,6 +1260,11 @@ const zipCard = ([id, n]: [string, number], i: number) => {
     + "<span class='meta'>" + fmtEffect(payEffect(p, lv + n)) + "</span><span class='meta'>" + PAYLOADS[p].text + '</span>' + payEx(p) + "<span class='meta'>" + playsText(R.payPlays?.[id] ?? 0) + '</span></span>'
     + "<span class='pveil' aria-hidden='true'><span class='phex'></span><i class='pbar'><i></i></i></span></button>";
 };
+// A Hotkey without a payload asks for one; the choice stays with the upgrade.
+const hotkeyZone = () => !R.hotkey && (R.items.includes('hotkey') || R.items.includes('hotkey2'))
+  ? "<div class='zipzone'><p class='meta zhead'>hotkey · bind a payload, it plays higher while installed</p><div class='row'>"
+    + (Object.keys(PAYLOADS) as PayloadId[]).map((id) => "<button class='btn' data-hotkey='" + id + "'>" + payName(id, payLevel(R, id)) + '</button>').join('') + '</div></div>'
+  : '';
 // The 3D zone renders as a skeleton at its mounted size, so the dialog eases to the right height.
 function zipZone() {
   const head = "<p class='meta zhead'>patch.zip · 1 per shop · raises one payload for the rest of the run</p>";

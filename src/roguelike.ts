@@ -263,6 +263,8 @@ export interface RunState {
   miner?: 'pool' | 'idle'; // Miner mode; missing = pool
   roomIdle?: boolean; // a matrix in this room ended with the Credit chip in idle, so pool pays nothing here
   upsUsed?: boolean; // the UPS saved the streaks in this room
+  hotkey?: PayloadId; // the payload the Hotkey is bound to
+  compiled?: Partial<Record<string, number>>; // scoring plays counted by the Compiler, by payload id
   loop: number; // iteration, 0-based
   patches: Patch[];
   matrix: number; // matrices dealt so far (restarts included), feeds the per-matrix seed
@@ -600,7 +602,13 @@ export const PAYLOADS = {
 } satisfies Record<string, Payload>;
 export type PayloadId = keyof typeof PAYLOADS;
 export const payFile = (id: PayloadId) => id + '.bin';
-export const payLevel = (s: RunState, id: PayloadId) => s.payLevels?.[id] ?? 1;
+// payBase: the level the run keeps; payLevel adds the Hotkey bonus on top, so writes always go through payBase.
+export const payBase = (s: RunState, id: PayloadId) => s.payLevels?.[id] ?? 1;
+export const HOTKEY_LEVELS = { hotkey: 2, hotkey2: 3 } as const;
+const hotkeyBonus = (s: RunState, id: PayloadId) => { const k = (['hotkey2', 'hotkey'] as const).find((h) => s.items.includes(h)); return k && s.hotkey === id ? HOTKEY_LEVELS[k] : 0; };
+export const payLevel = (s: RunState, id: PayloadId) => payBase(s, id) + hotkeyBonus(s, id);
+export const setHotkey = (s: RunState, id: PayloadId) => { s.hotkey = id; logEvent(s, 'Hotkey · bound to ' + payFile(id)); };
+export const COMPILE_EVERY = 3;
 // Like poker hands: level 1 already adds the payload's data; each level above it adds that data again and a mult step.
 export const payEffect = (id: PayloadId, lv: number): Effect => {
   const p = PAYLOADS[id];
@@ -714,7 +722,14 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
   daemonsAfterMatrix(ctx, s, disconnected);
   const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
   if (facts(ctx).all) { earn(s, 'every target uploaded', FULL_CREDIT); s.roomFull = true; }
-  if (score.pay) { const id = score.pay[0]; (s.payPlays ??= {})[id] = (s.payPlays[id] ?? 0) + 1; }
+  if (score.pay) {
+    const id = score.pay[0];
+    (s.payPlays ??= {})[id] = (s.payPlays[id] ?? 0) + 1;
+    if (s.items.includes('compiler') && ((s.compiled ??= {})[id] = (s.compiled[id] ?? 0) + 1) % COMPILE_EVERY === 0) {
+      (s.payLevels ??= {})[id] = payBase(s, id) + 1;
+      logEvent(s, 'Compiler · ' + payFile(id) + ' Lv' + payBase(s, id));
+    }
+  }
   logEvent(s, 'matrix over' + (disconnected ? ' (disconnect)' : '') + ' · ' + facts(ctx).done.length + '/' + ctx.targets.length + ' uploaded · ' + score.total + ' data');
   if (ctx.bounty) {
     if (met) s.bonusHits?.push(bonusKey(s.loop, s.section, played(s)));
@@ -802,7 +817,7 @@ function payReward(s: RunState, why: string, id: RewardId): RewardId {
   else if (id === 'legend') { s.legendOffer = true; note(REWARDS.legend); }
   else if (id === 'double') { s.charges = (s.charges ?? 0) + 1; note(REWARDS.double); }
   else if (id === 'stack') { for (const d of streaks) s.stacks[d] = (s.stacks[d] ?? 0) + BOUNTY_STACKS; note(REWARDS.stack); }
-  else if (id === 'patch') { const [p, n] = rewardPatch(s); note(rewardText(s, id)); (s.payLevels ??= {})[p] = payLevel(s, p) + n; }
+  else if (id === 'patch') { const [p, n] = rewardPatch(s); note(rewardText(s, id)); (s.payLevels ??= {})[p] = payBase(s, p) + n; }
   else earn(s, why, BOUNTY_CREDITS);
   (s.bonus ??= []).push(id);
   return id;
@@ -1026,7 +1041,7 @@ export function pickZip(s: RunState, i: number): boolean {
   const p = s.zipOpen?.[i];
   if (!p) return false;
   const id = p[0] as PayloadId;
-  (s.payLevels ??= {})[id] = payLevel(s, id) + p[1];
+  (s.payLevels ??= {})[id] = payBase(s, id) + p[1];
   s.zipOpen = undefined;
   logEvent(s, 'shop · ' + id + '.patch installed · ' + payFile(id) + ' Lv' + payLevel(s, id));
   return true;
@@ -1062,6 +1077,7 @@ export function sell(s: RunState, id: ItemId, drop?: DaemonId): boolean {
   }
   s.credits += sellValue(id);
   s.items = s.items.filter((o) => o !== id);
+  if (id.startsWith('hotkey')) delete s.hotkey;
   s.restarts = Math.min(s.restarts, restartsFor(s));
   logEvent(s, 'shop · sold ' + itemName(id) + ' +$' + sellValue(id) + (drop && !s.daemons.includes(drop) ? ' · dropped ' + dmnFile(drop) : ''));
   return true;

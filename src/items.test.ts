@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daemonsAfterMatrix, newRunState, nextSection, rackFull, scoreMatrix, unitsOf, usedSlots, type DaemonId, type ItemId } from './roguelike';
+import { buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -60,5 +60,42 @@ describe('UPS', () => {
     const g = { ...run(), lastStart: 3, daemons: ['rotate'] as DaemonId[] };
     daemonsAfterMatrix(ctx, g, false);
     expect([g.stacks.rotate, g.upsUsed]).toEqual([4, undefined]);
+  });
+});
+
+describe('Hotkey and Compiler', () => {
+  // AB and BCD uploaded, sharing B: the linked payload scores.
+  const ctx = { buf: ['A', 'B', 'C', 'D'], path: [[0, 0], [4, 0], [4, 2], [0, 2]] as [number, number][], targets: [['A', 'B'], ['B', 'C', 'D'], ['X', 'Y']], l: 8, n: 5 };
+  it('Hotkey raises the chosen payload while installed', () => {
+    const s = { ...newRunState(1), items: ['hotkey'] as ItemId[], payLevels: { linked: 2 } };
+    expect(payLevel(s, 'linked')).toBe(2); // nothing chosen yet
+    setHotkey(s, 'linked');
+    expect([payLevel(s, 'linked'), payLevel(s, 'multi'), payBase(s, 'linked')]).toEqual([4, 1, 2]);
+    expect(payLevel({ ...s, items: ['hotkey2'] }, 'linked')).toBe(5);
+  });
+  it('patch.zip levels the base, not the Hotkey bonus', () => {
+    const s = { ...newRunState(5), credits: 10, items: ['hotkey'] as ItemId[] };
+    buyZip(s);
+    const [id, n] = s.zipOpen![0] as [PayloadId, number];
+    setHotkey(s, id);
+    pickZip(s, 0);
+    expect([payBase(s, id), payLevel(s, id)]).toEqual([1 + n, 3 + n]);
+  });
+  it('selling the Hotkey drops its bonus', () => {
+    const s = { ...newRunState(1), items: ['hotkey'] as ItemId[] };
+    setHotkey(s, 'single');
+    expect(sell(s, 'hotkey')).toBe(true);
+    expect([s.hotkey, payLevel(s, 'single')]).toEqual([undefined, 1]);
+  });
+  it('Compiler levels a payload every 3rd time it scores, for good', () => {
+    const s = { ...newRunState(1), items: ['compiler'] as ItemId[] };
+    finishMatrix(s, ctx, false);
+    finishMatrix(s, ctx, false);
+    expect(payBase(s, 'linked')).toBe(1);
+    finishMatrix(s, ctx, false);
+    expect(payBase(s, 'linked')).toBe(2);
+    expect(s.events!.some((e) => e === 'Compiler · linked.bin Lv2')).toBe(true);
+    sell(s, 'compiler');
+    expect(payBase(s, 'linked')).toBe(2);
   });
 });
