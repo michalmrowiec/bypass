@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TOOLS } from './matrix';
-import { rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
+import { generate } from './generator';
+import { placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -109,5 +110,32 @@ describe('Bitshift', () => {
   });
   it('is a tool', () => {
     expect(TOOLS.bitshift).toBe('shift');
+  });
+});
+
+describe('Exploit', () => {
+  const same = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1];
+  it('places $ cells apart from the other item cells, the same for a seed', () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const p = generate(seed, sectionMatrix(1));
+      const rep: [number, number] = p.path![1];
+      const a = placeCells(seed, p, ['wildcard1', 'datanode3', 'exploit2'], rep);
+      expect(a.cash.length).toBe(2);
+      expect(a.cash.some((c) => [a.wild!, ...a.nodes, rep].some((q) => same(c, q)))).toBe(false);
+      expect(same(a.cash[0], a.cash[1])).toBe(false);
+      expect(placeCells(seed, p, ['wildcard1', 'datanode3', 'exploit2'], rep)).toEqual(a);
+      // Owning an Exploit leaves the other cells where they were.
+      expect(placeCells(seed, p, ['wildcard1', 'datanode3'], rep)).toEqual({ ...a, cash: [] });
+      expect(placeCells(seed, p, ['exploit']).cash.length).toBe(1);
+    }
+  });
+  it('pays +$1 per $ cell on the path, once each', () => {
+    const ctx = { buf: ['A', 'B', 'A'], path: [[0, 0], [2, 0], [0, 0]] as [number, number][], targets: [['A', 'B']], l: 6, n: 5, cash: [[0, 0], [3, 3]] as [number, number][] };
+    const s = { ...newRunState(1), items: ['exploit2'] as ItemId[] };
+    finishMatrix(s, ctx, true);
+    expect(s.earned.filter(([why]) => why === 'Exploit')).toEqual([['Exploit', 1]]);
+    const none = { ...newRunState(1), items: ['exploit'] as ItemId[] };
+    finishMatrix(none, { ...ctx, buf: ['Q'] }, true); // no upload still pays
+    expect(none.earned.filter(([why]) => why === 'Exploit')).toEqual([['Exploit', 1]]);
   });
 });

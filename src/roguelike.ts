@@ -416,6 +416,7 @@ export interface MatrixCtx {
   ports?: Puzzle['ports']; // port board pairs, for move lengths
   stay?: number[]; // port picks that did not jump
   trap?: Cell; // Honeypot cell
+  cash?: Cell[]; // Exploit cells, +$1 each when picked
   tools?: boolean; // an item tool was used (Bare hands bonus)
   bounty?: BountyId;
   charge?: boolean; // a ×2 data charge is spent on this matrix
@@ -735,6 +736,8 @@ export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean)
     if (met) s.bonusHits?.push(bonusKey(s.loop, s.section, played(s)));
     logEvent(s, 'bonus ' + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[ctx.bounty].name);
   }
+  const cash = (ctx.cash ?? []).filter((q) => ctx.path.some((p) => p[0] === q[0] && p[1] === q[1])).length;
+  if (cash) earn(s, 'Exploit', EXPLOIT_CASH * cash);
   if (minerIdle(s)) s.roomIdle = true;
   const out = endMatrix(s, score.total, ctx.l - ctx.buf.length);
   for (const [why, n] of s.earned) if (n) logEvent(s, 'credits +$' + n + ' · ' + why);
@@ -1102,7 +1105,8 @@ const NODE_ON_PATH = 0.2;
 
 // Item cells of a matrix, the same for its seed: the Wildcard v1.0 cell never lies on the planted solution path,
 // each Data node cell only in about one matrix in five (v3.0 has two).
-export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: Cell; nodes: Cell[] } {
+// rep: the Repeater cell, which a $ cell never takes.
+export function placeCells(seed: number, p: Puzzle, items: ItemId[], rep?: Cell): { wild?: Cell; nodes: Cell[]; cash: Cell[] } {
   const r = rng(hashStr(seed + '/cells'));
   const cells = allCells(p);
   const onPath = (c: Cell) => !!p.path?.some((q) => q[0] === c[0] && q[1] === c[1]);
@@ -1117,10 +1121,18 @@ export function placeCells(seed: number, p: Puzzle, items: ItemId[]): { wild?: C
     const c = pickCell(open.filter((c) => c !== wild && !nodes.includes(c) && onPath(c) === on));
     if (c) nodes.push(c);
   }
-  return { wild, nodes };
+  // Exploit draws last, so owning one moves no other cell.
+  const cash: Cell[] = [];
+  const taken = (c: Cell) => [wild, rep, ...nodes, ...cash].some((q) => q && q[0] === c[0] && q[1] === c[1]);
+  for (let k = items.includes('exploit2') ? 2 : items.includes('exploit') ? 1 : 0; k > 0; k--) {
+    const c = pickCell(open.filter((c) => !taken(c)));
+    if (c) cash.push(c);
+  }
+  return { wild, nodes, cash };
 }
 
 export const HONEYPOT_MULT = 0.5;
+export const EXPLOIT_CASH = 1;
 // Honeypot: a free cell off the planted path, clear of the item cells.
 export function trapCell(seed: number, p: Puzzle, avoid: (Cell | undefined)[]): Cell | undefined {
   const r = rng(hashStr(seed + '/trap'));

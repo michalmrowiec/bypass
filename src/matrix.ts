@@ -16,7 +16,7 @@ export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1:
 // rep: the Repeater cell; rewind: Rewind still unused, back: the lane before the last pick; charge: a ×2 data charge is spent here.
 // undone: the path index Rewind took back (it stays on the path for daemons); kept: the buffer index of the code it kept.
 export interface ItemState {
-  nodes?: Cell[]; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
+  nodes?: Cell[]; cash?: Cell[]; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
   shift: boolean; shifted?: number; // Bitshift unused before the first pick; the target it rotates
   stay?: number[]; // path indices of ports picked without a jump (Loopback v1.0 back through a port): you stand on the port itself
   bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free' | 'half'>; charge?: boolean; undone?: number; kept?: number;
@@ -79,7 +79,7 @@ export function canPick(b: Board, r: number, c: number): boolean {
   }
 }
 
-export interface CellView { code: string; alt?: string; hidden: boolean; cls: string[]; tags: ('node' | 'trap' | 'rep')[]; burnLeft?: number; paint?: number }
+export interface CellView { code: string; alt?: string; hidden: boolean; cls: string[]; tags: ('node' | 'trap' | 'rep' | 'cash')[]; burnLeft?: number; paint?: number }
 
 // What a cell shows; `cls` are the cell's CSS classes, except 'ok' (pickable), which the UI adds.
 export function cellView(b: Board, r: number, c: number): CellView {
@@ -92,6 +92,7 @@ export function cellView(b: Board, r: number, c: number): CellView {
   if (code === WILD) cls.push('wild');
   if (code === BLOCK) cls.push(b.puzzle.shape ? 'void' : 'ice');
   if (b.m.nodes?.some((q) => same(q, r, c))) tags.push('node');
+  if (b.m.cash?.some((q) => same(q, r, c))) tags.push('cash');
   if (same(b.m.trap, r, c)) { cls.push('trap'); tags.push('trap'); }
   if (same(b.m.rep, r, c)) tags.push('rep');
   const level = b.ctx.daemons.includes('painter') && code !== BLOCK ? b.ctx.paint?.[r + ',' + c] : undefined;
@@ -122,15 +123,16 @@ export function cellView(b: Board, r: number, c: number): CellView {
 export function dealBoard(seed: number, s: RunState): Board {
   const has = (id: ItemId) => s.items.includes(id);
   const puzzle = dealRunMatrix(seed, s);
-  const cells = placeCells(seed, puzzle, s.items);
-  if (cells.wild) puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
-  if (cells.wild && puzzle.belt?.row === cells.wild[0]) puzzle.belt.base[cells.wild[1]] = WILD;
   // Target data is set before Repeater and Glob reshape the targets.
   const worth = puzzle.targets.map((t) => DATA_BY_LEN[t.length]);
+  // The Repeater reads only path cells, which the Wildcard never takes, so it can go first and keep $ cells off it.
   const rep = has('repeater') ? plantRepeat(seed, puzzle) : undefined;
+  const cells = placeCells(seed, puzzle, s.items, rep);
+  if (cells.wild) puzzle.grid[cells.wild[0]][cells.wild[1]] = WILD;
+  if (cells.wild && puzzle.belt?.row === cells.wild[0]) puzzle.belt.base[cells.wild[1]] = WILD;
   if (has('glob')) globTarget(seed, puzzle.targets);
   const m: ItemState = {
-    ...emptyItems(), nodes: cells.nodes, trap: roomIce(s).includes('honeypot') ? trapCell(seed, puzzle, [cells.wild, ...cells.nodes]) : undefined, worth, rep,
+    ...emptyItems(), nodes: cells.nodes, trap: roomIce(s).includes('honeypot') ? trapCell(seed, puzzle, [cells.wild, ...cells.nodes, ...cells.cash]) : undefined, worth, rep, cash: cells.cash,
     rewind: has('rewind'), cuts: cutMarks(seed, puzzle.targets), wild: has('wildcard2'), split: has('split1') || has('split2'), jump: has('bridge') || has('bridge2'),
     loop: has('loopback1') || has('loopback2'), mux: has('mux'), shift: has('bitshift'), bounty: bountyHere(s) ? bountyFor(seed, s.items) : undefined, rewards: rewardsFor(seed, s.daemons),
   };

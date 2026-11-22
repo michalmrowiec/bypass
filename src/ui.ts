@@ -246,7 +246,7 @@ const rowName = (r: number) => (S.mode === 'run' && COMPANIES[R.company].rowLabe
 const colName = (c: number) => (S.mode === 'run' && COMPANIES[R.company].colLabel?.(c)) || '+' + c;
 
 let beltSeen = 0;
-const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + DI + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>" };
+const TAG = { get node() { return "<i class='ntag'>+" + nodeData(R.items) + DI + '</i>'; }, trap: "<i class='ntag ttag'>×.5</i>", rep: "<i class='ntag rtag'>×2</i>", cash: "<i class='ntag ctag'>+$1</i>" };
 
 // Installed daemons per family (lowercase), most first.
 const famCounts = (ids: DaemonId[]): [string, number][] => {
@@ -509,7 +509,7 @@ function render() {
 }
 
 const runCtx = (): MatrixCtx =>
-  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, stay: M.stay, worth: M.worth, nodes: M.nodes, trap: M.trap, jumps: M.jumps,
+  ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, stay: M.stay, worth: M.worth, nodes: M.nodes, cash: M.cash, trap: M.trap, jumps: M.jumps,
     par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
