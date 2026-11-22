@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -45,7 +45,7 @@ let R: RunState = newRunState(0);
 let offer: DaemonId[] = [];
 let endWhy = ''; // why a run matrix ended on its own
 // Run save: R at the last checkpoint, the screen to reopen, and the current matrix's actions, replayed on the same deal.
-type Act = { r: number; c: number; t?: Tool; a?: 1 } | { s: number; at?: number } | { d: 1 } | { w: 1 } | { x: 1 } | { m: 'pool' | 'idle' };
+type Act = { r: number; c: number; t?: Tool; a?: 1 } | { s: number; at?: number } | { b: number } | { d: 1 } | { w: 1 } | { x: 1 } | { m: 'pool' | 'idle' };
 type RunScreen = 'intro' | 'matrix' | 'patch' | 'offer' | 'shop';
 interface SavedRun { v: number; R: RunState; screen: RunScreen; patch?: Patch; log: Act[] }
 const RUN_V = 2; // bump when RunState changes shape; older saves are dropped
@@ -349,7 +349,7 @@ function render() {
   }
   // Roving tabindex: the grid is one Tab stop, arrows move inside it.
   (g.querySelector<HTMLElement>('.cell.ok') ?? g.querySelector<HTMLElement>('.cell')!).tabIndex = 0;
-  $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'split' ? 'cut a target'
+  $('laneLabel').textContent = offer.length ? 'choose a daemon' : armed === 'wild' ? 'place ** on any free cell' : armed === 'shift' ? 'rotate a target' : armed === 'split' ? 'cut a target'
     : armed === 'jump' ? 'bridge: pick ' + (jumpAny(B()) ? 'any free cell' : 'a free cell next to your last pick') : armed === 'mux' ? 'mux: pick in the row or column of your last pick' : armed === 'loop' ? 'loopback: pick a used cell' + (loopAny(B()) ? '' : ' in your lane') : S.over ? 'session closed'
     : doorOpen() ? 'pick on any edge' : free ? 'pick in row ' + rowName(free[0]) + ' or col ' + colName(free[1])
     : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
@@ -426,16 +426,18 @@ function render() {
     const cut = S.mode === 'run' && armed === 'split' && canSplit(t);
     const gaps = cut && R.items.includes('split2');
     const blind = cut && !gaps && blackout();
+    // Bitshift, before the first move: each click rotates the clicked target; once one is rotated, only that one.
+    const turn = S.mode === 'run' && armed === 'shift' && (M.shifted === undefined || M.shifted === i);
     // The plan would upload it (never under Blackout, which hides the targets).
     const planned = !st.done && pl.codes.length > 0 && !blackout() && targetProgress([...buffer, ...pl.codes], t, l, false).done;
-    el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut ? ' cut' : '') + (planned ? ' planned' : '');
+    el.className = 'target' + (st.done ? ' done' : st.fail ? ' fail' : '') + (cut || turn ? ' cut' : '') + (planned ? ' planned' : '');
     const worth = S.mode === 'run' ? ' +' + (M.worth[i] ?? DATA_BY_LEN[t.length]) : '';
     // Thumb drive pays per uploaded target, so each one shows its share.
     const thumb = S.mode === 'run' && st.done ? thumbData(R.items) : 0;
     const extra = prio && i === prioAt ? (M.worth[i] ?? DATA_BY_LEN[t.length]) * (PRIO_MULT[prio] - 1) : 0;
     const tag = (extra ? " <span class='thumbtag' data-tip='Priority'>+" + extra + DI + '</span>' : '')
       + (thumb ? " <span class='thumbtag' data-tip='Thumb drive'>+" + thumb + DI + '</span>' : '');
-    const state = st.done ? 'Uploaded' + worth + (worth && DI) : st.fail ? 'Failed' : cut ? worth.trim() + DI + ' · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
+    const state = st.done ? 'Uploaded' + worth + (worth && DI) : st.fail ? 'Failed' : turn ? worth.trim() + DI + ' · click to rotate' : cut ? worth.trim() + DI + ' · ' + (blind ? 'blind cut' : gaps ? 'cut between codes' : 'click to split')
       : worth ? worth.trim() + DI : 'Target ' + (i + 1);
     const mark = cut && !gaps ? M.cuts[i] : 0;
     el.innerHTML = '<div class="codes">' + t.map((c, j) => (gaps && j ? "<button class='gap' data-at='" + j + "' aria-label='Cut before " + c + "'></button>"
@@ -445,6 +447,9 @@ function render() {
     if (gaps) el.querySelectorAll<HTMLElement>('.gap').forEach((g) => { g.onclick = () => doSplit(i, +g.dataset.at!); });
     else if (cut) {
       Object.assign(el, { tabIndex: 0, onclick: () => doSplit(i, mark), onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') doSplit(i, mark); } });
+      el.setAttribute('role', 'button');
+    } else if (turn) {
+      Object.assign(el, { tabIndex: 0, onclick: () => doShift(i), onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') doShift(i); } });
       el.setAttribute('role', 'button');
     }
     if (S.mode === 'run' && !cut) {
@@ -768,18 +773,18 @@ function renderDaemons() {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
     const ready = !!t && !S.over && !offer.length
-      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start && S.puzzle.targets.some(canSplit) : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
+      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start && S.puzzle.targets.some(canSplit) : t === 'shift' ? M.shift && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
     const on = ready && armed === t;
     // Not ready: spent (used: until the next matrix, SIM until the next room), unused (its window passed without use)
     // or waiting (charged, not now).
-    const used = !!t && (t === 'sim' ? R.restarts < 1 : !M[t]); // each tool's name is its ItemState flag
-    const missed = !!t && !used && (S.over || ((t === 'sim' || t === 'wild' || t === 'split') && !start));
+    const used = !!t && (t === 'sim' ? R.restarts < 1 : t === 'shift' ? M.shifted !== undefined && !start : !M[t]); // each tool's name is its ItemState flag
+    const missed = !!t && !used && (S.over || ((t === 'sim' || t === 'wild' || t === 'split' || t === 'shift') && !start));
     // Credit chip: its mode switches only outside a matrix in play, so a matrix scores in one mode.
     const miner = id === 'chip' ? { mode: R.miner ?? 'pool', free: S.mode === 'run' && (start || S.over) } : undefined;
     const spent = !ready && (used || missed);
     const hint = !ready ? (!t ? '' : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
       : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
-      : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' ? 'armed · click a target'
+      : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' || t === 'shift' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
     return { id, t, ready, miner, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && R.upsUsed ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
@@ -806,7 +811,7 @@ function renderDaemons() {
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'>" + scr(i, 0) + "<i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i>" + scr(i, 1) + '</div>' + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
+      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
         + "<span class='nm'><b>" + it.name + (it.ver === '1.0' ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
@@ -821,7 +826,7 @@ function renderDaemons() {
   // Phones: ready tools also sit above the matrix, so the rack at the bottom needs no scrolling.
   // Kept (empty) while any tool is owned, so the matrix does not jump under the finger.
   $('quick').hidden = S.mode !== 'run' || !units.some((u) => u.t);
-  $('quick').innerHTML = ready.map((u) => "<button class='qtool" + (u === on ? ' armed' : '') + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '')
+  $('quick').innerHTML = ready.map((u) => "<button class='qtool" + (u === on ? ' armed' : '') + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '')
     + "' data-tool='" + u.t + "' aria-pressed='" + (u === on) + "'>" + gear(u.id) + '<span>' + ITEMS[u.id].name + '</span></button>').join('');
   $('quick').querySelectorAll<HTMLElement>('.qtool').forEach((el) => { el.onclick = () => use(el.dataset.tool!); });
   $('items').querySelectorAll<HTMLElement>('.unit.hw').forEach((el, i) => {
@@ -1713,7 +1718,7 @@ function resumeRun(sv: SavedRun) {
   S.dealing = false;
   try {
     for (const a of sv.log) {
-      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c, !!a.a); } else if ('s' in a) doSplit(a.s, a.at); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else if ('m' in a) setMiner(R, a.m); else disconnect();
+      if ('r' in a) { armed = a.t ?? null; choose(a.r, a.c, !!a.a); } else if ('s' in a) doSplit(a.s, a.at); else if ('b' in a) doShift(a.b); else if ('w' in a) doRewind(); else if ('x' in a) useCharge(); else if ('m' in a) setMiner(R, a.m); else disconnect();
     }
   } finally { replaying = false; }
 }
@@ -1784,6 +1789,15 @@ function doRewind() {
   stopPlan();
   logAct({ w: 1 });
   note('Rewind · last pick undone');
+  render();
+}
+
+function doShift(i: number) {
+  logAct({ b: i });
+  S.puzzle.targets[i] = rotateTarget(S.puzzle.targets[i]);
+  note(toolName('shift') + ' · rotated target ' + S.puzzle.targets[i].join(' '));
+  M.shifted = i;
+  M.tools = true;
   render();
 }
 

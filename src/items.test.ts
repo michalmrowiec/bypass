@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
+import { TOOLS } from './matrix';
+import { rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
 
 describe('rack units', () => {
   it('2U modules take two slots', () => {
@@ -97,5 +98,16 @@ describe('Hotkey and Compiler', () => {
     expect(s.events!.some((e) => e === 'Compiler · linked.bin Lv2')).toBe(true);
     sell(s, 'compiler');
     expect(payBase(s, 'linked')).toBe(2);
+  });
+});
+
+describe('Bitshift', () => {
+  it('rotates a target one code to the left', () => {
+    expect(rotateTarget(['A', 'B', 'C'])).toEqual(['B', 'C', 'A']);
+    expect(rotateTarget(rotateTarget(['A', 'B', 'C']))).toEqual(['C', 'A', 'B']);
+    expect(rotateTarget(['A', 'B'])).toEqual(['B', 'A']);
+  });
+  it('is a tool', () => {
+    expect(TOOLS.bitshift).toBe('shift');
   });
 });

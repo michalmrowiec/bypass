@@ -8,8 +8,8 @@ import {
 } from './roguelike';
 
 type Cell = [number, number];
-export type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind';
-export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', bridge2: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind' };
+export type Tool = 'wild' | 'split' | 'jump' | 'loop' | 'mux' | 'rewind' | 'shift';
+export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1: 'split', split2: 'split', bridge: 'jump', bridge2: 'jump', loopback1: 'loop', loopback2: 'loop', mux: 'mux', rewind: 'rewind', bitshift: 'shift' };
 
 // Item state of the run matrix in play: data node cells, data per target, and the before-first-move tools still unused.
 // tools: an item tool was used this matrix (Bare hands bonus); bounty: the matrix's bonus objective.
@@ -17,10 +17,11 @@ export const TOOLS: Partial<Record<ItemId, Tool>> = { wildcard2: 'wild', split1:
 // undone: the path index Rewind took back (it stays on the path for daemons); kept: the buffer index of the code it kept.
 export interface ItemState {
   nodes?: Cell[]; trap?: Cell; worth: number[]; cuts: number[]; wild: boolean; split: boolean; jump: boolean; loop: boolean; mux: boolean; jumps: number[]; tools: boolean;
+  shift: boolean; shifted?: number; // Bitshift unused before the first pick; the target it rotates
   stay?: number[]; // path indices of ports picked without a jump (Loopback v1.0 back through a port): you stand on the port itself
   bounty?: BountyId; rewards: RewardId[]; rep?: Cell; rewind: boolean; back?: Pick<Run, 'axis' | 'idx' | 'free' | 'half'>; charge?: boolean; undone?: number; kept?: number;
 }
-export const emptyItems = (): ItemState => ({ worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, jumps: [], tools: false, rewind: false, rewards: [] });
+export const emptyItems = (): ItemState => ({ worth: [], cuts: [], wild: false, split: false, jump: false, loop: false, mux: false, shift: false, jumps: [], tools: false, rewind: false, rewards: [] });
 
 // What the run brings into the matrix; other modes pass EMPTY_CTX.
 export interface Ctx { items: ItemId[]; daemons: DaemonId[]; ice: IceId[]; lastStart?: number; paint?: Record<string, number> }
@@ -131,7 +132,7 @@ export function dealBoard(seed: number, s: RunState): Board {
   const m: ItemState = {
     ...emptyItems(), nodes: cells.nodes, trap: roomIce(s).includes('honeypot') ? trapCell(seed, puzzle, [cells.wild, ...cells.nodes]) : undefined, worth, rep,
     rewind: has('rewind'), cuts: cutMarks(seed, puzzle.targets), wild: has('wildcard2'), split: has('split1') || has('split2'), jump: has('bridge') || has('bridge2'),
-    loop: has('loopback1') || has('loopback2'), mux: has('mux'), bounty: bountyHere(s) ? bountyFor(seed, s.items) : undefined, rewards: rewardsFor(seed, s.daemons),
+    loop: has('loopback1') || has('loopback2'), mux: has('mux'), shift: has('bitshift'), bounty: bountyHere(s) ? bountyFor(seed, s.items) : undefined, rewards: rewardsFor(seed, s.daemons),
   };
   return { puzzle, run: startRun(s), m, armed: null, ctx: ctxOf(s), over: false };
 }

@@ -1150,6 +1150,9 @@ export const SPLIT_MIN = 3;
 export const canSplit = (t: string[]) => t.length >= SPLIT_MIN;
 
 // Cuts target i before code `at` (default: the middle, rounded up) into two targets; each gets data in proportion to its length.
+// Bitshift: the codes move one place left, the first goes to the end.
+export const rotateTarget = (t: string[]) => [...t.slice(1), t[0]];
+
 export function splitTarget(targets: string[][], worth: number[], i: number, at = Math.ceil(targets[i].length / 2)) {
   const w = worth[i], head = Math.round((w * at) / targets[i].length);
   return {
