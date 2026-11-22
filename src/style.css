@@ -1237,7 +1237,7 @@ button.chip:hover{border-color:var(--gold)}
 .cell .ttag{color:var(--pink)}
 button.icebtn{all:unset;display:block;cursor:var(--hit)}
 button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:color-mix(in srgb,var(--pink) 8%,transparent)}
-.tip{position:fixed;z-index:1000;max-width:min(260px,calc(100vw - 16px));padding:6px 9px;background:var(--panel);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:11px;line-height:1.4;color:var(--ink);pointer-events:none}
+.tip{position:fixed;z-index:1000;max-width:min(260px,calc(100vw - 16px));padding:6px 9px;background:var(--panel);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:11px;line-height:1.4;color:var(--ink);pointer-events:none;white-space:pre-line}
 
 /* Scrollbars: a thin terminal rail, square mint thumb. */
 *{scrollbar-width:thin;scrollbar-color:var(--mint-dim) transparent}

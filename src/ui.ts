@@ -1392,7 +1392,8 @@ const FIRM_SLOTS = 5;
 const entryTitle = (co: Company, e: Entry) => '#' + (co.entries.indexOf(e) + 1) + ' ' + e.name;
 const runName = () => COMPANIES[R.company].name + ' · ' + entryTitle(COMPANIES[R.company], entryOf(R));
 // What the entry changes, for its tag in the contract pane.
-const entryTip = (e: Entry) => (e.plus ? '+ ' + e.plus + ' − ' + e.minus : 'Standard entry: no changes.');
+const entryTip = (e: Entry) => (e.traits.length ? e.traits.map((x) => '• ' + x).join('\n') : 'Standard entry: no changes.');
+const entryLine = (e: Entry) => e.traits.join(' · ');
 // Entry tiles under the carousel: open ones pick the run's entry, the next locked one shows in full, the one after stays classified.
 const ENTRY_PICK = 'bypass:entry';
 function pickedEntry(co: Company) {
@@ -1408,7 +1409,7 @@ function entryTiles(co: Company | undefined, i: number) {
     const state = k >= open ? 'breach ' + entryTitle(co, co.entries[k - 1]) + ' to unlock' : !best ? 'open' : (best.won ? '✓ breached · ' : '') + 'best ' + best.data + DI;
     const tag = k < open ? 'button' : 'span';
     return '<' + tag + (k < open ? " data-entry='" + e.id + "'" : '') + " class='btn etile" + (k >= open ? ' locked' : e === pick ? ' sel' : '')
-      + "'><b>" + entryTitle(co, e) + '</b><small>' + state + '</small>' + (e.plus ? "<span class='etxt'><i>+</i> " + e.plus + "<br><i>−</i> " + e.minus + '</span>' : '') + '</' + tag + '>';
+      + "'><b>" + entryTitle(co, e) + '</b><small>' + state + '</small>' + (e.traits.length ? "<span class='etxt'>" + e.traits.map((x) => '<i>•</i> ' + x).join('<br>') + '</span>' : '') + '</' + tag + '>';
   }).join('');
 }
 // Only a win on the newest open entry opens the next one (a chain); the first win also opens the next company.
@@ -1416,7 +1417,7 @@ function winUnlocks(co: Company, next: Company | undefined) {
   const first = !breached().includes(co.id), was = entriesOpen(wins(co.id));
   const now = co.entries.indexOf(entryOf(R)) === was - 1 ? entriesOpen(recordWin(co.id)) : was;
   const fresh = now > was ? co.entries[now - 1] : undefined;
-  return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + entryTitle(co, fresh) + '</b> + ' + fresh.plus + ' − ' + fresh.minus + '</p>' : '')
+  return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + entryTitle(co, fresh) + '</b> ' + entryLine(fresh) + '</p>' : '')
     + (first && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
 }
 // Entries that ask for a choice before the first room (the boss ICE) get a dialog.
@@ -1747,7 +1748,7 @@ function enterSection() {
     + route + '</div><p>' + sec.brief + "</p><p class='meta'>" + roomSize(sec.size) + ' · ' + sec.matrices
     + (sec.matrices > 1 ? ' matrices' : ' matrix') + ' · quota ' + quota(R) + DI + '</p>'
     + roomIce(R).map((id) => iceRule(id, R.patches.some((p) => p.ice === id && p.room === R.section && p.loop === R.loop) ? 'PATCHED' : 'ICE')).join('')
-    + (entryOf(R).plus ? "<p class='meta'>entry · <b>" + entryTitle(COMPANIES[R.company], entryOf(R)) + '</b>: + ' + entryOf(R).plus + ' − ' + entryOf(R).minus + '</p>' : '')
+    + (entryOf(R).traits.length ? "<p class='meta'>entry · <b>" + entryTitle(COMPANIES[R.company], entryOf(R)) + '</b>: ' + entryLine(entryOf(R)) + '</p>' : '')
     + "<div class='row'><button class='btn' id='breach'>Breach ›</button></div>");
   $('breach').onclick = () => {
     if (cur) { cur.screen = 'matrix'; saveRun(cur); }

@@ -974,12 +974,12 @@ describe('entries', () => {
   const real = COMPANIES.filter((c) => !c.dev);
   const co = (id: string) => COMPANIES.findIndex((c) => c.id === id);
 
-  it('every real company has 3 entries with unique ids, plus and minus text', () => {
+  it('every real company has 3 entries with unique ids and traits', () => {
     for (const c of real) {
       expect(c.entries.length).toBe(3);
       expect(new Set(c.entries.map((e) => e.id)).size).toBe(3);
-      for (const e of c.entries.slice(1)) expect(e.name && e.plus && e.minus).toBeTruthy();
-      expect([c.entries[0].plus, c.entries[0].minus]).toEqual(['', '']); // the default is the plain game
+      for (const e of c.entries.slice(1)) expect(e.name && e.traits.length).toBeTruthy();
+      expect(c.entries[0].traits).toEqual([]); // the default is the plain game
     }
   });
 
@@ -1026,10 +1026,10 @@ describe('entries', () => {
     expect(s.shelf.length).toBe(3);
   });
 
-  it('Night shift offers 3 Runner daemons and adds $1 to modules, patch.zip and rack slots', () => {
+  it('Night shift offers 3 Cron daemons and adds $1 to modules, patch.zip and rack slots', () => {
     const s = { ...newRunState(1, co('meridian'), 'nightshift'), credits: 10, shelf: ['thumb'] as ItemId[] };
     const o = offerDaemons(s);
-    expect([o.length, o.every((id) => DAEMONS[id].family === 'Runner')]).toEqual([3, true]);
+    expect([o.length, o.every((id) => DAEMONS[id].family === 'Cron')]).toEqual([3, true]);
     expect([priceOf(s, 'thumb'), zipPrice(s), slotCost(s)]).toEqual([3, 2, 5]);
     expect(buy(s, 'thumb')).toBe(true);
     expect(s.credits).toBe(7);

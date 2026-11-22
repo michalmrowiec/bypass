@@ -6,7 +6,7 @@ const runner = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => DAEMONS[id].f
 // Runs fn on a throwaway entry added to company 0, removed afterwards.
 function withEntry(extra: Partial<Entry>, fn: (s: ReturnType<typeof newRunState>) => void) {
   const list = COMPANIES[0].entries;
-  list.push({ id: 'test', name: 'Test', plus: '', minus: '', ...extra });
+  list.push({ id: 'test', name: 'Test', traits: [], ...extra });
   try { fn(newRunState(1, 0, 'test')); } finally { list.pop(); }
 }
 
