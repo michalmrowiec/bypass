@@ -305,5 +305,5 @@
 .q-shutter{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .hw:is(:hover,:focus-visible) .gl .q-shutter{transform:translateX(-12px)}
 /* UPS with a spent battery: the cells sit dark red, no pulse, until a new battery goes in */
-.hw.spent .gl .q-bcell{fill:#ff3d8b;fill-opacity:.18;animation:none}
-.hw.spent .gl .q-bled{fill:#ff3d8b}
+.drained .gl .q-bcell{fill:#ff3d8b;fill-opacity:.18;animation:none}
+.drained .gl .q-bled{fill:#ff3d8b}

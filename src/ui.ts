@@ -1151,7 +1151,7 @@ function fold(box: HTMLElement) {
 
 // What the player owns, shown beside offers and the shop: daemons folded like in play, then rack modules with their art.
 const owned = (shop = false) => {
-  const mod = (id: ItemId) => { const sale = shop && canSell(R, id); return '<' + (sale ? "button data-sell='" + id + "'" : 'span') + " class='chip mod' data-tip='" + ITEMS[id].text + (shop && !sale ? ' · locked by the entry: cannot be sold' : '') + "'>" + gear(id) + '<b>'
+  const mod = (id: ItemId) => { const sale = shop && canSell(R, id); return '<' + (sale ? "button data-sell='" + id + "'" : 'span') + " class='chip mod" + (id === 'ups' && R.upsUsed ? ' drained' : '') + "' data-tip='" + ITEMS[id].text + (shop && !sale ? ' · locked by the entry: cannot be sold' : '') + "'>" + gear(id) + '<b>'
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + (id === 'chip' ? ' · ' + (R.miner ?? 'pool') : '') + '</small></b>' + (sale ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>'); };
   return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist dfold'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
@@ -1277,7 +1277,7 @@ const hotkeyZone = () => !R.hotkey && (R.items.includes('hotkey') || R.items.inc
   : '';
 // A spent UPS battery can be replaced in the shop.
 const upsZone = () => R.items.includes('ups') && R.upsUsed
-  ? "<div class='upszone'><span class='hw spent'>" + gear('ups') + "</span><p><b>UPS</b> <small>battery spent · streaks unprotected</small></p><button class='btn' id='upsBattery'" + (R.credits < UPS_BATTERY ? ' disabled' : '') + '>Replace battery · ' + money(UPS_BATTERY) + '</button></div>'
+  ? "<div class='upszone'><span class='drained'>" + gear('ups') + "</span><p><b>UPS</b> <small>battery spent · streaks unprotected</small></p><button class='btn' id='upsBattery'" + (R.credits < UPS_BATTERY ? ' disabled' : '') + '>Replace battery · ' + money(UPS_BATTERY) + '</button></div>'
   : '';
 // The 3D zone renders as a skeleton at its mounted size, so the dialog eases to the right height.
 function zipZone() {
