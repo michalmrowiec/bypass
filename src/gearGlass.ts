@@ -476,18 +476,18 @@ function hotkey(t) {
     `<text class="silk" x="24" y="61.5" font-size="4">MACRO PAD</text>` + led(124, 59)];
 }
 function bitshift() {
-  // shift register: a DIP chip with a window where the codes roll one place left, the first wrapping to the end
+  // shift register: a DIP chip with a wide code window; on hover the first and last codes swap places
   const sh = R(22, 24, 106, 36, 3);
   let s = '';
   for (let i = 0; i < 12; i++) {
     const x = 28 + i * 8.4;
     s += `<rect x="${x}" y="17" width="3.2" height="8" rx=".6" fill="url(#pd-key)"/><rect x="${x}" y="59" width="3.2" height="8" rx=".6" fill="url(#pd-key)"/>`;
   }
-  s += withFill(sh, 'fill="url(#pd-case)"') + bevel(22, 24, 106, 36, 3) + `<circle cx="30" cy="42" r="3" fill="#0a0e12"/><text class="engr" x="36" y="33" font-size="4.6">74HC595 · SHIFT</text>` +
-    `<rect x="40" y="36" width="66" height="18" rx="2" fill="#05080a" stroke="#5af2a8" stroke-opacity=".3" stroke-width=".5"/>` +
-    // rotation: each step the first code hops over the others to the end while they move one place left
-    ['4B', '7F', 'C9'].map((c, i) => `<g class="rc${i}"><rect x="${44 + i * 20}" y="39" width="16" height="12" rx="1.4" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".5"/>${txt(52 + i * 20, 47.6, c, 6)}</g>`).join('') +
-    `<path d="M112 38v6a4 4 0 0 1-4 4h-1m2-3-2 3 2 3" fill="none" stroke="#5af2a8" stroke-width=".9" filter="url(#pd-glow)"/>`;
+  s += withFill(sh, 'fill="url(#pd-case)"') + bevel(22, 24, 106, 36, 3) + `<text class="engr" x="27" y="32" font-size="4.6">74HC595 · SHIFT</text>` +
+    `<rect x="26" y="34" width="86" height="22" rx="2" fill="#05080a" stroke="#5af2a8" stroke-opacity=".3" stroke-width=".5"/>` +
+    ['4B', '7F', 'C9'].map((c, i) => `<g class="sw${i}"><rect x="${30 + i * 27}" y="37.5" width="24" height="15" rx="1.6" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".6"/>${txt(42 + i * 27, 48, c, 8)}</g>`).join('') +
+    // swap mark: two opposite arrows
+    `<path d="M114 41h10m-2.6-2.6 2.6 2.6-2.6 2.6M124 49h-10m2.6-2.6-2.6 2.6 2.6 2.6" fill="none" stroke="#5af2a8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" filter="url(#pd-glow)"/>`;
   return [sh, s];
 }
 function exploit(t) {

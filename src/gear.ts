@@ -172,7 +172,7 @@ const compiler = "<rect class='g-plug' x='20' y='12' width='110' height='60' rx=
 // Shift register: a DIP chip with a window of codes A B C and a wrap-around arrow; the pins shimmer on hover.
 const bitshift = Array.from({ length: 12 }, (_, i) => "<rect class='g-pin g-read' style='animation-delay:" + (i % 6) * 0.1 + "s' x='" + (28 + i * 8.4) + "' y='17' width='3.2' height='8'/><rect class='g-pin g-read' style='animation-delay:" + (i % 6) * 0.1 + "s' x='" + (28 + i * 8.4) + "' y='59' width='3.2' height='8'/>").join('')
   + "<rect class='g-plug' x='22' y='24' width='106' height='36' rx='3'/><circle class='g-hole' cx='30' cy='42' r='3'/><text class='g-silk' x='36' y='33'>74HC595 · SHIFT</text>"
-  + ['A', 'B', 'C'].map((c, i) => "<rect class='g-pcb' x='" + (44 + i * 20) + "' y='37' width='16' height='14' rx='1.5'/><text class='g-silk' x='" + (52 + i * 20) + "' y='48' text-anchor='middle'>" + c + '</text>').join('')
+  + ['4B', '7F', 'C9'].map((c, i) => "<rect class='g-pcb' x='" + (44 + i * 20) + "' y='37' width='16' height='14' rx='1.5'/><text class='g-silk' x='" + (52 + i * 20) + "' y='48' text-anchor='middle'>" + c + '</text>').join('')
   + "<path class='g-shaft' d='M112 38v6a4 4 0 0 1-4 4h-1m2-3-2 3 2 3'/>";
 
 // Overclocked CPU: one wide package, a steel lid with ×1.5 and a clock meter whose bars light on hover.
