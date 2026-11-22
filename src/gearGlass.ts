@@ -425,17 +425,18 @@ function overclock() {
   return [sh, s];
 }
 function nullpad() {
-  // padding ROM: a buffer strip whose empty 00 slots pay data; on hover each lights in the data colour and +8 pops
-  const sh = R(14, 26, 122, 30, 3);
-  let s = withFill(sh, 'fill="url(#pd-pcb)" stroke="#000" stroke-opacity=".5" stroke-width=".5"') + bevel(14, 26, 122, 30, 3, .7) +
-    `<rect x="20" y="56" width="110" height="6" fill="url(#pd-pins)"/>` +
-    `<text class="silk" x="18" y="22" font-size="4.6">NULL PAD · 0x00</text>`;
-  ['1C', 'E9', '55', '00', '00', '00'].forEach((c, i) => {
-    const x = 19 + i * 19.4, empty = i > 2;
-    s += `<rect x="${x}" y="32" width="16" height="16" rx="1.5" fill="#070b0e" stroke="${empty ? '#4fc8ff' : '#5af2a8'}" stroke-opacity="${empty ? .55 : .3}" stroke-width=".6"${empty ? ' stroke-dasharray="1.6 1.1"' : ''}/>` +
-      (empty ? `<rect class="nslot" style="--i:${i - 3}" x="${x}" y="32" width="16" height="16" rx="1.5" fill="#4fc8ff" filter="url(#pd-glow)"/>` + txt(x + 8, 42.6, c, 6, 'style="fill:#4fc8ff" opacity=".6"')
-        + `<g class="npop" style="--i:${i - 3}">${txt(x + 8, 30, '+8', 5.5, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')}</g>`
-        : txt(x + 8, 42.6, c, 6, 'opacity=".75"'));
+  // laptop RAM (SO-DIMM): a label, three chips holding codes and two empty ones that pay +8; on hover the empty ones light up
+  const sh = `<path d="M22 16h106v40h-3v6H82v-6h-3v6H25v-6h-3z"/>`;
+  let s = withFill(sh, 'fill="url(#pd-pcb)" stroke="#000" stroke-opacity=".5" stroke-width=".5"') +
+    `<rect x="25" y="57" width="54" height="5" fill="url(#pd-pins)"/><rect x="82" y="57" width="43" height="5" fill="url(#pd-pins)"/>` +
+    `<circle cx="25.5" cy="19.5" r="1.6" fill="#05080a"/><circle cx="124.5" cy="19.5" r="1.6" fill="#05080a"/>` +
+    `<rect x="34" y="19.5" width="82" height="8" rx="1" fill="#d9dee3"/><text class="engr" x="37" y="25.4" font-size="4.6">NULL PAD · SO-DIMM · 0x00</text>`;
+  ['1C', 'E9', '55', '+8', '+8'].forEach((c, i) => {
+    const x = 28 + i * 19.4, empty = i > 2;
+    s += empty
+      ? `<rect x="${x}" y="31" width="16" height="20" rx="1" fill="#4fc8ff" fill-opacity=".12" stroke="#4fc8ff" stroke-opacity=".6" stroke-width=".6" stroke-dasharray="1.6 1.1"/>`
+        + `<rect class="nslot" style="--i:${i - 3}" x="${x}" y="31" width="16" height="20" rx="1" fill="#4fc8ff" filter="url(#pd-glow)"/>` + txt(x + 8, 43.4, c, 6, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')
+      : withFill(R(x, 31, 16, 20, 1), 'fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6" stroke-width=".6"') + txt(x + 8, 43.4, c, 6, 'opacity=".8"');
   });
   return [sh, s];
 }
@@ -532,7 +533,7 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   rewind: [() => rewind(), 0, 0],
   socket: [() => coproc(), 0, 0],
   // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
-  nullpad: [() => nullpad(), '12 14 126 52', 0],
+  nullpad: [() => nullpad(), '16 12 118 54', 0],
   ziptie: [() => ziptie(), '6 16 138 54', 0],
   slingshot: [() => slingshot(), '10 12 134 66', 0],
   ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height

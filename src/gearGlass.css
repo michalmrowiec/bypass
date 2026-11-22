@@ -283,11 +283,9 @@
 .hw:is(:hover,:focus-visible) .gl .q-heat{opacity:.55}
 .hw:is(:hover,:focus-visible) .gl .q-clk{animation:qclk .9s forwards;animation-delay:calc(var(--i) * .12s)}
 @keyframes qclk{to{fill-opacity:.9}}
-/* null pad: the empty 00 slots light in the data colour one by one, +8 over each */
+/* null pad: the empty chips light in the data colour one by one */
 .q-nslot{fill-opacity:0}
-.q-npop{opacity:0}
 .hw:is(:hover,:focus-visible) .gl .q-nslot{animation:qnslot .3s forwards;animation-delay:calc(var(--i) * .25s)}
-.hw:is(:hover,:focus-visible) .gl .q-npop{animation:qcodeIn .3s forwards;animation-delay:calc(var(--i) * .25s + .1s)}
 @keyframes qnslot{to{fill-opacity:.22}}
 /* zip tie: the band cinches round the shared code, +50% pops */
 .q-tie{transform-box:fill-box;transform-origin:center;transition:transform .25s}
