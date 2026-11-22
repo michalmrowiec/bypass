@@ -596,6 +596,7 @@ button.unit{cursor:var(--hit)}
 @keyframes gmux2{0%{opacity:0}45%{opacity:1}95%{opacity:0}}
 .g-core{fill:#08090a;stroke:#39424a}
 .hw:is(:hover,:focus-visible) .g-core{animation:gcore .8s steps(1) infinite}
+.hw.spent .g-core{stroke:var(--pink);fill:color-mix(in srgb,var(--pink) 15%,#08090a);animation:none} /* UPS with a spent battery */
 @keyframes gcore{0%,40%{fill:var(--mint)}}
 .hw:is(:hover,:focus-visible) .g-burn{animation:gburn 1.2s steps(1) infinite}
 @keyframes gburn{30%,40%,65%{stroke:var(--pink)}35%,45%{stroke:#9aa5ab}}
