@@ -631,7 +631,7 @@ export const payLevel = (s: RunState, id: PayloadId) => payBase(s, id) + hotkeyB
 export const setHotkey = (s: RunState, id: PayloadId) => { s.hotkey = id; logEvent(s, 'Hotkey · bound to ' + payFile(id)); };
 export const COMPILE_EVERY = 3;
 // UPS: a spent battery is replaced in the shop.
-export const UPS_BATTERY = 2;
+export const UPS_BATTERY = 1;
 export function rechargeUps(s: RunState): boolean {
   if (!s.items.includes('ups') || !s.upsUsed || s.credits < UPS_BATTERY) return false;
   s.credits -= UPS_BATTERY;
@@ -977,7 +977,7 @@ export const ITEMS = {
   mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
   nullpad: { name: 'Null pad', ver: '1.0', kind: 'padding ROM', price: 3, text: '+8 data per empty buffer slot in a matrix with an upload' },
   ziptie: { name: 'Zip tie', ver: '1.0', kind: 'cable tie', price: 4, text: 'An uploaded target that shares a code with another uploaded target pays +50% data' },
-  ups: { name: 'UPS', ver: '1.0', kind: 'battery backup', price: 5, u: 2, text: 'One charge: the first time daemon streaks would break, they keep their stacks. A new battery in the shop recharges it' },
+  ups: { name: 'UPS', ver: '1.0', kind: 'battery backup', price: 4, u: 2, text: 'One charge: the first time daemon streaks would break, they keep their stacks. A new battery in the shop recharges it' },
   hotkey: { name: 'Hotkey', ver: '1.0', kind: 'macro key', price: 3, text: 'Choose a payload: while installed it is 2 levels higher' },
   hotkey2: { name: 'Hotkey', ver: '2.0', kind: 'macro pad', price: 3, text: 'Upgrades v1.0: the chosen payload is 3 levels higher', needs: 'hotkey' },
   compiler: { name: 'Compiler', ver: '1.0', kind: 'build server', price: 6, u: 2, text: 'Every 3rd time a payload scores, it gains a level for good' },
