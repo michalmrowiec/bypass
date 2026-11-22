@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -730,6 +730,7 @@ const MATERIAL: Partial<Record<ItemId, 'pcb' | 'anod' | 'steel' | 'net'>> = {
   datanode: 'anod', datanode2: 'anod', datanode3: 'anod', thumb: 'anod', thumb2: 'anod', thumb3: 'anod', chip: 'anod', sim: 'anod',
   wildcard1: 'steel', wildcard2: 'steel', shortkey: 'steel', sidedoor: 'steel', repeater: 'steel', glob: 'steel', heatsink: 'steel', rewind: 'steel',
   bridge: 'net', bridge2: 'net', ping: 'net', mux: 'net', split1: 'net', split2: 'net', loopback1: 'net', loopback2: 'net',
+  nullpad: 'pcb', ups: 'pcb', compiler: 'pcb', overclock: 'pcb', ziptie: 'net', bitshift: 'net', slingshot: 'net', hotkey: 'steel', hotkey2: 'steel', exploit: 'anod', exploit2: 'anod', snapshot: 'anod',
 };
 const MARK: Partial<Record<ItemId, string>> = {
   wildcard1: 'var(--pink)', wildcard2: 'var(--pink)', glob: 'var(--pink)', repeater: 'var(--violet)',
@@ -793,15 +794,19 @@ function renderDaemons() {
   // screw heads at fixed pseudo-random angles per slot, so a re-render never turns them
   const scr = (i: number, k: number) => "<i class='scr' style='transform:rotate(" + (i * 37 + k * 53) % 90 + "deg)'></i>";
   const rail = (n: number) => "<span class='rail'>" + String(n).padStart(2, '0') + '</span>';
-  $('items').innerHTML = '<header><span>hw rack</span><span>' + units.length + '/' + R.rack + 'U</span></header>'
+  // Slot index -> module; a 2U module takes its slot and the next one (its second slot only draws rails).
+  const bays: (typeof units[number] | 'tail' | undefined)[] = [];
+  for (const u of units) { bays.push(u); if (unitsOf(u.id) === 2) bays.push('tail'); }
+  $('items').innerHTML = '<header><span>hw rack</span><span>' + usedSlots(R) + '/' + R.rack + 'U</span></header>'
     // The full rack is always on show: owned slots without a module are open bays, the rest keep their blanking plates.
-    + Array.from({ length: Math.max(RACK_MAX, units.length) }, (_, i) => {
-      const u = units[i];
+    + Array.from({ length: Math.max(RACK_MAX, bays.length) }, (_, i) => {
+      const u = bays[i];
+      if (u === 'tail') return rail(i + 1) + rail(i + 1);
       if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'>" + scr(i, 0) + "<i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i>" + scr(i, 1) + '</div>' + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
+      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
         + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
         + "<span class='nm'><b>" + it.name + (it.ver === '1.0' ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
@@ -1141,7 +1146,7 @@ const owned = (shop = false) => {
     + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + (id === 'chip' ? ' · ' + (R.miner ?? 'pool') : '') + '</small></b>' + (sale ? "<i class='sell'>sell · " + money(sellValue(id)) + '</i></button>' : '</span>'); };
   return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist dfold'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
-    + "</div><p class='meta'>your rack · " + R.items.length + '/' + R.rack + ' slots' + (shop && R.items.some((id) => canSell(R, id)) ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>")
+    + "</div><p class='meta'>your rack · " + usedSlots(R) + '/' + R.rack + ' slots' + (shop && R.items.some((id) => canSell(R, id)) ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>")
     + (shop && R.rack < RACK_MAX ? "<button class='btn go slotbtn' id='buySlot'" + (R.credits < slotCost(R) ? ' disabled' : '') + '>Rack slot +1 · ' + money(slotCost(R)) + '</button>' : '') + '</div></div>';
 };
 

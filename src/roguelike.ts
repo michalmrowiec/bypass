@@ -874,7 +874,7 @@ export function movePreview(path: Cell[], cell: Cell, n: number, daemons: Daemon
 
 // Shop items: hardware bought with credits and kept for the run. Daemons change the scoring; items change the matrix
 // or the rules, with no family, so any of them can feed any build. An upgrade is sold only to owners of the version it needs and replaces it.
-interface Item { name: string; ver: string; kind: string; price: number; text: string; needs?: string }
+interface Item { name: string; ver: string; kind: string; price: number; text: string; needs?: string; u?: 2 } // u: rack slots taken, 1 by default
 export const ITEMS = {
   buffer1: { name: 'Buffer', ver: '1.0', kind: 'memory module', price: 4, text: '+1 buffer slot in every matrix' },
   buffer2: { name: 'Buffer', ver: '2.0', kind: 'dual channel', price: 4, text: 'Upgrades v1.0 with one more slot: +2 in every matrix', needs: 'buffer1' },
@@ -892,7 +892,7 @@ export const ITEMS = {
   split2: { name: 'Split', ver: '2.0', kind: 'tunable splitter', price: 3, text: 'Upgrades v1.0: you choose where the target of 3+ codes is cut', needs: 'split1' },
   sidedoor: { name: 'Side door', ver: '1.0', kind: 'lockpick set', price: 3, text: 'Your first pick may come from any edge; a corner lets the next pick take its row or its column' },
   bridge: { name: 'Bridge', ver: '1.0', kind: 'antenna', price: 3, text: 'Once per matrix, arm it to jump off your lane to a free cell next to your last pick, diagonals too; daemons skip the jump as a move' },
-  bridge2: { name: 'Bridge', ver: '2.0', kind: 'long-range antenna', price: 4, text: 'Upgrades v1.0: the jump reaches any free cell on the matrix, even before your first pick', needs: 'bridge' },
+  bridge2: { name: 'Bridge', ver: '2.0', kind: 'long-range antenna', price: 4, text: 'Upgrades v1.0: the jump reaches any free cell on the matrix, even before your first pick', needs: 'bridge', u: 2 },
   loopback1: { name: 'Loopback', ver: '1.0', kind: 'loopback plug', price: 3, text: 'Once per matrix, arm it to pick a used cell in your lane again; its code goes into the buffer once more' },
   loopback2: { name: 'Loopback', ver: '2.0', kind: 'twin loopback', price: 3, text: 'Upgrades v1.0: the used cell can be anywhere on the matrix; daemons skip that jump as a move', needs: 'loopback1' },
   // Cheap, modest modules: filler for the shelf and a use for spare credits.
@@ -908,6 +908,18 @@ export const ITEMS = {
   rewind: { name: 'Rewind', ver: '1.0', kind: 'tape deck', price: 4, text: 'Once per matrix, take back your last pick: its code stays, so uploads stay, but the cell is free, your lane returns and the buffer gains a slot' },
   socket: { name: 'Co-processor', ver: '1.0', kind: 'daemon socket', price: 8, text: '+1 daemon slot; selling it with every slot full drops a daemon of your choice' },
   mux: { name: 'Mux', ver: '1.0', kind: 'multiplexer', price: 3, text: 'Once per matrix, arm it so the next pick may stay in the line you are in or take the crossing one' },
+  nullpad: { name: 'Null pad', ver: '1.0', kind: 'padding ROM', price: 3, text: '+8 data per empty buffer slot in a matrix with an upload' },
+  ziptie: { name: 'Zip tie', ver: '1.0', kind: 'cable tie', price: 4, text: 'An uploaded target that shares a code with another uploaded target pays +50% data' },
+  slingshot: { name: 'Slingshot', ver: '1.0', kind: 'launcher', price: 3, text: '+10 data per cell of your longest move' },
+  ups: { name: 'UPS', ver: '1.0', kind: 'battery backup', price: 5, u: 2, text: 'Once per room, a daemon streak that would break keeps its stacks' },
+  hotkey: { name: 'Hotkey', ver: '1.0', kind: 'macro key', price: 3, text: 'Choose a payload: while installed it is 2 levels higher' },
+  hotkey2: { name: 'Hotkey', ver: '2.0', kind: 'macro pad', price: 3, text: 'Upgrades v1.0: the chosen payload is 3 levels higher', needs: 'hotkey' },
+  compiler: { name: 'Compiler', ver: '1.0', kind: 'build server', price: 6, u: 2, text: 'Every 3rd time a payload scores, it gains a level for good' },
+  bitshift: { name: 'Bitshift', ver: '1.0', kind: 'shift register', price: 4, text: 'Once per matrix, before your first move, rotate the codes of one target (A B C → B C A)' },
+  overclock: { name: 'Overclock', ver: '1.0', kind: 'overclocked CPU', price: 8, u: 2, text: '×1.5 on every matrix' },
+  exploit: { name: 'Exploit', ver: '1.0', kind: 'zero-day', price: 3, text: 'One cell in every matrix holds $: picking it pays +$1' },
+  exploit2: { name: 'Exploit', ver: '2.0', kind: 'exploit kit', price: 3, text: 'Upgrades v1.0: two $ cells in every matrix', needs: 'exploit' },
+  snapshot: { name: 'Snapshot', ver: '1.0', kind: 'VM image', price: 5, text: 'Once per room, after a matrix with every target uploaded, the next matrix can be the same board, with your script loaded' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;
 export const SHELF = 4;
@@ -939,7 +951,10 @@ export const slotCost = (s: RunState) => 4 + 2 * (s.rack - RACK_BASE) + (entryOf
 export const priceOf = (s: RunState, id: ItemId) => Math.max(1, ITEMS[id].price + (entryOf(s).priceDelta ?? 0));
 // The Co-processor module adds one daemon slot.
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
-export const rackFull = (s: RunState, id: ItemId) => !item(id).needs && s.items.length >= s.rack;
+export const unitsOf = (id: ItemId) => item(id).u ?? 1;
+export const usedSlots = (s: RunState) => s.items.reduce((a, id) => a + unitsOf(id), 0);
+// An upgrade frees the slots of the version it replaces.
+export const rackFull = (s: RunState, id: ItemId) => { const n = item(id).needs as ItemId | undefined; return s.rack - usedSlots(s) + (n ? unitsOf(n) : 0) < unitsOf(id); };
 export const sellValue = (id: ItemId) => Math.floor([id, ...olderVersions(id)].reduce((a, x) => a + item(x).price, 0) / 2);
 export const REROLL_COST = 0;
 // The first reroll on a shop visit is free, each next one costs $1 more; bonus rerolls cover the paid steps.

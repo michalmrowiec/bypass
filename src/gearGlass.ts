@@ -441,6 +441,19 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   repeater: [() => repeater(), 0, 0],
   rewind: [() => rewind(), 0, 0],
   socket: [() => coproc(), 0, 0],
+  // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
+  nullpad: [() => buffer(0), 0, 0],
+  ziptie: [() => linker(0), 0, 0],
+  slingshot: [() => bridge(0), '12 14 126 52', 0],
+  ups: [() => coproc(), 0, 0],
+  hotkey: [() => shortkey(), 0, 0],
+  hotkey2: [() => shortkey(), 0, 0],
+  compiler: [() => coproc(), 0, 0],
+  bitshift: [() => split(0), 0, 0],
+  overclock: [() => heatsink(), 0, 0],
+  exploit: [() => chip(), '12 14 126 56', 0],
+  exploit2: [() => chip(), '12 14 126 56', 0],
+  snapshot: [() => rewind(), 0, 0],
 };
 const prefix = (s: string) => s.replace(/class="([^"]*)"/g, (_, c) => 'class="' + c.split(/\s+/).filter(Boolean).map((x) => 'q-' + x).join(' ') + '"');
 const cache: Partial<Record<ItemId, [string, string]>> = {};

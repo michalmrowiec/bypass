@@ -174,6 +174,19 @@ const ART: Record<ItemId, string> = {
   repeater,
   rewind: tape,
   socket,
+  // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
+  nullpad: ram(11, 6),
+  ziptie: cable('M28 35C55 -6 85 76 120 35') + plugs,
+  slingshot: antenna,
+  ups: socket,
+  hotkey: key,
+  hotkey2: key,
+  compiler: socket,
+  bitshift: splitter(false),
+  overclock: heatsink,
+  exploit: chip,
+  exploit2: chip,
+  snapshot: tape,
 };
 
 // Every upgrade id ends in 2 or 3; those get the v2 accents (.gear.v2 in style.css), v3.0 also .v3.

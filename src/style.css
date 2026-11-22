@@ -484,6 +484,7 @@ button.ware{cursor:var(--hit)}
 button.unit{cursor:var(--hit)}
 /* Faceplate materials by hardware kind (before the state rules, so hover/ready/armed borders still win). */
 .unit.hw{position:relative}
+.unit.u2{grid-row:span 2;height:auto;align-self:stretch} /* 2U module: two slots tall */
 .unit.m-pcb{background:linear-gradient(#1f2618,#171d12);border-color:#3c4a2c} /* olive, so it never reads as the mint ready state */
 .unit.m-anod{background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),linear-gradient(#1b283a,#131c29);border-color:#2c4562}
 .unit.m-steel{background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 1px,transparent 1px 2px),linear-gradient(#262b2f,#1c2023);border-color:#454e54}
