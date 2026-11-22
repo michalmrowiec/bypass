@@ -442,20 +442,22 @@ function nullpad() {
 }
 function ziptie() {
   // two targets' cables bound by a zip tie at the code they share; on hover the tie cinches and +50% pops
-  const sh = R(8, 20, 30, 14, 3) + R(8, 50, 30, 14, 3) + R(66, 30, 18, 24, 3);
-  // shared code in the buffer's shared colour (cyan, .slot.shared); the rest dim like unlit cells
-  const cell = (x, y, c, shared) => shared
-    ? `<rect x="${x}" y="${y}" width="9" height="8" rx="1" fill="#3dd9ff" fill-opacity=".2" stroke="#3dd9ff" stroke-opacity=".9" stroke-width=".5" filter="url(#pd-glow)"/>${txt(x + 4.5, y + 5.6, c, 3.8, 'style="fill:#3dd9ff"')}`
-    : ccell(x, y, c, false);
+  const sh = R(6, 15, 44, 21, 3) + R(6, 48, 44, 21, 3) + R(81, 30, 18, 24, 3);
+  // code cell; the shared code takes the buffer's shared colour (cyan, .slot.shared), the rest stay dim
+  const cell = (x, y, c, shared) => {
+    const k = shared ? '#3dd9ff' : '#5af2a8';
+    return `<rect x="${x}" y="${y}" width="16" height="13" rx="1.6" fill="${shared ? k : '#070b0e'}" fill-opacity="${shared ? .2 : 1}" stroke="${k}" stroke-opacity="${shared ? .9 : .2}" stroke-width=".6"${shared ? ' filter="url(#pd-glow)"' : ''}/>`
+      + txt(x + 8, y + 9, c, 6.4, shared ? 'style="fill:#3dd9ff"' : 'opacity=".5"');
+  };
   // one cable per target, end to end through the tie, so each pulse runs once
-  let s = wire('M38 27C56 27 60 39 75 39C96 39 110 30 142 30', '#24543f', '#5af2a8') + wire('M38 57C56 57 60 45 75 45C96 45 110 54 142 54', '#24543f', '#5af2a8') +
-    withFill(R(8, 20, 30, 14, 3), 'fill="url(#pd-case)"') + bevel(8, 20, 30, 14, 3) + withFill(R(8, 50, 30, 14, 3), 'fill="url(#pd-case)"') + bevel(8, 50, 30, 14, 3) +
-    cell(11, 23, '1C', false) + cell(22, 23, 'E9', true) + cell(11, 53, 'E9', true) + cell(22, 53, '55', false) +
+  let s = wire('M50 25.5C68 25.5 72 39 90 39C106 39 118 31 142 31', '#24543f', '#5af2a8') + wire('M50 58.5C68 58.5 72 45 90 45C106 45 118 53 142 53', '#24543f', '#5af2a8') +
+    withFill(R(6, 15, 44, 21, 3), 'fill="url(#pd-case)"') + bevel(6, 15, 44, 21, 3) + withFill(R(6, 48, 44, 21, 3), 'fill="url(#pd-case)"') + bevel(6, 48, 44, 21, 3) +
+    cell(10, 19, '1C', false) + cell(29, 19, 'E9', true) + cell(10, 52, 'E9', true) + cell(29, 52, '55', false) +
     // the tie: a band round the bundle, its ratchet head on top and the cut tail
-    `<g class="tie"><rect x="70" y="33" width="10" height="18" rx="3" fill="none" stroke="#0d1115" stroke-width="3.2"/><rect x="70" y="33" width="10" height="18" rx="3" fill="none" stroke="#3a434c" stroke-width="1.6"/>
-    <rect x="68" y="28" width="14" height="7" rx="1.5" fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6" stroke-width=".5"/><path d="M71 31.5h8" stroke="#56626a" stroke-width=".6"/>
-    <path d="M82 31l9-6" stroke="#3a434c" stroke-width="2.4" stroke-linecap="round"/></g>` +
-    `<g class="zpop">${txt(75, 66, '+50%', 7, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')}</g>`;
+    `<g class="tie"><rect x="85" y="33" width="10" height="18" rx="3" fill="none" stroke="#0d1115" stroke-width="3.2"/><rect x="85" y="33" width="10" height="18" rx="3" fill="none" stroke="#3a434c" stroke-width="1.6"/>
+    <rect x="83" y="28" width="14" height="7" rx="1.5" fill="url(#pd-dark)" stroke="#000" stroke-opacity=".6" stroke-width=".5"/><path d="M86 31.5h8" stroke="#56626a" stroke-width=".6"/>
+    <path d="M97 31l9-6" stroke="#3a434c" stroke-width="2.4" stroke-linecap="round"/></g>` +
+    `<g class="zpop">${txt(90, 66, '+50%', 7, 'style="fill:#4fc8ff" filter="url(#pd-glow)"')}</g>`;
   return [sh, s];
 }
 function hotkey(t) {
@@ -589,7 +591,7 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   rewind: [() => rewind(), 0, 0],
   socket: [() => coproc(), 0, 0],
   nullpad: [() => nullpad(), '16 12 118 54', 0],
-  ziptie: [() => ziptie(), '6 16 138 54', 0],
+  ziptie: [() => ziptie(), '4 13 142 58', 0],
   ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height
   hotkey: [() => hotkey(0), '24 10 102 60', 0],
   hotkey2: [() => hotkey(1), '12 14 126 56', 0],
