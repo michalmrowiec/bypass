@@ -226,6 +226,8 @@
 :root[data-style=glass] .rack::before{content:"";position:absolute;inset:0 0 auto;height:60px;background:linear-gradient(rgba(90,242,168,.07),transparent);pointer-events:none}
 :root[data-style=glass] .rack header{border-bottom-color:rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
 :root[data-style=glass] .rail{background:linear-gradient(90deg,#0f1418,#161d23);color:#4d5b67}
+:root[data-style=glass] .rack .rail{min-height:62px} /* one glass slot: 54px + margins */
+:root[data-style=glass] .unit.u2{height:auto}
 :root[data-style=glass] .unit{--tint:linear-gradient(#141b22,#10161c);position:relative;overflow:hidden;height:54px;margin:4px 5px;padding:0 10px;gap:9px;border-radius:5px;
   background:linear-gradient(rgba(255,255,255,.07),rgba(255,255,255,.015) 45%,rgba(0,0,0,.18)),var(--tint);
   border:1px solid rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.4),0 2px 6px rgba(0,0,0,.35);transition:border-color .3s,box-shadow .3s,opacity .3s}
