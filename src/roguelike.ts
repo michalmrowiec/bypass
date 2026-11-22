@@ -311,7 +311,9 @@ export const bonusKey = (loop: number, room: number, matrix: number) => loop + '
 
 export const logEvent = (s: RunState, text: string) => { (s.events ??= []).push(text); };
 export const dmnFile = (id: DaemonId) => DAEMONS[id].family.toLowerCase() + '/' + DAEMONS[id].name.toLowerCase().replace(/ /g, '_') + '.dmn';
-const itemName = (id: ItemId) => ITEMS[id].name + ' v' + ITEMS[id].ver;
+// items with no upgrade show no version
+export const verOf = (id: ItemId) => ITEMS[id].ver === '1.0' && !(Object.values(ITEMS) as Item[]).some((x) => x.needs === id) ? '' : ITEMS[id].ver;
+const itemName = (id: ItemId) => ITEMS[id].name + (verOf(id) && ' v' + verOf(id));
 
 export function newRunState(seed: number, company = 0, entry?: string): RunState {
   const { ice, sections: rooms } = COMPANIES[company];
@@ -989,7 +991,7 @@ export const ITEMS = {
   bitshift: { name: 'Bitshift', ver: '1.0', kind: 'shift register', price: 3, text: 'Once per matrix, before your first move, rotate the codes of one target (A B C → B C A)' },
   overclock: { name: 'Overclock', ver: '1.0', kind: 'overclocked CPU', price: 7, u: 2, text: '×1.5 on every matrix' },
   exploit: { name: 'Exploit', ver: '1.0', kind: 'zero-day', price: 3, text: 'One cell in every matrix holds $: picking it pays +$1' },
-  exploit2: { name: 'Exploit', ver: '2.0', kind: 'exploit kit', price: 3, text: 'Upgrades v1.0: two $ cells in every matrix', needs: 'exploit' },
+  exploit2: { name: 'Exploit', ver: '2.0', kind: 'exploit kit', price: 3, text: 'Upgrades v1.0: two $ cells in every matrix, +$1 each', needs: 'exploit' },
   snapshot: { name: 'Snapshot', ver: '1.0', kind: 'VM image', price: 5, text: 'Once per room, after a matrix with every target uploaded, the next matrix can be the same board, with your script loaded' },
 } satisfies Record<string, Item>;
 export type ItemId = keyof typeof ITEMS;

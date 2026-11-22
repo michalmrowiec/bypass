@@ -296,8 +296,8 @@
 .hw:is(:hover,:focus-visible) .gl .q-kcap{animation:qkey 1.6s infinite;animation-delay:calc(var(--i) * .4s)}
 @keyframes qkey{0%,30%,100%{transform:none}10%,20%{transform:translateY(2.5px)}}
 /* bitshift: the codes roll one place left, the first wraps to the end */
-.hw:is(:hover,:focus-visible) .gl .q-roll{animation:qroll 1.4s infinite}
-@keyframes qroll{0%,30%{transform:none;opacity:1}55%{transform:translateX(-6px);opacity:.3}56%{transform:translateX(6px);opacity:.3}80%,100%{transform:none;opacity:1}}
+.hw:is(:hover,:focus-visible) .gl .q-roll{animation:qroll 3.6s ease-in-out infinite}
+@keyframes qroll{0%,20%{transform:none}33%,53%{transform:translateX(-20px)}66%,86%{transform:translateX(-40px)}100%{transform:translateX(-60px)}}
 /* exploit: the card rises, +$1 pops (shared .q-cpop) */
 .q-ecard{transition:transform .3s}
 .hw:is(:hover,:focus-visible) .gl .q-ecard{transform:translateY(-2px)}

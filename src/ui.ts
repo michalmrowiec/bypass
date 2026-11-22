@@ -9,7 +9,7 @@ import {
   applyPick, canPick, cellView, replayRoute, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
-  buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
+  buy, verOf, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
@@ -794,7 +794,7 @@ function renderDaemons() {
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
     return { id, t, ready, miner, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && drained ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
-      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + '_v' + it.ver + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
+      spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + (verOf(id) && '_v' + verOf(id)) + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
         + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });
   const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
@@ -819,8 +819,8 @@ function renderDaemons() {
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
       return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && drained ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
-        + " aria-label='" + it.name + ' v' + it.ver + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
-        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
+        + " aria-label='" + it.name + (verOf(u.id) && ' v' + verOf(u.id)) + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
+        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' && verOf(u.id) ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
         + '</small></span>' + (it.ver !== '1.0' ? "<i class='vplate v" + parseInt(it.ver) + "'>v" + parseInt(it.ver) + '</i>' : '') + "<i class='led'></i>" + scr(i, 1) + '</' + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   const use = (tool: string) => {
@@ -882,7 +882,7 @@ const daemonText = (id: DaemonId) => {
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
 const ware = (id: ItemId, tag: string, foot: string, cls = '') => {
   const it = ITEMS[id];
-  return '<' + tag + " class='ware hw" + cls + "'><span class='stage'>" + gear(id) + '</span><b>' + it.name + ' <small>v' + it.ver + '</small></b><small>' + it.kind + " · <span class='" + (unitsOf(id) > 1 ? 'big' : '') + "'>" + unitsOf(id) + 'U</span>'
+  return '<' + tag + " class='ware hw" + cls + "'><span class='stage'>" + gear(id) + '</span><b>' + it.name + (verOf(id) && ' <small>v' + verOf(id) + '</small>') + '</b><small>' + it.kind + " · <span class='" + (unitsOf(id) > 1 ? 'big' : '') + "'>" + unitsOf(id) + 'U</span>'
     + '</small><p>' + rich(it.text) + "</p><span class='price'>" + foot + '</span></' + tag + '>';
 };
 
@@ -1060,7 +1060,7 @@ function runSummary(won: boolean, bill: Score, credits: string) {
     const goal = quota({ ...R, loop }, room);
     return '<tr><td>run ' + (loop + 1) + ' · ' + co.sections[room].name + "</td><td><span class='vd'>" + data + '</span> / ' + goal + DI + ' <small>×' + (data / goal).toFixed(2) + '</small></td></tr>';
   }).join('');
-  const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + ' v' + ITEMS[id].ver + '</span>')].join(' · ');
+  const build = [...R.daemons.map(dmnName), ...R.items.map((id) => "<span class='gname'>" + ITEMS[id].name + (verOf(id) && ' v' + verOf(id)) + '</span>')].join(' · ');
   return "<div class='roomsum'><p class='meta'>" + runName() + ' · run ' + (R.loop + 1) + '/' + LOOPS + '</p><h2>' + (won ? co.name + ' breached' : 'Run over') + '</h2>' + why()
     + "<p class='meta'>last matrix</p>" + billHtml(bill) + small()
     + "<table class='calc'>" + rows + "<tr class='sum'><td>total</td><td><b>" + total + '</b>' + DI + ' · ' + fmt(ms) + '</td></tr>'
@@ -1154,7 +1154,7 @@ function fold(box: HTMLElement) {
 // What the player owns, shown beside offers and the shop: daemons folded like in play, then rack modules with their art.
 const owned = (shop = false) => {
   const mod = (id: ItemId) => { const sale = shop && canSell(R, id); return '<' + (sale ? "button data-sell='" + id + "'" : 'span') + " class='chip mod" + (id === 'ups' && R.upsUsed ? ' drained' : '') + "' data-tip='" + ITEMS[id].text + (shop && !sale ? ' · locked by the entry: cannot be sold' : '') + "'>" + gear(id) + '<b>'
-    + ITEMS[id].name + ' <small>v' + ITEMS[id].ver + (id === 'chip' ? ' · ' + (R.miner ?? 'pool') : '') + '</small></b>' + (sale ? "<i class='sell'>sell · " + money(sellFor(R, id)) + '</i></button>' : '</span>'); };
+    + ITEMS[id].name + ' <small>' + [verOf(id) && 'v' + verOf(id), id === 'chip' && (R.miner ?? 'pool')].filter(Boolean).join(' · ') + '</small></b>' + (sale ? "<i class='sell'>sell · " + money(sellFor(R, id)) + '</i></button>' : '</span>'); };
   return "<div class='owned'><p class='meta'>your daemons · " + R.daemons.length + '/' + daemonSlots(R) + "</p><div class='dlist dfold'>"
     + (R.daemons.map((id, i) => card(id, i, 'div', daemonText(id), dfoot(id))).join('') || "<span class='chip none'>no daemons yet</span>")
     + "</div><p class='meta'>your rack · " + usedSlots(R) + '/' + R.rack + ' slots' + (shop && R.items.some((id) => canSell(R, id)) ? ' · click a module to sell it' : '') + "</p><div class='chips'>" + (R.items.map(mod).join('') || "<span class='chip none'>no modules yet</span>")
