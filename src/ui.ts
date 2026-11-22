@@ -672,7 +672,8 @@ const boxes = (els: Element[]) => els.map((el) => el.getBoundingClientRect());
 
 // Hold a daemon card or a rack module, then drag it to a new place in its list; a tap or a scroll never moves it.
 // Order is only cosmetic. `save` gets the list in the new order.
-function dragSort<T>(root: HTMLElement, sel: string, list: T[], save: (l: T[]) => void) {
+// units: slots each entry takes (the rack's 2U modules); while dragging, entries then sit on explicit grid rows.
+function dragSort<T>(root: HTMLElement, sel: string, list: T[], save: (l: T[]) => void, units?: (x: T) => number) {
   const els = [...root.querySelectorAll<HTMLElement>(sel)];
   els.forEach((slot) => {
     let live = false;
@@ -706,6 +707,8 @@ function dragSort<T>(root: HTMLElement, sel: string, list: T[], save: (l: T[]) =
         order = next;
         const from = boxes(els);
         order.forEach((x, k) => marks[k].after(x));
+        // Rack: row 1 is the header; each module starts where the ones above it end, so a 2U never shifts a column.
+        if (units) { let row = 2; for (const x of order) { const u = units(list[els.indexOf(x)]); x.style.gridArea = row + ' / 2 / span ' + u; row += u; } }
         slide(els, from);
       };
       const stop = () => {
@@ -851,7 +854,7 @@ function renderDaemons() {
     el.onpointerenter = el.onfocus = el.onclick = show;
     el.onpointerleave = el.onblur = () => { $('lcd').innerHTML = lcd; };
   });
-  dragSort($('items'), '.unit.hw', R.items, (l) => { R.items = l; if (cur) { cur.R.items = [...l]; saveRun(cur); } });
+  dragSort($('items'), '.unit.hw', R.items, (l) => { R.items = l; if (cur) { cur.R.items = [...l]; saveRun(cur); } }, unitsOf);
 }
 
 // A streak daemon that is not firing yet says what keeps its stack and what that would give.

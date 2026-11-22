@@ -485,6 +485,7 @@ button.unit{cursor:var(--hit)}
 /* Faceplate materials by hardware kind (before the state rules, so hover/ready/armed borders still win). */
 .unit.hw{position:relative}
 .unit.u2{grid-row:span 2;height:auto;align-self:stretch} /* 2U module: two slots tall */
+.rack>.rail:nth-of-type(odd){grid-column:1}.rack>.rail:nth-of-type(even){grid-column:3} /* rails keep their side while modules move */
 .rack .rail{min-height:52px} /* one slot (46px + margins), so the row under a 2U module keeps its height */
 .unit.m-pcb{background:linear-gradient(#1f2618,#171d12);border-color:#3c4a2c} /* olive, so it never reads as the mint ready state */
 .unit.m-anod{background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),linear-gradient(#1b283a,#131c29);border-color:#2c4562}
