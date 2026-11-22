@@ -296,8 +296,13 @@
 .hw:is(:hover,:focus-visible) .gl .q-kcap{animation:qkey 1.6s infinite;animation-delay:calc(var(--i) * .4s)}
 @keyframes qkey{0%,30%,100%{transform:none}10%,20%{transform:translateY(2.5px)}}
 /* bitshift: the codes roll one place left, the first wraps to the end */
-.hw:is(:hover,:focus-visible) .gl .q-roll{animation:qroll 3.6s ease-in-out infinite}
-@keyframes qroll{0%,20%{transform:none}33%,53%{transform:translateX(-20px)}66%,86%{transform:translateX(-40px)}100%{transform:translateX(-60px)}}
+.hw:is(:hover,:focus-visible) .gl :is(.q-rc0,.q-rc1,.q-rc2){animation:4.2s ease-in-out infinite}
+.hw:is(:hover,:focus-visible) .gl .q-rc0{animation-name:qrc0}
+.hw:is(:hover,:focus-visible) .gl .q-rc1{animation-name:qrc1}
+.hw:is(:hover,:focus-visible) .gl .q-rc2{animation-name:qrc2}
+@keyframes qrc0{0%{transform:none}6%{transform:translate(20px,-10px)}13%,33%{transform:translate(40px,0)}46%,66%{transform:translate(20px,0)}79%,100%{transform:none}}
+@keyframes qrc1{0%{transform:none}13%,33%{transform:translate(-20px,0)}39%{transform:translate(0,-10px)}46%,66%{transform:translate(20px,0)}79%,100%{transform:none}}
+@keyframes qrc2{0%{transform:none}13%,33%{transform:translate(-20px,0)}46%,66%{transform:translate(-40px,0)}72%{transform:translate(-20px,-10px)}79%,100%{transform:none}}
 /* exploit: the card rises, +$1 pops (shared .q-cpop) */
 .q-ecard{transition:transform .3s}
 .hw:is(:hover,:focus-visible) .gl .q-ecard{transform:translateY(-2px)}

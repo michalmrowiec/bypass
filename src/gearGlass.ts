@@ -485,9 +485,8 @@ function bitshift() {
   }
   s += withFill(sh, 'fill="url(#pd-case)"') + bevel(22, 24, 106, 36, 3) + `<circle cx="30" cy="42" r="3" fill="#0a0e12"/><text class="engr" x="36" y="33" font-size="4.6">74HC595 · SHIFT</text>` +
     `<rect x="40" y="36" width="66" height="18" rx="2" fill="#05080a" stroke="#5af2a8" stroke-opacity=".3" stroke-width=".5"/>` +
-    // codes twice in a row: sliding three cells left shows the same window again, so the loop is seamless
-    `<clipPath id="bs-win"><rect x="41" y="37" width="64" height="16"/></clipPath><g clip-path="url(#bs-win)"><g class="roll">` +
-    ['4B', '7F', 'C9', '4B', '7F', 'C9'].map((c, i) => `<rect x="${44 + i * 20}" y="39" width="16" height="12" rx="1.4" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".5"/>${txt(52 + i * 20, 47.6, c, 6)}`).join('') + `</g></g>` +
+    // rotation: each step the first code hops over the others to the end while they move one place left
+    ['4B', '7F', 'C9'].map((c, i) => `<g class="rc${i}"><rect x="${44 + i * 20}" y="39" width="16" height="12" rx="1.4" fill="#5af2a8" fill-opacity=".12" stroke="#5af2a8" stroke-opacity=".6" stroke-width=".5"/>${txt(52 + i * 20, 47.6, c, 6)}</g>`).join('') +
     `<path d="M112 38v6a4 4 0 0 1-4 4h-1m2-3-2 3 2 3" fill="none" stroke="#5af2a8" stroke-width=".9" filter="url(#pd-glow)"/>`;
   return [sh, s];
 }
