@@ -574,7 +574,6 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   repeater: [() => repeater(), 0, 0],
   rewind: [() => rewind(), 0, 0],
   socket: [() => coproc(), 0, 0],
-  // shortcut: placeholder art borrowed from similar items, until the new items get their own drawings
   nullpad: [() => nullpad(), '16 12 118 54', 0],
   ziptie: [() => ziptie(), '6 16 138 54', 0],
   ups: [() => ups(), '18 6 114 72', 0], // 2U: the rack crop keeps the full height

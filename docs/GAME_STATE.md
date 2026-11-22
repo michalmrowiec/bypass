@@ -129,7 +129,7 @@ Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 | Exploit v1/v2 | 3/3 | 1 / 2 komórki `$` (złote) w matrycy; pick daje +$1, także bez uploadu |
 | Snapshot | 5 | raz na pokój, po matrycy z kompletem: przycisk w podsumowaniu daje tę samą planszę jeszcze raz, z twoją trasą jako skryptem |
 
-Nowe itemy z 2026-11-22 mają tymczasowe ikony istniejących itemów (do narysowania w `.notes/item-svg`).
+Nowe itemy z 2026-11-22 mają własne grafiki w stylu glass; w stylu classic nadal pożyczone od istniejących itemów.
 
 ## 8. Bonusy (cele bonusowe)
 - **1 matryca na iterację** (`BOUNTIES_PER_LOOP`), nigdy w SOC ani na pierwszej matrycy runu. Na starcie pokazuje się plansza celu, która znika po kliknięciu „Got it” albo po pierwszym ruchu.
