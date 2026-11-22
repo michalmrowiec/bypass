@@ -146,11 +146,14 @@ export type PickResult = 'placed' | 'picked';
 
 // Applies a legal pick, or an armed Wildcard's placement (no move). Any armed tool is put down.
 // alt: a Dual cell's second code.
+// Snapshot: the route to replay, without the pick Rewind took back.
+export const replayRoute = (b: Board): Cell[] => b.run.path.filter((_, i) => i !== b.m.undone).map(([r, c]) => [r, c]);
+
 export function applyPick(b: Board, r: number, c: number, alt = false): PickResult {
   const { run, puzzle, m } = b;
   const tool = b.armed;
   b.armed = null;
-  if (tool) m.tools = true;
+  if (tool && tool !== 'shift') m.tools = true; // Bitshift acts on targets, never on a pick
   if (tool === 'wild') {
     puzzle.grid[r][c] = WILD;
     if (puzzle.belt?.row === r) puzzle.belt.base[beltSrc(puzzle.belt.base, c, run.path.length)] = WILD;

@@ -6,7 +6,7 @@ import {
 import { gear, DATA_PATHS } from './gear';
 import { hacker, logo } from './logos';
 import {
-  applyPick, canPick, cellView, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+  applyPick, canPick, cellView, replayRoute, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
 } from './matrix';
 import {
   buy, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
@@ -166,6 +166,7 @@ function termLine(e: string) {
 }
 function runPlan() {
   stopPlan();
+  ranPlan = [plan.map(([r, c]) => [r, c] as [number, number]), S.run];
   scripting = true;
   hold = [];
   const n = plan.length, exit = ($('exitEnd') as HTMLInputElement).checked;
@@ -1747,6 +1748,8 @@ function enterSection() {
 
 // Snapshot: the route of the saved board, loaded as the replay's script.
 let snapPlan: [number, number][] | null = null;
+// The script as ./run started it, on its board: Snapshot keeps it as written (jumps and take-backs stay out).
+let ranPlan: [[number, number][], unknown] | null = null;
 function dealMatrix(seed?: number) {
   // Company look: its logo as a watermark under the matrix, its motif behind the contract.
   $('wmark').innerHTML = logo(COMPANIES[R.company].id);
@@ -1801,6 +1804,7 @@ function doShift(i: number) {
   note(toolName('shift') + ' · rotated target ' + S.puzzle.targets[i].join(' '));
   M.shifted = i;
   M.tools = true;
+  armed = null; // a script can run; another click on the unit rotates again
   render();
 }
 
@@ -2051,7 +2055,7 @@ function finish(sc: number, disconnected = false) {
     }
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
     document.getElementById('runSnap')?.addEventListener('click', () => {
-      snapPlan = S.run.path.map(([r, c]) => [r, c]);
+      snapPlan = ranPlan?.[1] === S.run && ranPlan[0].length ? ranPlan[0] : replayRoute(B());
       takeSnapshot(R, R.dealt!);
       hideResult();
       newMatrix();

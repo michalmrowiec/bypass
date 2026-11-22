@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOOLS } from './matrix';
+import { applyPick, dealBoard, replayRoute, TOOLS } from './matrix';
 import { generate } from './generator';
 import { stageSeed } from './game';
 import { canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
@@ -175,5 +175,22 @@ describe('Snapshot', () => {
     takeSnapshot(s, 42);
     expect(exitRoom(s)).not.toBe('continue');
     expect(s.snap).toBeUndefined();
+  });
+});
+
+describe('review fixes', () => {
+  it('the Snapshot replay route drops the pick Rewind took back', () => {
+    const b = dealBoard(5, { ...newRunState(1), items: ['rewind'] as ItemId[] });
+    b.run.path = [[0, 1], [3, 1], [0, 1], [0, 4]] as [number, number][];
+    b.m.undone = 1;
+    expect(replayRoute(b)).toEqual([[0, 1], [0, 1], [0, 4]]);
+    b.m.undone = undefined;
+    expect(replayRoute(b)).toHaveLength(4);
+  });
+  it('a pick while Bitshift is armed counts as no tool and disarms it', () => {
+    const b = dealBoard(5, { ...newRunState(1), items: ['bitshift'] as ItemId[] });
+    b.armed = 'shift';
+    applyPick(b, 0, 0);
+    expect([b.m.tools, b.armed, b.run.path.length]).toEqual([false, null, 1]);
   });
 });
