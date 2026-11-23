@@ -311,7 +311,7 @@ describe('shop', () => {
     expect(back).toBeLessThan(base * 0.5);
   });
 
-  it('a locked item stays through rerolls and waits on the next visit, but cannot be locked twice', () => {
+  it('a locked item stays through rerolls and opens the next visit unlocked, then rerolls like the rest', () => {
     const s = rich(20);
     stockShop(s);
     const id = s.shelf[2];
@@ -320,10 +320,14 @@ describe('shop', () => {
     expect(s.shelf[0]).toBe(id);
     s.section++;
     stockShop(s);
-    stockShop(s, true);
     expect([s.shelf[0], s.hold, s.kept]).toEqual([id, undefined, id]);
     expect(lockItem(s, id)).toBe(false);
-    expect(lockItem(s, s.shelf[1])).toBe(true);
+    const other = s.shelf[1];
+    expect(lockItem(s, other)).toBe(true);
+    stockShop(s, true);
+    expect(s.shelf[0]).toBe(other);
+    expect(s.skipped).toContain(id); // rerolled away like any other
+    s.shelf.push(id);
     expect(buy(s, id)).toBe(true);
     expect(s.kept).toBeUndefined();
   });

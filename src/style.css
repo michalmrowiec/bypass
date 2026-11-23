@@ -461,11 +461,13 @@ button.ware{cursor:var(--hit)}
 .shelf .gear{width:124px;height:70px}
 .shelf .ware p{max-width:160px}
 .shelf .ware .price{margin-top:auto}
-.ware .lock{position:absolute;top:2px;right:6px;z-index:2;width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--mint-dim);border-radius:4px;color:var(--muted);opacity:.55;cursor:pointer}
+.ware .lock{position:absolute;top:2px;right:6px;z-index:2;width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--mint-dim);border-radius:4px;color:var(--muted);cursor:pointer}
 .ware .lock svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
-.ware:hover .lock,.ware .lock:focus-visible{opacity:1}
-.ware .lock.on{opacity:1;color:var(--mint);border-color:var(--mint)}
-.ware .lock.kept{cursor:default}
+.ware .lock:is(:hover,:focus-visible){color:var(--ink);border-color:var(--mint)}
+.ware .lock.on{color:var(--mint);border-color:var(--mint)}
+/* Touch: a bigger lock with a wider hit zone, so a tap meant for it does not buy the item. */
+.ware .lock::before{content:"";position:absolute;inset:-6px}
+@media (pointer:coarse){.ware .lock{width:36px;height:36px;top:0;right:0}.ware .lock svg{width:20px;height:20px}.ware .lock::before{inset:-10px}}
 .ware.locked .stage{outline:1px dashed var(--mint-dim);outline-offset:-2px}
 .ware.poor{opacity:.42;cursor:not-allowed}
 /* Shop: reroll above the shelf on the right; the rack slot button ends your rack, filled mint when affordable. */

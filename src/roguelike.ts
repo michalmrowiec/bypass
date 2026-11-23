@@ -287,7 +287,7 @@ export interface RunState {
   rerolls: number; // shelf rerolls on this visit
   skipped?: ItemId[]; // items rerolled away on this visit, once per reroll; rarer on later rerolls and the next visit's first shelf
   hold?: ItemId; // locked on this visit's shelf: survives rerolls and waits on the next visit's shelf
-  kept?: ItemId; // arrived locked from the last visit: survives rerolls, cannot be locked again
+  kept?: ItemId; // arrived locked from the last visit: on the first shelf, cannot be locked again
   ice: IceId; // the boss room's rule
   // Run summary; optional so saves from before them still load.
   total?: number; // data banked over the whole run
@@ -1082,7 +1082,7 @@ export const SKIPPED_ODDS = 0.25;
 // Odds of an upgrade (v2/v3 of an owned item) against 1 for the rest.
 export const UPGRADE_ODDS = 1.5;
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
-// Locked items (hold, kept) stay on the shelf through rerolls.
+// A locked item (hold) stays through rerolls; the one locked last visit (kept) opens the first shelf, then rerolls like the rest.
 export function stockShop(s: RunState, reroll = false): boolean {
   let avoid: ItemId[];
   if (reroll) {
@@ -1091,7 +1091,7 @@ export function stockShop(s: RunState, reroll = false): boolean {
     else if (s.credits < cost) return false;
     else s.credits -= cost;
     s.rerolls++;
-    s.skipped = [...(s.skipped ?? []), ...s.shelf.filter((id) => id !== s.hold && id !== s.kept)];
+    s.skipped = [...(s.skipped ?? []), ...s.shelf.filter((id) => id !== s.hold)];
     avoid = s.skipped;
     logEvent(s, 'shop · reroll');
   } else {
@@ -1100,7 +1100,7 @@ export function stockShop(s: RunState, reroll = false): boolean {
   }
   const open = forSale(s);
   if (s.kept && !open.includes(s.kept)) delete s.kept;
-  const pinned = [s.kept, s.hold].filter((id): id is ItemId => !!id && open.includes(id));
+  const pinned = [reroll ? undefined : s.kept, s.hold].filter((id): id is ItemId => !!id && open.includes(id));
   const r = rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls));
   const weight = (id: ItemId) => SKIPPED_ODDS ** avoid.filter((x) => x === id).length * (item(id).needs ? UPGRADE_ODDS : 1);
   // Weighted shuffle: key r^(1/w), highest keys win.

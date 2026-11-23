@@ -1228,7 +1228,7 @@ function showShop(restock = true) {
     + (forSale(R).length > R.shelf.length ? "<div class='shelfbar'><button class='btn' id='reroll'" + (!rerollCost(R) ? '>' + REROLL_ICO + 'Reroll · free'
       : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
     + "<div class='wares shelf" + (R.zipOpen ? ' mini' : '') + "'>" + R.shelf.map((id) => lockTag(id, ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
-      (R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '') + (id === R.hold || id === R.kept ? ' locked' : '')))).join('')
+      (R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '') + (id === R.hold ? ' locked' : '')))).join('')
     + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + hotkeyZone() + upsZone() + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
@@ -1256,10 +1256,9 @@ function showShop(restock = true) {
 }
 
 const LOCK_ICO = "<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='5' y='11' width='14' height='9' rx='1.5'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/></svg>";
-// Shelf lock: one item waits for the next shop; one that arrived locked shows the lock but cannot be locked again.
-const lockTag = (id: ItemId, html: string) => html.replace("<span class='stage'>", "<span class='stage'>" + (id === R.kept
-  ? "<span class='lock on kept' data-tip='kept from the last shop · stays through rerolls'>" + LOCK_ICO + '</span>'
-  : "<span class='lock" + (id === R.hold ? ' on' : '') + "' role='button' tabindex='0' data-lock='" + id + "' aria-pressed='" + (id === R.hold) + "' data-tip='" + (id === R.hold ? 'locked · waits for the next shop · click to unlock' : 'lock · keep it for the next shop (one item, free)') + "'>" + LOCK_ICO + '</span>'));
+// Shelf lock: one item waits for the next shop; there it stands like the rest, with no lock. While one is locked, the others show none.
+const lockTag = (id: ItemId, html: string) => (id === R.kept || (R.hold && id !== R.hold) ? html : html.replace("<span class='stage'>", "<span class='stage'><span class='lock" + (id === R.hold ? ' on' : '')
+  + "' role='button' tabindex='0' data-lock='" + id + "' aria-pressed='" + (id === R.hold) + "' data-tip='" + (id === R.hold ? 'locked · waits for the next shop · click to unlock' : 'lock · keep it for the next shop (one item, free)') + "'>" + LOCK_ICO + '</span>'));
 const REROLL_ICO = "<svg class='rrico' viewBox='0 0 24 24' aria-hidden='true'><path d='M20 12a8 8 0 1 1-2.3-5.6'/><path d='M20 4v5h-5'/></svg>";
 // patch.zip in the shop: a sealed archive; bought, it unzips and its payload patches decrypt, then one is kept.
 const ZIP_SVG = "<svg class='zip' viewBox='0 0 64 76' aria-hidden='true'><path class='zbody' d='M6 2h38l14 14v56a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/><path class='zfold' d='M44 2v14h14z'/><g class='zteeth'>"
