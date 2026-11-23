@@ -176,9 +176,9 @@ const bitshift = Array.from({ length: 12 }, (_, i) => "<rect class='g-pin g-read
   + "<path class='g-shaft' d='M112 38v6a4 4 0 0 1-4 4h-1m2-3-2 3 2 3'/>";
 
 // Overclocked CPU: one wide package, a steel lid with ×1.5 and a clock meter whose bars light on hover.
-const overclock = contacts(21, 128, 7, [0, 0]) + contacts(21, 128, 71, [0, 0])
+const overclock = (m: string) => contacts(21, 128, 7, [0, 0]) + contacts(21, 128, 71, [0, 0])
   + "<rect class='g-pcb' x='16' y='12' width='118' height='60' rx='3'/><rect class='g-steel' x='24' y='18' width='102' height='48' rx='4'/>"
-  + "<text class='g-silk' x='30' y='31'>OVERCLOCK</text><text class='g-mult' x='34' y='56' style='fill:var(--pink)'>×1.5</text>"
+  + "<text class='g-silk' x='30' y='31'>OVERCLOCK</text><text class='g-mult' x='34' y='56' style='fill:var(--pink)'>" + m + '</text>'
   + "<rect class='g-hole' x='92' y='23' width='28' height='38' rx='2'/>"
   + [0, 1, 2, 3, 4].map((i) => "<rect class='g-core' style='animation-delay:" + i * 0.15 + "s' x='96' y='" + (54 - i * 5.6) + "' width='20' height='4'/>").join('');
 
@@ -237,7 +237,8 @@ const ART: Record<ItemId, string> = {
     + ([[24, 'F13', 'var(--mint)'], [60, 'F14', 'var(--data)'], [96, 'F15', 'var(--pink)']] as const).map(([x, l, c]) => keycap(x, 22, 30, 30, l, c)).join(''),
   compiler,
   bitshift,
-  overclock,
+  overclock: overclock('×1.5'),
+  overclock2: overclock('×1.8'),
   exploit: zeroDay(55, 18),
   exploit2: zeroDay(46, 14) + zeroDay(64, 22),
   snapshot: floppy,

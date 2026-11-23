@@ -748,7 +748,7 @@ const MATERIAL: Partial<Record<ItemId, 'pcb' | 'anod' | 'steel' | 'net'>> = {
   datanode: 'anod', datanode2: 'anod', datanode3: 'anod', thumb: 'anod', thumb2: 'anod', thumb3: 'anod', chip: 'anod', sim: 'anod',
   wildcard1: 'steel', wildcard2: 'steel', shortkey: 'steel', sidedoor: 'steel', repeater: 'steel', glob: 'steel', heatsink: 'steel', rewind: 'steel',
   bridge: 'net', bridge2: 'net', ping: 'net', mux: 'net', split1: 'net', split2: 'net', loopback1: 'net', loopback2: 'net',
-  nullpad: 'pcb', ups: 'pcb', compiler: 'pcb', overclock: 'pcb', ziptie: 'net', bitshift: 'net', hotkey: 'steel', hotkey2: 'steel', exploit: 'anod', exploit2: 'anod', snapshot: 'anod',
+  nullpad: 'pcb', ups: 'pcb', compiler: 'pcb', overclock: 'pcb', overclock2: 'pcb', ziptie: 'net', bitshift: 'net', hotkey: 'steel', hotkey2: 'steel', exploit: 'anod', exploit2: 'anod', snapshot: 'anod',
 };
 const MARK: Partial<Record<ItemId, string>> = {
   wildcard1: 'var(--pink)', wildcard2: 'var(--pink)', glob: 'var(--pink)', repeater: 'var(--violet)',

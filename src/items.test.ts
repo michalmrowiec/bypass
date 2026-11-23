@@ -36,6 +36,7 @@ describe('passive bill items', () => {
     const sc = scoreMatrix(ctx, with_('overclock'));
     expect([sc.total, sc.gear]).toEqual([60, [['overclock', { mult: 1.5 }]]]);
     expect(scoreMatrix({ ...ctx, buf: ['Q'] }, with_('overclock')).total).toBe(0);
+    expect(scoreMatrix(ctx, with_('overclock2')).gear).toEqual([['overclock2', { mult: 1.8 }]]);
   });
 });
 

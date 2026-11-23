@@ -276,11 +276,19 @@
 .hw:is(:hover,:focus-visible) .gl .q-lvpop{animation:qlvpop 2.4s infinite}
 @keyframes qcstep{0%{fill-opacity:0}10%,80%{fill-opacity:.3}100%{fill-opacity:0}}
 @keyframes qlvpop{0%,45%{opacity:0;transform:translateY(2px)}55%,85%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}
-/* overclock: the clock meter climbs into the red */
+/* overclock v1: on hover the clock meter revs up to the first red bar and drops back.
+   v2: the meter sits full on a heat-tinted lid; on hover the red bars shake on the redline and the tint glows */
 .q-clk{fill-opacity:.15}
-.q-clk.q-on{fill-opacity:.8} /* idle: the stock clock */
-.hw:is(:hover,:focus-visible) .gl .q-clk{animation:qclk .9s forwards;animation-delay:calc(var(--i) * .12s)}
-@keyframes qclk{to{fill-opacity:.9}}
+.q-clk.q-on{fill-opacity:.85}
+.hw:is(:hover,:focus-visible) .gl .q-clk:not(.q-top):not(.q-hot){animation:qrev 1.4s infinite;animation-delay:calc(var(--i) * .08s)}
+@keyframes qrev{0%,100%{fill-opacity:.15}25%,60%{fill-opacity:1}}
+.hw:is(:hover,:focus-visible) .gl .q-clk.q-hot{animation:qfill .25s calc(var(--i) * .09s) both}
+.hw:is(:hover,:focus-visible) .gl .q-clk.q-hot.q-red{animation:qfill .25s calc(var(--i) * .09s) both, qredline .16s calc(.5s + var(--i) * .05s) infinite alternate}
+@keyframes qfill{from{fill-opacity:.15}to{fill-opacity:1}}
+@keyframes qredline{from{fill-opacity:1}to{fill-opacity:.3}}
+/* v2 lid: a light tint at rest that heats up on hover */
+.q-temper{mix-blend-mode:multiply;opacity:.35;transition:opacity .3s}
+.hw:is(:hover,:focus-visible) .gl .q-temper{opacity:1;transition:opacity 1.6s ease-in}
 /* null pad: the empty chips light in the data colour one by one */
 .q-nslot{fill-opacity:0}
 .hw:is(:hover,:focus-visible) .gl .q-nslot{animation:qnslot .3s forwards;animation-delay:calc(var(--i) * .25s)}

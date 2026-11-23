@@ -726,7 +726,8 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     const cover = coverage(ctx.buf, f.done);
     const tied = ctx.targets.reduce((a, t, i) => a + (f.done.includes(t) && windowOf(ctx.buf, t).some((j) => cover[j] >= 2) ? ctx.worth?.[i] ?? DATA_BY_LEN[t.length] : 0), 0);
     gearFlat('ziptie', Math.floor(ZIPTIE_SHARE * tied));
-    if (s.items.includes('overclock')) { sc.mult *= OVERCLOCK_MULT; sc.gear.push(['overclock', { mult: OVERCLOCK_MULT }]); }
+    const oc = (['overclock2', 'overclock'] as const).find((id) => s.items.includes(id));
+    if (oc) { sc.mult *= OVERCLOCK_MULT[oc]; sc.gear.push([oc, { mult: OVERCLOCK_MULT[oc] }]); }
   }
   sc.ups = upsSave(s, f, false, ctx.live);
   for (const id of s.daemons) {
@@ -1003,6 +1004,7 @@ export const ITEMS = {
   compiler: { name: 'Compiler', ver: '1.0', kind: 'build server', price: 6, u: 2, text: 'Every 3rd time a payload scores, it gains a level for good' },
   bitshift: { name: 'Bitshift', ver: '1.0', kind: 'shift register', price: 3, text: 'Once per matrix, before your first move, rotate the codes of one target (A B C → B C A)' },
   overclock: { name: 'Overclock', ver: '1.0', kind: 'overclocked CPU', price: 7, u: 2, text: '×1.5 on every matrix' },
+  overclock2: { name: 'Overclock', ver: '2.0', kind: 'overclocked CPU', price: 4, u: 2, text: 'Upgrades v1.0: ×1.8 on every matrix', needs: 'overclock' },
   exploit: { name: 'Exploit', ver: '1.0', kind: 'zero-day', price: 3, text: 'One cell in every matrix holds $: picking it pays +$1' },
   exploit2: { name: 'Exploit', ver: '2.0', kind: 'exploit kit', price: 3, text: 'Upgrades v1.0: two $ cells in every matrix, +$1 each', needs: 'exploit' },
   snapshot: { name: 'Snapshot', ver: '1.0', kind: 'VM image', price: 5, text: 'Once per room, after a matrix with every target uploaded, the next matrix can be the same board, with your script loaded' },
@@ -1014,7 +1016,7 @@ export const THUMB_DATA = { thumb: 3, thumb2: 10, thumb3: 25 } as const;
 const thumbId = (items: ItemId[]) => (['thumb3', 'thumb2', 'thumb'] as const).find((id) => items.includes(id));
 export const thumbData = (items: ItemId[]) => { const id = thumbId(items); return id ? THUMB_DATA[id] : 0; };
 export const PRIO_MULT = { prio1: 2, prio2: 4 } as const;
-export const NULLPAD_DATA = 8, ZIPTIE_SHARE = 0.5, OVERCLOCK_MULT = 1.5;
+export const NULLPAD_DATA = 8, ZIPTIE_SHARE = 0.5, OVERCLOCK_MULT = { overclock: 1.5, overclock2: 1.8 };
 // Data of the first uploaded target: the one whose first match ends earliest in the buffer; on a tie, the richer one.
 // Index of the first uploaded target (the richer one on a tie), -1 if none.
 export function firstTarget(buf: string[], targets: string[][], worth?: number[]): number {

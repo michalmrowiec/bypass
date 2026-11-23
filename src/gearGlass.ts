@@ -13,6 +13,7 @@ document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style=
     <linearGradient id="pd-sheen" x1="0" y1="0" x2="1" y2=".35"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <linearGradient id="pd-hot2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5af2a8"/><stop offset="1" stop-color="#4fc8ff"/></linearGradient>
     <linearGradient id="pd-hot3" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5af2a8"/><stop offset=".5" stop-color="#b46bff"/><stop offset="1" stop-color="#ff4d7d"/></linearGradient>
+    <radialGradient id="pd-temper" cx=".36" cy=".62" r=".8"><stop offset="0" stop-color="#ffe6a8"/><stop offset=".22" stop-color="#e0a050"/><stop offset=".42" stop-color="#a0508c"/><stop offset=".62" stop-color="#5a40b8"/><stop offset=".82" stop-color="#2c58c8"/><stop offset="1" stop-color="#4a8ad8"/></radialGradient>
     <radialGradient id="pd-ember"><stop offset="0" stop-color="#ffd27a"/><stop offset=".4" stop-color="#ff7a2e" stop-opacity=".8"/><stop offset="1" stop-color="#ff4d2e" stop-opacity="0"/></radialGradient>
     <linearGradient id="pd-cable" gradientUnits="userSpaceOnUse" x1="6" y1="0" x2="30" y2="0"><stop offset="0" stop-color="#3a7d5f" stop-opacity="0"/><stop offset=".6" stop-color="#3a7d5f"/></linearGradient>
     <pattern id="pd-pins" width="2.6" height="6" patternUnits="userSpaceOnUse"><rect width="1.8" height="6" fill="url(#pd-gold)"/></pattern>
@@ -408,8 +409,9 @@ function compiler() {
     `<text class="engr" x="111" y="64" font-size="4.4" text-anchor="middle">BUILD</text>`;
   return [sh, s];
 }
-function overclock() {
-  // overclocked CPU: one wide package, the clock meter set into its steel lid; on hover the meter climbs into the red
+function overclock(v = 0) {
+  // overclocked CPU: one wide package, the clock meter set into its steel lid. v1: the meter idles at 3 bars and climbs
+  // to the first red one on hover; v2: the meter sits full and the lid shows temper colours from the heat
   const sh = R(16, 12, 118, 60, 3);
   let s = '';
   for (let i = 0; i < 15; i++) {
@@ -418,10 +420,11 @@ function overclock() {
   }
   s += withFill(sh, 'fill="url(#pd-pcb)" stroke="#000" stroke-opacity=".5" stroke-width=".5"') + bevel(16, 12, 118, 60, 3, .7) +
     withFill(R(24, 18, 102, 48, 4), 'fill="url(#pd-steel)"') + bevel(24, 18, 102, 48, 4) + `<rect x="24" y="18" width="102" height="48" rx="4" fill="url(#pd-brush)"/>` +
+    (v ? `<rect class="temper" x="24" y="18" width="102" height="48" rx="4" fill="url(#pd-temper)"/>` : '') +
     `<text class="engr" x="29" y="31" font-size="9">OVERCLOCK</text>` +
-    txt(55, 57, '×1.5', 16, 'style="fill:#ff3d8b" filter="url(#pd-glow)"') +
+    txt(55, 57, v ? '×1.8' : '×1.5', 16, 'style="fill:#ff3d8b" filter="url(#pd-glow)"') +
     `<rect x="92" y="23" width="28" height="38" rx="2" fill="#05080a" stroke="#000" stroke-opacity=".6" stroke-width=".5"/><text class="silk" x="106" y="29" font-size="4" text-anchor="middle">CLK</text>` +
-    [0, 1, 2, 3, 4].map(i => `<rect class="clk${i < 2 ? ' on' : ''}" style="--i:${i}" x="96" y="${54 - i * 5.6}" width="20" height="4" rx="1" fill="${i > 2 ? '#ff3d8b' : '#5af2a8'}" filter="url(#pd-glow)"/>`).join('');
+    [0, 1, 2, 3, 4].map(i => `<rect class="clk${i < (v ? 5 : 3) ? ' on' : ''}${i > 2 ? ' red' : ''}${!v && i > 3 ? ' top' : ''}${v ? ' hot' : ''}" style="--i:${i}" x="96" y="${54 - i * 5.6}" width="20" height="4" rx="1" fill="${i > 2 ? '#ff3d8b' : '#5af2a8'}" filter="url(#pd-glow)"/>`).join('');
   return [sh, s];
 }
 function nullpad() {
@@ -598,6 +601,7 @@ const GLASS: Record<ItemId, [() => [string, string], string | 0, number]> = {
   compiler: [() => compiler(), '14 8 122 68', 0],
   bitshift: [() => bitshift(), '16 10 118 60', 0],
   overclock: [() => overclock(), '12 4 126 76', 0],
+  overclock2: [() => overclock(1), '12 4 126 76', 0],
   exploit: [() => exploit(0), '20 6 110 66', 0], // headroom: the card rises on hover
   exploit2: [() => exploit(1), '20 6 110 66', 0],
   snapshot: [() => snapshot(), '14 4 120 72', 0],
