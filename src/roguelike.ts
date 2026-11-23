@@ -229,7 +229,7 @@ function deployPatches(s: RunState): Patch[] {
 // Re-dealing a matrix (before the first move) needs a Burner SIM: once per room.
 const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0);
 export const DAEMON_SLOTS = 4;
-export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron';
+export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron' | 'Root';
 // Credits: one per SURPLUS_PER_CREDIT data over the quota, SECTION_CREDIT per cleared section,
 // one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something, only with a Credit chip in idle,
 // FULL_CREDIT for a matrix with every target uploaded.
@@ -607,7 +607,20 @@ export const DAEMONS = {
   overtime: { name: 'Overtime', family: 'Cron', rarity: 'rare', scope: 'run', text: 'Half the data over a room\'s quota carries into the next room' },
   warmup: { name: 'Warm-up', family: 'Cron', scope: 'room', text: '+0.5 boost per matrix already played in this room',
     score: (_f, s) => (played(s) ? { boost: 0.5 * played(s) } : null) },
+  // Root: flat bonuses with easy conditions that fit any build.
+  baseline: { name: 'Baseline', family: 'Root', text: '+0.4 boost on every matrix', score: () => ({ boost: 0.4 }) },
+  payroll: { name: 'Payroll', family: 'Root', text: '+$1 after every matrix where you upload 2+ targets',
+    end: (s, f) => { if (f.done.length >= 2) earn(s, 'Payroll daemon', 1); } },
+  patch: { name: 'Patch', family: 'Root', text: '+10 data per uploaded target',
+    score: (f) => (f.done.length ? { flat: 10 * f.done.length } : null) },
+  polyglot: { name: 'Polyglot', family: 'Root', rarity: 'rare', text: '×1.3, +0.3 per other daemon family you have installed',
+    score: (_f, s) => ({ mult: Math.round((1.3 + 0.3 * otherFamilies(s)) * 10) / 10 }) },
+  failsafe: { name: 'Failsafe', family: 'Root', rarity: 'rare', text: '×1.25, or ×1.6 when every target is uploaded',
+    score: (f) => ({ mult: f.all ? 1.6 : 1.25 }) },
+  superuser: { name: 'Superuser', family: 'Root', rarity: 'legendary', text: '×1.8 on every matrix', score: () => ({ mult: 1.8 }) },
 } satisfies Record<string, Daemon>;
+// Polyglot: distinct non-Root families among the installed daemons.
+const otherFamilies = (s: RunState): number => new Set(s.daemons.map((id: string) => (DAEMONS as Record<string, Daemon>)[id].family).filter((f: Family) => f !== 'Root')).size;
 export type DaemonId = keyof typeof DAEMONS;
 export const rarityOf = (id: DaemonId): Rarity => (DAEMONS[id] as Daemon).rarity ?? 'common';
 export const streakOf = (id: DaemonId) => (DAEMONS[id] as Daemon).streak;

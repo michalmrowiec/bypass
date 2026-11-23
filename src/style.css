@@ -196,6 +196,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .c-splicer{--fc:var(--cyan)}
 .c-ghost{--fc:#b9a6ff}
 .c-runner{--fc:#f0b35a}
+.c-root{--fc:#f2f5f8}
 
 /* Daemon cards: floating file strips that tilt toward the pointer and glow in their family color; lit when they count toward the matrix. */
 .daemons,.dlist{display:flex;flex-direction:column;gap:10px}
@@ -256,6 +257,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
   radial-gradient(ellipse at 70% 40%,color-mix(in srgb,var(--fc) 14%,transparent),transparent 65%)}
 .c-runner{--tex:repeating-linear-gradient(0deg,color-mix(in srgb,var(--fc) 12%,transparent) 0 1px,transparent 1px 5px)}
 .c-cron{--tex:repeating-linear-gradient(90deg,color-mix(in srgb,var(--fc) 16%,transparent) 0 1px,transparent 1px 8px) 0 0/100% 4px no-repeat}
+.c-root{--tex:repeating-linear-gradient(0deg,color-mix(in srgb,var(--fc) 10%,transparent) 0 1px,transparent 1px 6px),repeating-linear-gradient(90deg,color-mix(in srgb,var(--fc) 10%,transparent) 0 1px,transparent 1px 6px)}
 /* Dog-ear: the clip cuts the corner away, this is the folded-back flap. */
 .fold{position:absolute;top:0;right:0;z-index:1;width:14px;height:14px;
   background:linear-gradient(225deg,transparent 50%,color-mix(in srgb,var(--fc) 35%,var(--panel)) 50%);box-shadow:-1px 1px 0 var(--edge)}

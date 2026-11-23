@@ -257,7 +257,7 @@ const famCounts = (ids: DaemonId[]): [string, number][] => {
   for (const id of ids) { const f = DAEMONS[id].family.toLowerCase(); n[f] = (n[f] ?? 0) + 1; }
   return Object.entries(n).sort((x, y) => y[1] - x[1]);
 };
-const FAM_COLOR: Record<string, string> = { splicer: 'var(--cyan)', ghost: '#b9a6ff', runner: '#f0b35a', cron: '#c6e46b' };
+const FAM_COLOR: Record<string, string> = { splicer: 'var(--cyan)', ghost: '#b9a6ff', runner: '#f0b35a', cron: '#c6e46b', root: '#f2f5f8' };
 function render() {
   const { grid, targets, l } = S.puzzle;
   const n = grid.length, cols = grid[0].length, w = S.puzzle.half;
@@ -590,6 +590,15 @@ const ICONS: Record<DaemonId, string> = {
   allin: "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='3.5'/><path d='M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3'/>",
   overtime: "<circle cx='12' cy='13' r='7.5'/><path d='M12 9v4l2.5 2M9 3h6M18.5 6.5l1.5-1.5'/>",
   warmup: "<path d='M12 3c3 4 5 6 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z'/>",
+  // A boost arrow rising off the base line.
+  baseline: "<path d='M3 19h18M12 15V5M8 9l4-4 4 4'/>",
+  payroll: "<rect x='3' y='6' width='18' height='12' rx='2'/><circle cx='12' cy='12' r='3'/><path d='M6 9v.01M18 15v.01'/>",
+  // A diff file: + and - lines.
+  patch: "<path d='M6 3h9l4 4v14H6zM15 3v4h4'/><path d='M12 9.5v5M9.5 12h5M9.5 17h5'/>",
+  polyglot: "<path d='M3 4h11v7H8l-3 3v-3H3zM17 9h4v7h-2v3l-3-3h-6v-3'/>",
+  failsafe: "<path d='M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'/><path d='M8.5 12l2.5 2.5 4.5-5'/>",
+  // The root shell prompt.
+  superuser: "<path d='M10 4L8 20M16 4l-2 16M5 9h15M4 15h15'/>",
 };
 
 const SCOPE_MARK = { matrix: '◇', room: '▣', run: '∞' };

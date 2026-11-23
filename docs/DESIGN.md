@@ -104,16 +104,18 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 
 **Rodzina Root (uniwersalna), pomysł gracza 2026-11-23, w projekcie (bez kodu):**
 - normalna rodzina (common/rare/legendary): stałe premie z łatwymi warunkami, pasuje do każdego buildu; nie jest „rodziną od mieszania”;
-- kolor: **grafit `#6c7886`** (makieta z prawdziwego CSS kart). Biel i srebro odrzucone: zlewały się ze srebrną poświatą rare i perłą legendary. Pasek w 4 kolorach rodzin odrzucony (dezorientuje);
-- przy okazji do decyzji: grubsze ramki rare/legendary na kartach wszystkich rodzin, żeby rzadkość było lepiej widać;
+- kolor: **biel `#f2f5f8`**. Grafit i srebro odrzucone: obok nasyconych rodzin wyglądały na nieaktywne. Pasek w 4 kolorach rodzin odrzucony (dezorientuje). Rare odróżnia podwójna ramka, legendary holo 3px;
+- lodowy błękit (`#cfe6ff`, podkręcony) zostaje na przyszłą rodzinę;
 - kandydaci (wszystkie podobają się graczowi, liczby do sima):
-  - **Baseline** (common): +0,6 boosta na każdej macierzy, bez warunku. Może za słaby; porównać z Overflow (+0,25/wolny slot);
+  - **Baseline** (common): +0,4 boosta na każdej macierzy, bez warunku (sim 23.11: +0,6 za mocne na K/M);
   - **Payroll** (common): +$1 po macierzy z co najmniej **2** wgranymi targetami;
-  - **Patch** (common): +15 data za każdy wgrany target (scope matrix);
+  - **Patch** (common): +10 data za każdy wgrany target (sim 23.11: +15 za mocne na K/M);
   - **Polyglot** (rare): ×1,3 + 0,3 za każdą inną rodzinę w racku (max ×2,2);
   - **Superuser** (legendary): ×1,8 zawsze;
-  - **Failsafe** (legendary albo rare): ×1,5, a ×2,2 gdy wgrasz wszystkie targety;
-- otwarte: Signal flaw na Argusie (oferty z jednej rodziny) czy Root jest do wyboru (propozycja: nie); ikony; sim.
+  - **Failsafe** (rare): ×1,25, a ×1,6 gdy wgrasz wszystkie targety;
+- Signal flaw nie dotyczy Root (ma na stałe Runnera). Więcej daemonów nie dodajemy (3 common, 2 rare, 1 legendary);
+- **Paczki daemonów zamiast 3 kart** (pomysł gracza 2026-11-23, odłożony do playtestów z Root): w ofercie 2 paczki po ok. 3 daemony, każda oznaczona rodziną (np. Ghost, Splicer/Cron albo „mix”); gdy rodzina jest prawie wyczerpana, gra daje paczkę innej rodziny albo mix. Wariant: jedna paczka z pewną legendą za dopłatą. Uwaga: gracz widzi ok. 6 daemonów zamiast 3 (silniejszy wybór, balans do sima), a paczki kojarzą się z Balatro.
+- otwarte: czy Root nie rozmyje puli za mocno (najpierw boty sima mają używać nowych daemonów, potem sim z Root i bez); od początku czy do odblokowania (skłania się: od początku); ikony.
 
 ## 5. Trudność i balans
 

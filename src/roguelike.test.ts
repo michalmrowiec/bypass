@@ -801,6 +801,16 @@ describe('playtest daemons, bounties and Glob', () => {
     expect(s.stacks.sandbag).toBeUndefined();
   });
 
+  it('Root: Polyglot counts the other families, Failsafe and Payroll read the uploads', () => {
+    const s = run('polyglot', 'failsafe', 'baseline', 'silent', 'overtime'); // Ghost + Cron, neither fires here
+    expect(scoreMatrix(ctx, s).fired).toEqual([['polyglot', { mult: 1.9 }], ['failsafe', { mult: 1.6 }], ['baseline', { boost: 0.4 }]]);
+    expect(scoreMatrix({ ...ctx, buf: ['A', 'B', 'X'] }, run('failsafe')).fired).toEqual([['failsafe', { mult: 1.25 }]]);
+    const p = run('payroll');
+    daemonsAfterMatrix(ctx, p, false); // 2 targets uploaded
+    daemonsAfterMatrix({ ...ctx, buf: ['A', 'B', 'X'] }, p, false); // only 1
+    expect(p.earned.filter(([w]) => w === 'Payroll daemon')).toEqual([['Payroll daemon', 1]]);
+  });
+
   it('bounties check the route and pay a credit', () => {
     expect(bountyMet('surgical', { ...ctx, par: 4 })).toBe(true);
     expect(bountyMet('surgical', { ...ctx, par: 3 })).toBe(false);
