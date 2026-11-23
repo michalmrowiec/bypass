@@ -520,7 +520,7 @@ function render() {
 
 const runCtx = (): MatrixCtx =>
   ({ buf: S.run.buffer, path: S.run.path, targets: S.puzzle.targets, l: S.puzzle.l, n: S.puzzle.grid.length, ports: S.puzzle.ports, stay: M.stay, worth: M.worth, nodes: M.nodes, cash: M.cash, trap: M.trap, jumps: M.jumps,
-    par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge });
+    par: S.puzzle.path?.length, tools: M.tools, bounty: M.bounty, charge: M.charge, live: !S.over });
 
 // Data shows the live total with the current matrix's score; once the matrix is over it is banked in R.data.
 function runStatus() {
@@ -772,7 +772,8 @@ function renderDaemons() {
     if (!id) return "<div class='dslot empty'>slot " + (i + 1) + (i >= DAEMON_SLOTS ? ' · co-processor' : '') + ' · empty</div>';
     const e = fired.get(id);
     const c = carryFoot(id, sc.total);
-    return card(id, i, 'div', daemonText(id), e ? fmtEffect(e) : c ? c[0] : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : c ? c[1] : '');
+    // A held streak still counts its stack, but the foot shows what keeps it growing.
+    return card(id, i, 'div', daemonText(id), e && !sc.held?.includes(id) ? fmtEffect(e) : c ? c[0] : dfoot(id), e ? (lastFired.includes(id) ? ' on' : ' on just') : c ? c[1] : '');
   }).join('');
   lastFired = [...fired.keys()];
   fold($('daemons'));

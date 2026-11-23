@@ -238,4 +238,8 @@ describe('UPS on the bill', () => {
     expect(scoreMatrix(ctx, run([])).fired).toEqual([['heartbeat', { boost: 0.4 }]]);
     expect(scoreMatrix(ctx, { ...run(['ups']), upsUsed: true }).ups).toBeUndefined();
   });
+  it('mid-matrix the Heartbeat streak holds its stacks and the UPS stays charged', () => {
+    const sc = scoreMatrix({ ...ctx, live: true }, run(['ups']));
+    expect([sc.fired, sc.ups, sc.held]).toEqual([[['heartbeat', { boost: 0.8 }]], undefined, ['heartbeat']]);
+  });
 });

@@ -444,6 +444,7 @@ export interface MatrixCtx {
   tools?: boolean; // an item tool was used (Bare hands bonus)
   bounty?: BountyId;
   charge?: boolean; // a ×2 data charge is spent on this matrix
+  live?: boolean; // still being played (see Streak.atEnd)
 }
 
 interface Facts {
@@ -518,7 +519,12 @@ export interface Effect { flat?: number; boost?: number; mult?: number }
 // streak: a stack that grows each matrix its condition holds and resets when it breaks; `next` gives the stack after
 // this matrix, so the live score already counts it. Matrices that upload nothing leave every stack alone.
 // goal: what keeps the stack growing, shown while the daemon waits on it.
-interface Streak { goal: string; next: (n: number, f: Facts, s: RunState, disconnected: boolean) => number; effect: (n: number) => Effect }
+// atEnd: the goal settles only when the matrix ends, so while it is live the stack holds instead of looking broken.
+interface Streak { goal: string; next: (n: number, f: Facts, s: RunState, disconnected: boolean) => number; effect: (n: number) => Effect; atEnd?: boolean }
+const nextStack = (st: Streak, n: number, f: Facts, s: RunState, disconnected: boolean, live?: boolean) => {
+  const x = st.next(n, f, s, disconnected);
+  return live && st.atEnd ? Math.max(n, x) : x;
+};
 // Offer odds per slot, by rarity; a daemon with no rarity is common.
 export const RARITY = { common: 0.7, rare: 0.25, legendary: 0.05 };
 export type Rarity = keyof typeof RARITY;
@@ -564,11 +570,11 @@ export const DAEMONS = {
     score: (f) => { const k = f.moves.filter((d, i) => i > 0 && d > f.moves[i - 1]).length; return k ? { boost: 0.5 * k } : null; } },
   // Cron: scheduled jobs. Keep doing the thing every matrix and the stack grows; slip once and it is gone.
   heartbeat: { name: 'Heartbeat', family: 'Cron', rarity: 'rare', text: '+0.2 boost for every matrix in a row where you upload every target, this one included; missing one halves the stack',
-    streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : Math.floor(n / 2)), effect: (n) => ({ boost: n / 5 }) } },
+    streak: { goal: 'upload every target', next: (n, f) => (f.all ? n + 1 : Math.floor(n / 2)), effect: (n) => ({ boost: n / 5 }), atEnd: true } },
   rotate: { name: 'Rotate', family: 'Cron', text: '+' + ROTATE_DATA + ' data per matrix in a row started in a new column; the same column resets it',
     streak: { goal: 'start in a new column', next: (n, f, s) => (f.start === undefined ? n : f.start !== s.lastStart ? n + 1 : 0), effect: (n) => ({ flat: ROTATE_DATA * n }) } },
   backup: { name: 'Backup', family: 'Cron', rarity: 'rare', text: '+0.4 boost for every matrix in a row ending with exactly 1 empty buffer slot; any other ending halves the stack',
-    streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : Math.floor(n / 2)), effect: (n) => ({ boost: n * 2 / 5 }) } },
+    streak: { goal: 'end with exactly 1 empty slot', next: (n, f) => (f.empty === 1 ? n + 1 : Math.floor(n / 2)), effect: (n) => ({ boost: n * 2 / 5 }), atEnd: true } },
   uptime: { name: 'Uptime', family: 'Cron', text: '+' + CRON_DATA + ' data for every matrix in a row with no Disconnect and no restart; either resets the stack',
     streak: { goal: 'no Disconnect', next: (n, _f, _s, disconnected) => (disconnected ? 0 : n + 1), effect: (n) => ({ flat: CRON_DATA * n }) } },
   deflate: { name: 'Deflate', family: 'Splicer', rarity: 'legendary', text: '×(codes in uploaded targets ÷ picks), when that beats ×1',
@@ -678,11 +684,11 @@ export function restartMatrix(s: RunState): void {
 // gear: shop items that added something to this matrix, like daemons in fired.
 // pay: the payload this matrix scores, its level and what that level adds.
 // ups: the daemon whose breaking streak the UPS charge saves in this matrix.
-export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean; pay?: [PayloadId, number, Effect]; ups?: DaemonId }
+export interface Score { base: number; flat: number; boost: number; mult: number; total: number; fired: [DaemonId, Effect][]; gear: [ItemId, Effect][]; ice: [IceId, Effect][]; charge?: boolean; pay?: [PayloadId, number, Effect]; ups?: DaemonId; held?: DaemonId[] }
 
 // UPS: its one charge saves the first breaking streak, in daemon order; that streak keeps its stacks and does not grow.
-const upsSave = (s: RunState, f: Facts, disconnected: boolean): DaemonId | undefined => !s.items.includes('ups') || s.upsUsed ? undefined
-  : s.daemons.find((id) => { const st = streakOf(id), n = s.stacks[id] ?? 0; return !!st && st.next(n, f, s, disconnected) < n; });
+const upsSave = (s: RunState, f: Facts, disconnected: boolean, live?: boolean): DaemonId | undefined => !s.items.includes('ups') || s.upsUsed ? undefined
+  : s.daemons.find((id) => { const st = streakOf(id), n = s.stacks[id] ?? 0; return !!st && nextStack(st, n, f, s, disconnected, live) < n; });
 
 export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
   const f = facts(ctx);
@@ -722,10 +728,11 @@ export function scoreMatrix(ctx: MatrixCtx, s: RunState): Score {
     gearFlat('ziptie', Math.floor(ZIPTIE_SHARE * tied));
     if (s.items.includes('overclock')) { sc.mult *= OVERCLOCK_MULT; sc.gear.push(['overclock', { mult: OVERCLOCK_MULT }]); }
   }
-  sc.ups = upsSave(s, f, false);
+  sc.ups = upsSave(s, f, false, ctx.live);
   for (const id of s.daemons) {
-    const d = DAEMONS[id] as Daemon;
-    const n = id === sc.ups ? s.stacks[id] : d.streak?.next(s.stacks[id] ?? 0, f, s, false);
+    const d = DAEMONS[id] as Daemon, n0 = s.stacks[id] ?? 0;
+    const n = id === sc.ups ? s.stacks[id] : d.streak && nextStack(d.streak, n0, f, s, false, ctx.live);
+    if (ctx.live && d.streak?.atEnd && n === n0) (sc.held ??= []).push(id);
     const e = d.streak ? (n ? d.streak.effect(n) : null) : d.score?.(f, s);
     if (!e) continue;
     sc.flat += e.flat ?? 0;
@@ -763,6 +770,7 @@ export function daemonsAfterMatrix(ctx: MatrixCtx, s: RunState, disconnected: bo
 // met: the bonus objective held; its reward waits for claimReward.
 export function finishMatrix(s: RunState, ctx: MatrixCtx, disconnected: boolean) {
   s.earned = [];
+  ctx = { ...ctx, live: false };
   const score = scoreMatrix(ctx, s);
   daemonsAfterMatrix(ctx, s, disconnected);
   const met = !!ctx.bounty && bountyMet(ctx.bounty, ctx);
