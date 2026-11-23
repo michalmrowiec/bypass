@@ -590,7 +590,7 @@ export const DAEMONS = {
     } },
   circuit: { name: 'Circuit', family: 'Runner', rarity: 'legendary', text: '×2 when the last pick is in the row or column of the first',
     score: (f) => (f.loop ? { mult: 2 } : null) },
-  odometer: { name: 'Odometer', family: 'Runner', rarity: 'legendary', text: '×(1 + 0.05 per cell your moves cross)',
+  odometer: { name: 'Odometer', family: 'Runner', rarity: 'legendary', text: '×0.05 per cell of distance between your picks (each move\'s length adds up)',
     score: (f) => (f.travelled ? { mult: Math.round((1 + 0.05 * f.travelled) * 100) / 100 } : null) },
   sandbag: { name: 'Sandbag', family: 'Ghost', rarity: 'rare', scope: 'room',
     text: '+1.5 boost for the rest of the room per matrix you Disconnect with at most 1 target uploaded',
@@ -870,6 +870,7 @@ function payReward(s: RunState, why: string, id: RewardId): RewardId {
   return id;
 }
 export const bountyMet = (id: BountyId, ctx: MatrixCtx) => BOUNTIES[id].met(facts(ctx), ctx);
+export const travelledOf = (ctx: MatrixCtx) => facts(ctx).travelled;
 
 // Repeater: a planted-route cell inside exactly one target pushes its code twice; that target gets the doubled code
 // and the buffer one more slot, so the plant stays solvable. Returns the cell.

@@ -6,11 +6,11 @@ import {
 import { gear, DATA_PATHS } from './gear';
 import { hacker, logo } from './logos';
 import {
-  applyPick, canPick, cellView, replayRoute, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, jumpReady, loopAny, loopReady, muxReady, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Tool,
+  applyPick, canPick, cellView, replayRoute, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, loopAny, playStep, stepOk, toolReady, SCRIPT_TOOLS, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Step, type Tool,
 } from './matrix';
 import {
   buy, verOf, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop, lockItem,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, travelledOf, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop, lockItem,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -71,8 +71,8 @@ let armed: Tool | null = null; // deck tool picked for use before the first move
 const doneSeen = new Set<number>();
 // Cell under the mouse or keyboard focus, for the crosshair highlight.
 let cursor: [number, number] | null = null;
-// Scratchpad: planned picks, shown as numbered markers and a greyed buffer; the player clicks them out for real.
-let plan: [number, number, boolean?][] = [], planning = false, planRun: unknown = null;
+// Scratchpad: planned picks and path items, shown as numbered markers and a greyed buffer; ./run plays them, items included.
+let plan: Step[] = [], planning = false, planRun: unknown = null;
 const dailyKey = () => 'bypass:' + utcDate();
 const sprintBestKey = () => 'bypass:sprintBestMs:' + S.sprintLen;
 const stages = () => SPRINTS[S.sprintLen];
@@ -90,7 +90,7 @@ const B = (): Board => S.mode === 'run'
   : { puzzle: S.puzzle, run: S.run, m: emptyItems(), armed, ctx: EMPTY_CTX, over: S.over };
 const legal = (r: number, c: number) => !S.dealing && !offer.length && canPick(B(), r, c);
 // A plan step needs a legal cell and a free buffer slot.
-const planOk = (p: Board, r: number, c: number) => p.run.buffer.length < p.puzzle.l && canPick(p, r, c);
+const planOk = (p: Board, r: number, c: number) => stepOk(p, [r, c]);
 // The plan played out on a copy of the board, so ICE, ports, belts and the Repeater follow the game's own rules.
 // It is cut at the first pick that is no longer legal; codes still encrypted on the real board stay ?? in it.
 function planBoard(): { board: Board; codes: string[] } {
@@ -100,9 +100,9 @@ function planBoard(): { board: Board; codes: string[] } {
   const b = B(), p: Board = { ...b, puzzle: structuredClone(b.puzzle), run: structuredClone(b.run), m: structuredClone(b.m), armed: null };
   const codes: string[] = [];
   let k = 0;
-  for (; k < plan.length && planOk(p, plan[k][0], plan[k][1]); k++) {
-    const [r, c, alt] = plan[k], from = p.run.buffer.length, hidden = cellView(b, r, c).hidden;
-    applyPick(p, r, c, alt);
+  for (; k < plan.length; k++) {
+    const [r, c] = plan[k], from = p.run.buffer.length, hidden = cellView(b, r, c).hidden;
+    if (!playStep(p, plan[k])) break;
     codes.push(...p.run.buffer.slice(from).map((x) => (hidden ? '??' : x)));
   }
   plan.length = k;
@@ -180,9 +180,9 @@ function runPlan() {
   };
   const step = () => {
     const p = plan[0];
-    if (!p || S.over || S.dealing || offer.length || armed || S.mode !== 'run' || !legal(p[0], p[1])) { stopPlan(); render(); return; }
+    if (!p || S.over || S.dealing || offer.length || armed || S.mode !== 'run' || !stepOk(B(), p)) { stopPlan(); render(); return; }
     const from = document.getElementById('c' + p[0] + p[1])?.getBoundingClientRect(), b0 = S.run.buffer.length;
-    choose(p[0], p[1], p[2]);
+    if (p[3] === 'rewind') { plan.shift(); doRewind(true); } else { armed = p[3] ?? null; choose(p[0], p[1], p[2]); }
     k++;
     if (from) for (let i = b0; i < S.run.buffer.length; i++) flyCode(from, S.run.buffer[i], i);
     if (!S.over && plan.length && scripting) planTimer = window.setTimeout(step, 140);
@@ -232,8 +232,11 @@ function dualMenu(el: HTMLElement, codes: string[], then: (alt: boolean) => void
   (m.firstElementChild as HTMLElement).focus();
 }
 // Planning a planned cell cuts the plan back to before it.
+// The item a script step uses, on its cell's step marker.
+const STEP_TAG: Partial<Record<Tool, string>> = { wild: '**', jump: 'BR', loop: 'LB', mux: 'MX', rewind: 'RW' };
 function planAt(r: number, c: number, at: number, alt = false) {
-  if (at >= 0) plan = plan.slice(0, at); else plan.push([r, c, alt]);
+  if (at >= 0) plan = plan.slice(0, at); else plan.push(armed ? [r, c, alt, armed] : [r, c, alt]);
+  armed = null;
   render();
 }
 const doorOpen = () => isDoorOpen(B());
@@ -331,13 +334,20 @@ function render() {
       b.setAttribute('aria-disabled', 'true');
     }
     const at = plan.findIndex(([pr, pc]) => pr === r && pc === c);
-    if (at >= 0) { b.classList.add('planned'); b.insertAdjacentHTML('beforeend', "<i class='pnum'>" + (at + 1) + '</i>'); }
-    // Plan mode: clicks plan instead of pick; the lit cells are the plan's next legal ones. An armed item acts for real.
-    if (planning && !S.over && !armed) {
-      const can = at >= 0 || (!S.dealing && !offer.length && planOk(pl.board, r, c));
+    if (at >= 0) {
+      const tools = plan.filter(([pr, pc, , t]) => t && pr === r && pc === c).map(([, , , t]) => STEP_TAG[t!]).join(' ');
+      b.classList.add('planned');
+      b.insertAdjacentHTML('beforeend', "<i class='pnum'>" + (at + 1) + (tools && ' ' + tools) + '</i>');
+    }
+    // Plan mode: clicks plan instead of pick; the lit cells are the plan's next legal ones.
+    // An armed path item becomes a script step; Split and Bitshift still act for real.
+    if (planning && !S.over && (!armed || SCRIPT_TOOLS.includes(armed))) {
+      // A click on a planned pick cuts there; a planned ** can still be picked, and an armed item always adds its step.
+      const cut = armed ? -1 : plan.findIndex(([pr, pc, , t]) => pr === r && pc === c && t !== 'wild');
+      const can = cut >= 0 || (!S.dealing && !offer.length && stepOk(pl.board, [r, c, false, armed ?? undefined]));
       b.classList.toggle('ok', can);
-      b.onclick = !can ? null : v.alt && at < 0 ? dualClick(b, v.code, v.alt, (alt) => planAt(r, c, at, alt)) : () => planAt(r, c, at);
-      if (can) { b.removeAttribute('aria-disabled'); b.setAttribute('aria-label', (at >= 0 ? 'Cut the script at step ' + (at + 1) : 'Script step ' + (plan.length + 1)) + ' at row ' + (r + 1) + ' column ' + (c + 1)); }
+      b.onclick = !can ? null : v.alt && cut < 0 && armed !== 'wild' ? dualClick(b, v.code, v.alt, (alt) => planAt(r, c, cut, alt)) : () => planAt(r, c, cut);
+      if (can) { b.removeAttribute('aria-disabled'); b.setAttribute('aria-label', (cut >= 0 ? 'Cut the script at step ' + (cut + 1) : 'Script step ' + (plan.length + 1)) + ' at row ' + (r + 1) + ' column ' + (c + 1)); }
       else b.setAttribute('aria-disabled', 'true');
     }
     b.tabIndex = -1;
@@ -355,7 +365,7 @@ function render() {
     : axis === 'row' ? 'pick in row ' + rowName(idx) + (w ? ' · ' + (S.run.half ? 'B' : 'A') : '') : 'pick in col ' + colName(idx) + (w ? ' · ' + (idx < w ? 'A' : 'B') : '');
   if (S.mode !== 'run') planning = false;
   g.classList.toggle('planning', planning);
-  if (planning && !S.over && !armed) $('laneLabel').textContent = 'script · ' + (plan.length ? plan.length + (plan.length > 1 ? ' picks' : ' pick') + ' · click a step to cut there' : 'click cells to write a route');
+  if (planning && !S.over && !armed) $('laneLabel').textContent = 'script · ' + (plan.length ? plan.length + (plan.length > 1 ? ' steps' : ' step') + ' · click a step to cut there' : 'click cells to write a route');
   const pb = $('planBtn');
   pb.hidden = S.over || S.mode !== 'run';
   pb.textContent = planning || !plan.length ? '[ script ]' : '[ script · ' + plan.length + ' ]';
@@ -772,13 +782,16 @@ function renderDaemons() {
   // Deck as a rack of units. A ready tool pulses; clicking it arms it, clicking again puts it down.
   // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
   const start = !S.run.path.length, hosted = R.daemons[DAEMON_SLOTS];
+  // While writing a script, path items are judged on the board the script leads to; a planned item stays in the script.
+  const pb = planning ? planBoard().board : B();
   // Mid-matrix a streak like Heartbeat only looks broken (targets still to come), so the charge is spent once the matrix is over.
   const drained = !!R.upsUsed || (S.over && !!sc.ups);
   const units = R.items.map((id) => {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
+    const inScript = !!t && t !== 'sim' && plan.some((s) => s[3] === t);
     const ready = !!t && !S.over && !offer.length
-      && (t === 'sim' ? !S.start && R.restarts > 0 : t === 'wild' ? M.wild && start : t === 'split' ? M.split && start && S.puzzle.targets.some(canSplit) : t === 'shift' ? M.shift && start : t === 'jump' ? jumpReady(B()) : t === 'mux' ? !start && muxReady(B()) : t === 'rewind' ? M.rewind && !!M.back : !start && loopReady(B()));
+      && (t === 'sim' ? !S.start && R.restarts > 0 : SCRIPT_TOOLS.includes(t) ? !inScript && toolReady(pb, t) : t === 'split' ? M.split && start && S.puzzle.targets.some(canSplit) : M.shift && start);
     const on = ready && armed === t;
     // Not ready: spent (used: until the next matrix, SIM until the next room), unused (its window passed without use)
     // or waiting (charged, not now).
@@ -787,12 +800,12 @@ function renderDaemons() {
     // Credit chip: its mode switches only outside a matrix in play, so a matrix scores in one mode.
     const miner = id === 'chip' ? { mode: R.miner ?? 'pool', free: S.mode === 'run' && (start || S.over) } : undefined;
     const spent = !ready && (used || missed);
-    const hint = !ready ? (!t ? (id === 'ups' && drained ? (sc.ups && !R.upsUsed ? 'holding the ' + DAEMONS[sc.ups].name + ' streak · battery spent' : 'battery spent · a new one in the shop') : '') : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
+    const hint = !ready ? (inScript ? 'in script · click to cut the script at its step' : !t ? (id === 'ups' && drained ? (sc.ups && !R.upsUsed ? 'holding the ' + DAEMONS[sc.ups].name + ' streak · battery spent' : 'battery spent · a new one in the shop') : '') : used ? (t === 'sim' ? 'spent · recharges next room' : 'spent · recharges next matrix')
       : missed ? (t === 'sim' ? 'unused · only before the first pick' : 'unused · back next matrix')
       : t === 'split' && start ? 'waiting · no target of ' + SPLIT_MIN + '+ codes' : start ? 'waiting · after your first pick' : 'waiting · nothing in reach now') : t === 'sim' ? 'ready · click to swap this matrix for a new one' : t === 'rewind' ? 'ready · click to take back your last pick' : !on ? 'ready · click to arm' : t === 'split' || t === 'shift' ? 'armed · click a target'
       : t === 'loop' ? 'armed · click a lit used cell' : t === 'mux' ? 'armed · pick in your line or across it' : 'armed · click a free cell';
     const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
-    return { id, t, ready, miner, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && drained ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
+    return { id, t, ready, miner, cut: inScript, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && drained ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + (verOf(id) && '_v' + verOf(id)) + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
         + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
   });
@@ -815,14 +828,16 @@ function renderDaemons() {
       if (!u && i < R.rack) return rail(i + 1) + "<div class='unit bay' aria-hidden='true'><span>empty bay</span></div>" + rail(i + 1);
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'>" + scr(i, 0) + "<i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i>" + scr(i, 1) + '</div>' + rail(i + 1);
-      const it = ITEMS[u.id], tag = u.ready || u.miner?.free ? 'button' : 'div';
+      const it = ITEMS[u.id], tag = u.ready || u.miner?.free || u.cut ? 'button' : 'div';
       return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && drained ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
-        + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : " tabindex='0'")
+        + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : u.cut ? " data-cut='" + u.t + "'" : " tabindex='0'")
         + " aria-label='" + it.name + (verOf(u.id) && ' v' + verOf(u.id)) + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
         + "<span class='nm'><b>" + it.name + (it.ver === '1.0' && verOf(u.id) ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
         + '</small></span>' + (it.ver !== '1.0' ? "<i class='vplate v" + parseInt(it.ver) + "'>v" + parseInt(it.ver) + '</i>' : '') + "<i class='led'></i>" + scr(i, 1) + '</' + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   const use = (tool: string) => {
+    // Writing a script: Rewind takes back the script's last pick, as a step.
+    if (tool === 'rewind' && planning) { const at = pb.run.path.at(-1); if (at) plan.push([at[0], at[1], false, 'rewind']); return render(); }
     if (tool === 'rewind') return doRewind();
     if (tool === 'sim') return burnSim();
     armed = armed === tool ? null : (tool as Tool);
@@ -845,6 +860,7 @@ function renderDaemons() {
     el.onpointerenter = el.onfocus = show;
     el.onpointerleave = el.onblur = hide;
     if (el.dataset.tool) el.onclick = () => use(el.dataset.tool!);
+    if (el.dataset.cut) el.onclick = () => { plan = plan.slice(0, plan.findIndex((s) => s[3] === el.dataset.cut)); render(); };
     if (el.dataset.miner) el.onclick = () => { const m = R.miner === 'idle' ? 'pool' : 'idle'; setMiner(R, m); logAct({ m }); render(); };
   });
   // A locked slot tells its price; slots are bought in order, one per shop click.
@@ -871,11 +887,18 @@ const carryFoot = (id: DaemonId, live: number) => {
   return n ? ['<span>+' + n + DI_SM + '</span><span>→ next room</span>', ' on carry'] : null;
 };
 
+// Odometer's running distance in the live matrix.
+const odoNow = () => {
+  const d = S.mode === 'run' && S.run.path.length ? travelledOf(runCtx()) : 0;
+  return ' · now ' + d + ' cells (' + fmtEffect({ mult: Math.round((1 + 0.05 * d) * 100) / 100 }) + ')';
+};
+
 // An installed streak daemon (or Sandbag, whose stack lasts a room) also shows its current stack.
 const daemonText = (id: DaemonId) => {
   const st = streakOf(id), n = R.stacks[id] ?? 0;
   return rich(DAEMONS[id].text) + ((st || id === 'sandbag') && R.daemons.includes(id) ? ' · stack now ' + n + (n && st ? ' (' + fmtEffect(st.effect(n)) + ')' : '') : '')
-    + (st && n && R.daemons.includes(id) && R.bonus?.includes('stack') ?" <span class='bnt'>bonus</span> +" + BOUNTY_STACKS + ' stacks' : '');
+    + (st && n && R.daemons.includes(id) && R.bonus?.includes('stack') ?" <span class='bnt'>bonus</span> +" + BOUNTY_STACKS + ' stacks' : '')
+    + (id === 'odometer' && R.daemons.includes(id) && !S.over ? odoNow() : '');
 };
 
 // Shop item drawn as its own piece of hardware: a button on the shelf, a plain tile in the catalog.
@@ -1766,8 +1789,14 @@ function enterSection() {
   };
 }
 
+// Snapshot: the moves of the saved board (picks and path items, from this matrix's action log), loaded as the replay's script.
+const snapSteps = (log: Act[]): Step[] => {
+  let last: Act | undefined;
+  return log.flatMap((a): Step[] => ('r' in a ? ((last = a), [a.t ? [a.r, a.c, !!a.a, a.t] : [a.r, a.c, !!a.a]])
+    : 'w' in a && last && 'r' in last ? [[last.r, last.c, false, 'rewind']] : []));
+};
 // Snapshot: the route of the saved board, loaded as the replay's script.
-let snapPlan: [number, number][] | null = null;
+let snapPlan: Step[] | null = null;
 function dealMatrix(seed?: number) {
   // Company look: its logo as a watermark under the matrix, its motif behind the contract.
   $('wmark').innerHTML = logo(COMPANIES[R.company].id);
@@ -1805,12 +1834,15 @@ function rewindPeek(on: boolean) {
   if (on) (lock ?? $('buffer')).insertAdjacentHTML(lock ? 'beforebegin' : 'beforeend', "<div class='slot ghost' aria-hidden='true'></div>");
 }
 
-function doRewind() {
+// scripted: a Rewind step of ./run, which goes on with its script.
+function doRewind(scripted = false) {
   const last = S.run.path.at(-1);
   if (!rewind(B())) return;
-  // The undone pick becomes the plan's first step.
-  if (last) plan.unshift([last[0], last[1]]);
-  stopPlan();
+  // By hand, the undone pick becomes the plan's first step.
+  if (!scripted) {
+    if (last) plan.unshift([last[0], last[1]]);
+    stopPlan();
+  }
   logAct({ w: 1 });
   note('Rewind · last pick undone');
   render();
@@ -1947,7 +1979,8 @@ const focusGrid = () => document.querySelector<HTMLElement>('.cell.ok')?.focus()
 function choose(r: number, c: number, alt = false) {
   if (!legal(r, c)) return;
   // The planned pick clears its marker; an item keeps the plan (render trims it), any other pick drops it.
-  if (armed !== 'wild' && plan[0]?.[0] === r && plan[0][1] === c && !plan[0][2] === !alt) plan.shift(); else { stopPlan(); if (!armed) plan = []; }
+  const s0 = plan[0];
+  if (s0?.[0] === r && s0[1] === c && !s0[2] === !alt && (s0[3] ?? null) === armed) plan.shift(); else { stopPlan(); if (!armed) plan = []; }
   logAct({ r, c, t: armed ?? undefined, a: alt ? 1 : undefined }); // undefined keys drop out of the JSON save
   const bd = B(), tool = armed, cell = rowName(r) + '·' + colName(c);
   const isUp = (t: string[]) => targetProgress(S.run.buffer, t, S.puzzle.l, false).done;
@@ -2073,7 +2106,7 @@ function finish(sc: number, disconnected = false) {
     }
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
     document.getElementById('runSnap')?.addEventListener('click', () => {
-      snapPlan = replayRoute(B());
+      snapPlan = cur ? snapSteps(cur.log) : replayRoute(B());
       takeSnapshot(R, R.dealt!);
       hideResult();
       newMatrix();

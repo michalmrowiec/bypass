@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyPick, dealBoard, replayRoute, TOOLS } from './matrix';
+import { applyPick, dealBoard, playStep, replayRoute, stepOk, TOOLS, type Step } from './matrix';
 import { generate } from './generator';
 import { stageSeed } from './game';
 import { sellFor, rechargeUps, UPS_BATTERY, migratePayloads, canSnapshot, exitRoom, nextSeed, quota, sections, takeSnapshot, placeCells, sectionMatrix, rotateTarget, buyZip, daemonsAfterMatrix, finishMatrix, newRunState, nextSection, payBase, payLevel, pickZip, rackFull, scoreMatrix, sell, setHotkey, unitsOf, usedSlots, type DaemonId, type ItemId, type PayloadId } from './roguelike';
@@ -181,6 +181,23 @@ describe('Snapshot', () => {
     takeSnapshot(s, 42);
     expect(exitRoom(s)).not.toBe('continue');
     expect(s.snap).toBeUndefined();
+  });
+});
+
+describe('script steps with items', () => {
+  it('a script places a Wildcard, jumps with the Bridge and rewinds, each item once', () => {
+    const b = dealBoard(5, { ...newRunState(1), items: ['wildcard2', 'bridge2', 'rewind'] as ItemId[] });
+    const n = b.puzzle.grid.length, cells = Array.from({ length: n * n }, (_, i): Step => [Math.floor(i / n), i % n]);
+    const wild = cells.find((s) => stepOk(b, [s[0], s[1], false, 'wild']))!;
+    expect(playStep(b, [wild[0], wild[1], false, 'wild'])).toBe(true);
+    expect([b.m.wild, b.run.path.length]).toEqual([false, 0]);
+    expect(playStep(b, cells.find((s) => stepOk(b, s))!)).toBe(true);
+    const jump = cells.find((s) => stepOk(b, [s[0], s[1], false, 'jump']) && !stepOk(b, s))!;
+    expect(playStep(b, [jump[0], jump[1], false, 'jump'])).toBe(true);
+    expect(b.m.jumps).toEqual([1]);
+    expect(cells.some((s) => stepOk(b, [s[0], s[1], false, 'jump']))).toBe(false); // Bridge spent
+    expect(playStep(b, [jump[0], jump[1], false, 'rewind'])).toBe(true);
+    expect([b.m.undone, stepOk(b, [0, 0, false, 'rewind'])]).toEqual([1, false]);
   });
 });
 

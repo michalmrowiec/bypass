@@ -212,3 +212,20 @@ export function rewind(b: Board): boolean {
   m.back = undefined;
   return true;
 }
+
+// A script step: a pick, or a path item used there (Wildcard places **, Rewind takes back the last pick; its cell is that pick's).
+export type Step = [number, number, boolean?, Tool?];
+// Items a script can use; Split and Bitshift act on targets, so they act at once.
+export const SCRIPT_TOOLS: Tool[] = ['wild', 'jump', 'loop', 'mux', 'rewind'];
+export const toolReady = (b: Board, t: Tool) => (t === 'wild' ? b.m.wild && !b.run.path.length : t === 'jump' ? jumpReady(b)
+  : t === 'mux' ? !!b.run.path.length && muxReady(b) : t === 'loop' ? !!b.run.path.length && loopReady(b) : t === 'rewind' && canUndo(b));
+// A step is legal when its item is ready and its cell can be taken; a pick also needs a free buffer slot.
+export const stepOk = (b: Board, [r, c, , t]: Step) => (t === 'rewind' ? canUndo(b)
+  : (!t || toolReady(b, t)) && (t === 'wild' || b.run.buffer.length < b.puzzle.l) && canPick({ ...b, armed: t ?? null }, r, c));
+export function playStep(b: Board, s: Step): boolean {
+  if (!stepOk(b, s)) return false;
+  if (s[3] === 'rewind') return rewind(b);
+  b.armed = s[3] ?? null;
+  applyPick(b, s[0], s[1], s[2]);
+  return true;
+}
