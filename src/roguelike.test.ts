@@ -283,6 +283,18 @@ describe('shop', () => {
     expect(seen).toBeLessThan(base * 0.5);
   });
 
+  it('an upgrade of an owned item shows up more often than an average item', () => {
+    let up = 0, rest = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const s = { ...rich(10, ['buffer1']), seed };
+      stockShop(s);
+      up += +s.shelf.includes('buffer2');
+      rest += s.shelf.length - +s.shelf.includes('buffer2');
+    }
+    const open = forSale({ ...rich(10, ['buffer1']) }).length;
+    expect(up).toBeGreaterThan(1.2 * rest / (open - 1));
+  });
+
   it('a reroll rarely brings back what the shelf just showed', () => {
     let back = 0, base = 0;
     for (let seed = 1; seed <= 200; seed++) {

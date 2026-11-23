@@ -1064,6 +1064,8 @@ export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter(
 
 // Odds of an item already shown, per time it was rerolled away (this visit, or last visit for the first shelf), against 1 for the rest.
 export const SKIPPED_ODDS = 0.25;
+// Odds of an upgrade (v2/v3 of an owned item) against 1 for the rest.
+export const UPGRADE_ODDS = 1.5;
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
 // Locked items (hold, kept) stay on the shelf through rerolls.
 export function stockShop(s: RunState, reroll = false): boolean {
@@ -1085,9 +1087,9 @@ export function stockShop(s: RunState, reroll = false): boolean {
   if (s.kept && !open.includes(s.kept)) delete s.kept;
   const pinned = [s.kept, s.hold].filter((id): id is ItemId => !!id && open.includes(id));
   const r = rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls));
-  const times = (id: ItemId) => avoid.filter((x) => x === id).length;
+  const weight = (id: ItemId) => SKIPPED_ODDS ** avoid.filter((x) => x === id).length * (item(id).needs ? UPGRADE_ODDS : 1);
   // Weighted shuffle: key r^(1/w), highest keys win.
-  s.shelf = pinned.concat(open.filter((id) => !pinned.includes(id)).map((id) => [r() ** (SKIPPED_ODDS ** -times(id)), id] as const)
+  s.shelf = pinned.concat(open.filter((id) => !pinned.includes(id)).map((id) => [r() ** (1 / weight(id)), id] as const)
     .sort((a, b) => b[0] - a[0]).map(([, id]) => id)).slice(0, entryOf(s).shelf ?? SHELF);
   return true;
 }
