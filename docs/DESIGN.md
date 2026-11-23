@@ -102,6 +102,11 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - seedowany „daily run” albo wyzwanie dla znajomego;
 - długość runu ok. 15–25 min.
 
+**Rodzina „uniwersalna” (biała), pomysł gracza 2026-11-23, na osobną sesję:**
+- normalna rodzina (common/rare/legendary) z uniwersalnymi bonusami i mechanikami, nagradzająca mieszanie rodzin;
+- przykład: ×2,2, gdy masz co najmniej 2 inne różne rodziny daemonów, inaczej ×1,3–1,4 (sam coś daje, prosty warunek);
+- otwarte: czy pasuje do każdego buildu, kolor (biały nie koliduje z mapą kolorów?), ile daemonów.
+
 ## 5. Trudność i balans
 
 **Co robi macierz trudną.** Liczba rozwiązań to nie trudność. Liczy się, ile mylących opcji trzeba odrzucić i jak daleko patrzeć w przód.
