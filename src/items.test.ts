@@ -192,6 +192,8 @@ describe('review fixes', () => {
     expect(replayRoute(b)).toEqual([[0, 1], [0, 1], [0, 4]]);
     b.m.undone = undefined;
     expect(replayRoute(b)).toHaveLength(4);
+    b.m.jumps = [2]; // a Bridge jump: the replay stops before it
+    expect(replayRoute(b)).toEqual([[0, 1], [3, 1]]);
   });
   it('a pick while Bitshift is armed counts as no tool and disarms it', () => {
     const b = dealBoard(5, { ...newRunState(1), items: ['bitshift'] as ItemId[] });

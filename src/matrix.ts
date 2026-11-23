@@ -146,8 +146,10 @@ export type PickResult = 'placed' | 'picked';
 
 // Applies a legal pick, or an armed Wildcard's placement (no move). Any armed tool is put down.
 // alt: a Dual cell's second code.
-// Snapshot: the route to replay, without the pick Rewind took back.
-export const replayRoute = (b: Board): Cell[] => b.run.path.filter((_, i) => i !== b.m.undone).map(([r, c]) => [r, c]);
+// Snapshot: the whole route played (manual picks and scripts), without the pick Rewind took back;
+// it stops before the first Bridge/Loopback jump, which a script cannot repeat.
+export const replayRoute = (b: Board): Cell[] => b.run.path.slice(0, Math.min(b.run.path.length, ...b.m.jumps))
+  .filter((_, i) => i !== b.m.undone).map(([r, c]) => [r, c]);
 
 export function applyPick(b: Board, r: number, c: number, alt = false): PickResult {
   const { run, puzzle, m } = b;

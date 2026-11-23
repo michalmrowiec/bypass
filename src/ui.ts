@@ -166,7 +166,6 @@ function termLine(e: string) {
 }
 function runPlan() {
   stopPlan();
-  ranPlan = [plan.map(([r, c]) => [r, c] as [number, number]), S.run];
   scripting = true;
   hold = [];
   const n = plan.length, exit = ($('exitEnd') as HTMLInputElement).checked;
@@ -1769,8 +1768,6 @@ function enterSection() {
 
 // Snapshot: the route of the saved board, loaded as the replay's script.
 let snapPlan: [number, number][] | null = null;
-// The script as ./run started it, on its board: Snapshot keeps it as written (jumps and take-backs stay out).
-let ranPlan: [[number, number][], unknown] | null = null;
 function dealMatrix(seed?: number) {
   // Company look: its logo as a watermark under the matrix, its motif behind the contract.
   $('wmark').innerHTML = logo(COMPANIES[R.company].id);
@@ -2076,7 +2073,7 @@ function finish(sc: number, disconnected = false) {
     }
     if (claim) $('claim').onclick = () => rollReward(M.bounty!, M.rewards);
     document.getElementById('runSnap')?.addEventListener('click', () => {
-      snapPlan = ranPlan?.[1] === S.run && ranPlan[0].length ? ranPlan[0] : replayRoute(B());
+      snapPlan = replayRoute(B());
       takeSnapshot(R, R.dealt!);
       hideResult();
       newMatrix();
