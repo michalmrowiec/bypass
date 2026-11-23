@@ -275,29 +275,29 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .r-legendary .rar{color:var(--legend)}
 .rar{letter-spacing:.08em;font-weight:600}
 .dmain small .scope{color:var(--fc)}
-.r-rare .dbody{box-shadow:inset 0 0 0 1px var(--rare),inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--rare) 55%,transparent)}
-.r-legendary .dbody{box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px rgba(255,255,255,.55)}
+.r-rare .dbody{box-shadow:inset 0 0 0 1px var(--rare),inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--rare) 75%,transparent)}
+.r-legendary .dbody{box-shadow:inset 0 0 0 4px var(--panel),inset 0 0 0 5px rgba(255,255,255,.55)}
 /* Foil: the outer frame. Rare: static brushed silver (--metal) under a glint sweeping along it now and then.
    The dog-ear flap takes the same --metal. */
 .r-rare{--metal:linear-gradient(115deg,#7d868c,#f4f8fa 18%,#98a1a7 36%,#fff 52%,#7b848a 70%,#dce3e7 86%,#8f989e)}
 /* Legendary: holo metal from the frame's colours, only for the dog-ear flap; the frame itself is the spinning holo .foil. */
 .r-legendary{--metal:linear-gradient(115deg,#ff3d8b,#f3e9ff 18%,#5af2a8 36%,#fff 52%,#3dd9ff 70%,#b9a6ff 86%,#ff3d8b)}
-.foil{position:absolute;inset:0;z-index:2;padding:2px;pointer-events:none;background-size:300% 100%,100% 100%;
+.foil{position:absolute;inset:0;z-index:2;--fw:3px;padding:var(--fw);pointer-events:none;background-size:300% 100%,100% 100%;
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 /* Legendary frame: the holo colours run clockwise around the edge at an even speed, one strip per edge.
    Each strip tiles the colour cycle over the perimeter --L and is shifted by its edge's start, so the colours meet at the corners.
    --w/--h come from ui.ts (fallback: a typical card). Dim and slow on standby, bright when on, racing on hover. */
 @property --p{syntax:'<number>';inherits:false;initial-value:0}
 .r-legendary .foil{--dur:6s;--hc:#ff3d8b,#f3e9ff,#5af2a8,#3dd9ff,#b9a6ff,#ff3d8b;--W:var(--w,400px);--H:var(--h,80px);--L:calc(2 * var(--W) + 2 * var(--H));--s:calc(var(--p) * var(--L));
-  background:linear-gradient(90deg,var(--hc)) var(--s) 0/var(--L) 2px repeat-x,
-    linear-gradient(180deg,var(--hc)) right 0 top calc(var(--s) - var(--W))/2px var(--L) repeat-y,
-    linear-gradient(270deg,var(--hc)) calc(2 * var(--W) + var(--H) - var(--s)) 100%/var(--L) 2px repeat-x,
-    linear-gradient(0deg,var(--hc)) 0 calc(-1 * var(--s))/2px var(--L) repeat-y;
+  background:linear-gradient(90deg,var(--hc)) var(--s) 0/var(--L) var(--fw) repeat-x,
+    linear-gradient(180deg,var(--hc)) right 0 top calc(var(--s) - var(--W))/var(--fw) var(--L) repeat-y,
+    linear-gradient(270deg,var(--hc)) calc(2 * var(--W) + var(--H) - var(--s)) 100%/var(--L) var(--fw) repeat-x,
+    linear-gradient(0deg,var(--hc)) 0 calc(-1 * var(--s))/var(--fw) var(--L) repeat-y;
   opacity:.55;transition:opacity .2s;animation:run var(--dur) linear var(--t,0s) infinite}
 @keyframes run{to{--p:1}}
 .on.r-legendary .foil{--dur:3s;opacity:1}
 .dcard.r-legendary:is(:hover,:focus-visible) .foil{--dur:1s;opacity:1}
-.r-rare .foil{background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%),var(--metal);animation:foil 10s ease-in-out infinite}
+.r-rare .foil{--fw:2px;background-image:linear-gradient(110deg,transparent 44%,rgba(255,255,255,.9) 50%,transparent 56%),var(--metal);animation:foil 10s ease-in-out infinite}
 .dcard.r-rare:not(.on,:hover,:focus-visible) .foil{opacity:.6}
 @keyframes foil{0%{background-position:100% 0,0 0}40%,100%{background-position:-200% 0,0 0}}
 .r-rare .fold,.r-legendary .fold{background:var(--metal);clip-path:polygon(0 0,100% 100%,0 100%);box-shadow:none}

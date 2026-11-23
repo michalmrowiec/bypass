@@ -102,10 +102,18 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
 - seedowany „daily run” albo wyzwanie dla znajomego;
 - długość runu ok. 15–25 min.
 
-**Rodzina „uniwersalna” (biała), pomysł gracza 2026-11-23, na osobną sesję:**
-- normalna rodzina (common/rare/legendary) z uniwersalnymi bonusami i mechanikami, nagradzająca mieszanie rodzin;
-- przykład: ×2,2, gdy masz co najmniej 2 inne różne rodziny daemonów, inaczej ×1,3–1,4 (sam coś daje, prosty warunek);
-- otwarte: czy pasuje do każdego buildu, kolor (biały nie koliduje z mapą kolorów?), ile daemonów.
+**Rodzina Root (uniwersalna), pomysł gracza 2026-11-23, w projekcie (bez kodu):**
+- normalna rodzina (common/rare/legendary): stałe premie z łatwymi warunkami, pasuje do każdego buildu; nie jest „rodziną od mieszania”;
+- kolor: **grafit `#6c7886`** (makieta z prawdziwego CSS kart). Biel i srebro odrzucone: zlewały się ze srebrną poświatą rare i perłą legendary. Pasek w 4 kolorach rodzin odrzucony (dezorientuje);
+- przy okazji do decyzji: grubsze ramki rare/legendary na kartach wszystkich rodzin, żeby rzadkość było lepiej widać;
+- kandydaci (wszystkie podobają się graczowi, liczby do sima):
+  - **Baseline** (common): +0,6 boosta na każdej macierzy, bez warunku. Może za słaby; porównać z Overflow (+0,25/wolny slot);
+  - **Payroll** (common): +$1 po macierzy z co najmniej **2** wgranymi targetami;
+  - **Patch** (common): +15 data za każdy wgrany target (scope matrix);
+  - **Polyglot** (rare): ×1,3 + 0,3 za każdą inną rodzinę w racku (max ×2,2);
+  - **Superuser** (legendary): ×1,8 zawsze;
+  - **Failsafe** (legendary albo rare): ×1,5, a ×2,2 gdy wgrasz wszystkie targety;
+- otwarte: Signal flaw na Argusie (oferty z jednej rodziny) czy Root jest do wyboru (propozycja: nie); ikony; sim.
 
 ## 5. Trudność i balans
 
