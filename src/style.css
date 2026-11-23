@@ -459,6 +459,12 @@ button.ware{cursor:var(--hit)}
 .shelf .gear{width:124px;height:70px}
 .shelf .ware p{max-width:160px}
 .shelf .ware .price{margin-top:auto}
+.ware .lock{position:absolute;top:2px;right:6px;z-index:2;width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--mint-dim);border-radius:4px;color:var(--muted);opacity:.55;cursor:pointer}
+.ware .lock svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.ware:hover .lock,.ware .lock:focus-visible{opacity:1}
+.ware .lock.on{opacity:1;color:var(--mint);border-color:var(--mint)}
+.ware .lock.kept{cursor:default}
+.ware.locked .stage{outline:1px dashed var(--mint-dim);outline-offset:-2px}
 .ware.poor{opacity:.42;cursor:not-allowed}
 /* Shop: reroll above the shelf on the right; the rack slot button ends your rack, filled mint when affordable. */
 .shelfbar{display:flex;justify-content:flex-end;margin:4px 0 -2px}

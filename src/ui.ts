@@ -10,7 +10,7 @@ import {
 } from './matrix';
 import {
   buy, verOf, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop, lockItem,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
@@ -773,8 +773,8 @@ function renderDaemons() {
   // Deck as a rack of units. A ready tool pulses; clicking it arms it, clicking again puts it down.
   // The LCD shows the pointed-at unit's spec, otherwise what is ready or armed.
   const start = !S.run.path.length, hosted = R.daemons[DAEMON_SLOTS];
-  // The UPS shows drained as soon as this matrix spends its charge, not only once the matrix ends.
-  const drained = !!R.upsUsed || !!sc.ups;
+  // Mid-matrix a streak like Heartbeat only looks broken (targets still to come), so the charge is spent once the matrix is over.
+  const drained = !!R.upsUsed || (S.over && !!sc.ups);
   const units = R.items.map((id) => {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
@@ -1195,8 +1195,8 @@ function showShop(restock = true) {
     + (R.charges ? "<span class='bnt'>bonus</span> ×2 data charge ×" + R.charges + ' · ' : '') + 'items stay for the whole run</p>' + owned(true)
     + (forSale(R).length > R.shelf.length ? "<div class='shelfbar'><button class='btn' id='reroll'" + (!rerollCost(R) ? '>' + REROLL_ICO + 'Reroll · free'
       : R.freeRerolls ? '>' + REROLL_ICO + "<span class='bnt'>bonus</span> Reroll · free ×" + R.freeRerolls : off(rerollCost(R)) + '>' + REROLL_ICO + 'Reroll · ' + cr(rerollCost(R))) + '</button></div>' : '')
-    + "<div class='wares shelf" + (R.zipOpen ? ' mini' : '') + "'>" + R.shelf.map((id) => ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
-      R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '')).join('')
+    + "<div class='wares shelf" + (R.zipOpen ? ' mini' : '') + "'>" + R.shelf.map((id) => lockTag(id, ware(id, 'button', cr(priceOf(R, id)) + (rackFull(R, id) ? ' · rack full' : ''),
+      (R.credits < priceOf(R, id) || rackFull(R, id) ? ' poor' : '') + (id === R.hold || id === R.kept ? ' locked' : '')))).join('')
     + (R.shelf.length ? '' : "<div class='dslot empty'>sold out</div>") + '</div>' + hotkeyZone() + upsZone() + zipZone() + "<div class='row'>"
     + "<span class='meta shopCr'>credits " + money(R.credits) + '</span>'
     + "<button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='shopCatalog'>Catalog</button><button class='btn' id='leaveShop'>Continue ›</button></div>");
@@ -1207,6 +1207,11 @@ function showShop(restock = true) {
     b.onclick = () => { if (buy(R, R.shelf[i])) showShop(false); };
   });
   document.getElementById('reroll')?.addEventListener('click', () => { if (stockShop(R, true)) showShop(false); });
+  $('modalBox').querySelectorAll<HTMLElement>('[data-lock]').forEach((l) => {
+    const go = (e: Event) => { e.stopPropagation(); e.preventDefault(); if (lockItem(R, l.dataset.lock as ItemId)) showShop(false); };
+    l.onclick = go;
+    l.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); };
+  });
   document.getElementById('upsBattery')?.addEventListener('click', () => { if (rechargeUps(R)) showShop(false); });
   $('modalBox').querySelectorAll<HTMLElement>('[data-hotkey]').forEach((b) => { b.onclick = () => { setHotkey(R, b.dataset.hotkey as PayloadId); showShop(false); }; });
   document.getElementById('buySlot')?.addEventListener('click', () => { if (buySlot(R)) showShop(false); });
@@ -1218,6 +1223,11 @@ function showShop(restock = true) {
   tilt($('modalBox'));
 }
 
+const LOCK_ICO = "<svg viewBox='0 0 24 24' aria-hidden='true'><rect x='5' y='11' width='14' height='9' rx='1.5'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/></svg>";
+// Shelf lock: one item waits for the next shop; one that arrived locked shows the lock but cannot be locked again.
+const lockTag = (id: ItemId, html: string) => html.replace("<span class='stage'>", "<span class='stage'>" + (id === R.kept
+  ? "<span class='lock on kept' data-tip='kept from the last shop · stays through rerolls'>" + LOCK_ICO + '</span>'
+  : "<span class='lock" + (id === R.hold ? ' on' : '') + "' role='button' tabindex='0' data-lock='" + id + "' aria-pressed='" + (id === R.hold) + "' data-tip='" + (id === R.hold ? 'locked · waits for the next shop · click to unlock' : 'lock · keep it for the next shop (one item, free)') + "'>" + LOCK_ICO + '</span>'));
 const REROLL_ICO = "<svg class='rrico' viewBox='0 0 24 24' aria-hidden='true'><path d='M20 12a8 8 0 1 1-2.3-5.6'/><path d='M20 4v5h-5'/></svg>";
 // patch.zip in the shop: a sealed archive; bought, it unzips and its payload patches decrypt, then one is kept.
 const ZIP_SVG = "<svg class='zip' viewBox='0 0 64 76' aria-hidden='true'><path class='zbody' d='M6 2h38l14 14v56a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/><path class='zfold' d='M44 2v14h14z'/><g class='zteeth'>"

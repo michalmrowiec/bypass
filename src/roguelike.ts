@@ -98,8 +98,8 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'throttle', 'blackout', 'encryption'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption'],
   entries: [standard('nurse', 'Nurse station'),
-    { id: 'nightshift', name: 'Night shift', traits: ['Cron daemons only.', 'Modules, patch.zip and rack slots cost $1 more.', 'Quotas ×3.3 per iteration (from iteration 2).'],
-      family: 'Cron', priceDelta: 1, quotaGrowth: 3.3 },
+    { id: 'nightshift', name: 'Night shift', traits: ['Cron daemons only.', 'Quotas ×3.3 per iteration (from iteration 2).'],
+      family: 'Cron', quotaGrowth: 3.3 },
     { id: 'phishing', name: 'Phishing', traits: ['linked.bin and all_linked.bin start at Lv3.', 'No Disconnect: a matrix runs until no target is left in reach.', 'Modules cannot be sold.', 'Quotas ×3.1 per iteration (from iteration 2).'],
       payLevels: { linked: 3, all_linked: 3 }, noDisconnect: true, noSell: true, quotaGrowth: 3.1 }],
 }, {
@@ -285,7 +285,9 @@ export interface RunState {
   items: ItemId[]; // shop items owned, kept for the run
   shelf: ItemId[]; // what the shop offers on this visit
   rerolls: number; // shelf rerolls on this visit
-  skipped?: ItemId[]; // items rerolled away on this visit; rarer on the next visit's first shelf
+  skipped?: ItemId[]; // items rerolled away on this visit, once per reroll; rarer on later rerolls and the next visit's first shelf
+  hold?: ItemId; // locked on this visit's shelf: survives rerolls and waits on the next visit's shelf
+  kept?: ItemId; // arrived locked from the last visit: survives rerolls, cannot be locked again
   ice: IceId; // the boss room's rule
   // Run summary; optional so saves from before them still load.
   total?: number; // data banked over the whole run
@@ -657,6 +659,8 @@ export function migratePayloads(s: RunState): void {
   s.items = s.items.filter(known);
   s.shelf = s.shelf.filter(known);
   if (s.skipped) s.skipped = s.skipped.filter(known);
+  if (s.hold && !known(s.hold)) delete s.hold;
+  if (s.kept && !known(s.kept)) delete s.kept;
   for (const m of [s.payLevels, s.payPlays]) for (const k of Object.keys(m ?? {})) if (!(k in PAYLOADS)) {
     if (PAY_RENAME[k]) m![PAY_RENAME[k]] = m![k];
     delete m![k];
@@ -1021,7 +1025,8 @@ export const prioId = (items: ItemId[]) => (['prio2', 'prio1'] as const).find((i
 // The rack holds RACK_BASE modules; more slots cost more each, up to RACK_MAX. A sold module returns half of what it cost.
 export const RACK_BASE = 4;
 export const RACK_MAX = 9;
-export const slotCost = (s: RunState) => 4 + 2 * (s.rack - RACK_BASE) + (entryOf(s).priceDelta ?? 0);
+// The first extra slot is cheaper: $3, then $6, $8, $10, $12.
+export const slotCost = (s: RunState) => (s.rack === RACK_BASE ? 3 : 4 + 2 * (s.rack - RACK_BASE)) + (entryOf(s).priceDelta ?? 0);
 export const priceOf = (s: RunState, id: ItemId) => Math.max(1, ITEMS[id].price + (entryOf(s).priceDelta ?? 0));
 // The Co-processor module adds one daemon slot.
 export const daemonSlots = (s: RunState) => DAEMON_SLOTS + (s.items.includes('socket') ? 1 : 0);
@@ -1048,24 +1053,39 @@ export const olderVersions = (id: ItemId): ItemId[] => { const n = item(id).need
 export const forSale = (s: RunState) => (Object.keys(ITEMS) as ItemId[]).filter((id) => !s.items.includes(id) && !entryOf(s).banned?.includes(id)
   && (!item(id).needs || s.items.includes(item(id).needs as ItemId)) && !s.items.some((o) => olderVersions(o).includes(id)));
 
-// Odds of an item rerolled away last visit, against 1 for the rest, on the next visit's first shelf.
+// Odds of an item already shown, per time it was rerolled away (this visit, or last visit for the first shelf), against 1 for the rest.
 export const SKIPPED_ODDS = 0.25;
 // Fills the shelf for a shop visit, the same for a given run seed and section; a paid reroll draws again.
+// Locked items (hold, kept) stay on the shelf through rerolls.
 export function stockShop(s: RunState, reroll = false): boolean {
-  let avoid: ItemId[] = [];
+  let avoid: ItemId[];
   if (reroll) {
     const cost = rerollCost(s);
     if (cost && s.freeRerolls) s.freeRerolls--;
     else if (s.credits < cost) return false;
     else s.credits -= cost;
     s.rerolls++;
-    s.skipped = [...(s.skipped ?? []), ...s.shelf];
+    s.skipped = [...(s.skipped ?? []), ...s.shelf.filter((id) => id !== s.hold && id !== s.kept)];
+    avoid = s.skipped;
     logEvent(s, 'shop · reroll');
-  } else { s.rerolls = 0; avoid = s.skipped ?? []; s.skipped = []; }
+  } else {
+    s.rerolls = 0; avoid = s.skipped ?? []; s.skipped = [];
+    s.kept = s.hold; delete s.hold;
+  }
+  const open = forSale(s);
+  if (s.kept && !open.includes(s.kept)) delete s.kept;
+  const pinned = [s.kept, s.hold].filter((id): id is ItemId => !!id && open.includes(id));
   const r = rng(hashStr(s.seed + '/shop/' + visit(s) + '/' + s.rerolls));
+  const times = (id: ItemId) => avoid.filter((x) => x === id).length;
   // Weighted shuffle: key r^(1/w), highest keys win.
-  s.shelf = forSale(s).map((id) => [r() ** (avoid.includes(id) ? 1 / SKIPPED_ODDS : 1), id] as const)
-    .sort((a, b) => b[0] - a[0]).map(([, id]) => id).slice(0, entryOf(s).shelf ?? SHELF);
+  s.shelf = pinned.concat(open.filter((id) => !pinned.includes(id)).map((id) => [r() ** (SKIPPED_ODDS ** -times(id)), id] as const)
+    .sort((a, b) => b[0] - a[0]).map(([, id]) => id)).slice(0, entryOf(s).shelf ?? SHELF);
+  return true;
+}
+// Locks one shelf item for the next visit (free); clicking it again unlocks. An item that came locked cannot be locked again.
+export function lockItem(s: RunState, id: ItemId): boolean {
+  if (!s.shelf.includes(id) || id === s.kept) return false;
+  if (s.hold === id) delete s.hold; else s.hold = id;
   return true;
 }
 
@@ -1099,6 +1119,8 @@ export function buy(s: RunState, id: ItemId): boolean {
   s.items = s.items.filter((o) => o !== it.needs).concat(id);
   s.restarts = Math.max(s.restarts, restartsFor(s)); // a SIM bought in the shop works in the next room
   s.shelf = s.shelf.filter((o) => o !== id);
+  if (s.hold === id) delete s.hold;
+  if (s.kept === id) delete s.kept;
   logEvent(s, 'shop · bought ' + itemName(id) + ' −$' + price + (it.needs ? ' (replaces ' + itemName(it.needs as ItemId) + ')' : ''));
   return true;
 }

@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
-  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop,
+  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop, lockItem,
   setMiner, minerIdle, entryOf, payLevel, priceOf, zipPrice, setBossIce, canDisconnect, needsStartChoice, DAEMONS, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -281,6 +281,39 @@ describe('shop', () => {
       base += t.shelf.filter((id) => gone.includes(id)).length;
     }
     expect(seen).toBeLessThan(base * 0.5);
+  });
+
+  it('a reroll rarely brings back what the shelf just showed', () => {
+    let back = 0, base = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = { ...rich(10), seed };
+      stockShop(s);
+      const gone = [...s.shelf];
+      const t = { ...s, shelf: [] as ItemId[] }; // same reroll draw, nothing shown before
+      stockShop(s, true);
+      t.skipped = []; t.rerolls = s.rerolls - 1; t.credits = 10;
+      stockShop(t, true);
+      back += s.shelf.filter((id) => gone.includes(id)).length;
+      base += t.shelf.filter((id) => gone.includes(id)).length;
+    }
+    expect(back).toBeLessThan(base * 0.5);
+  });
+
+  it('a locked item stays through rerolls and waits on the next visit, but cannot be locked twice', () => {
+    const s = rich(20);
+    stockShop(s);
+    const id = s.shelf[2];
+    expect(lockItem(s, id)).toBe(true);
+    stockShop(s, true);
+    expect(s.shelf[0]).toBe(id);
+    s.section++;
+    stockShop(s);
+    stockShop(s, true);
+    expect([s.shelf[0], s.hold, s.kept]).toEqual([id, undefined, id]);
+    expect(lockItem(s, id)).toBe(false);
+    expect(lockItem(s, s.shelf[1])).toBe(true);
+    expect(buy(s, id)).toBe(true);
+    expect(s.kept).toBeUndefined();
   });
 
   it('a v2.0 is sold over its v1.0 and replaces it', () => {
@@ -628,7 +661,7 @@ describe('economy', () => {
     const s = { ...newRunState(1), credits: 50, items: ['buffer1', 'shortkey', 'bridge', 'thumb'] as ItemId[], shelf: ['datanode', 'buffer2'] as ItemId[] };
     expect(buy(s, 'datanode')).toBe(false);
     expect(buy(s, 'buffer2')).toBe(true);
-    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([4, true, RACK_BASE + 1, 6]);
+    expect([slotCost(s), buySlot(s), s.rack, slotCost(s)]).toEqual([3, true, RACK_BASE + 1, 6]);
     expect(buy(s, 'datanode')).toBe(true);
     const before = s.credits;
     expect(sell(s, 'buffer2')).toBe(true);
@@ -1026,14 +1059,13 @@ describe('entries', () => {
     expect(s.shelf.length).toBe(3);
   });
 
-  it('Night shift offers 3 Cron daemons and adds $1 to modules, patch.zip and rack slots', () => {
+  it('Night shift offers 3 Cron daemons at normal prices', () => {
     const s = { ...newRunState(1, co('meridian'), 'nightshift'), credits: 10, shelf: ['thumb'] as ItemId[] };
     const o = offerDaemons(s);
     expect([o.length, o.every((id) => DAEMONS[id].family === 'Cron')]).toEqual([3, true]);
-    expect([priceOf(s, 'thumb'), zipPrice(s), slotCost(s)]).toEqual([3, 2, 5]);
+    expect([priceOf(s, 'thumb'), zipPrice(s), slotCost(s)]).toEqual([2, 1, 3]);
     expect(buy(s, 'thumb')).toBe(true);
-    expect(s.credits).toBe(7);
-    expect(priceOf(newRunState(1, co('meridian')), 'thumb')).toBe(2);
+    expect(s.credits).toBe(8);
   });
 
   it('Signal flaw offers only Runner daemons, with no start choice', () => {
