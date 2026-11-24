@@ -1,18 +1,90 @@
-<!doctype html><meta charset="utf-8"><title>Sable Vault – logo</title>
-<style>body{background:#0b0f17;color:#cfd8e6;font:14px system-ui;display:flex;flex-wrap:wrap;gap:24px;padding:24px}
-figure{margin:0;width:200px;text-align:center}svg{width:180px;height:180px;filter:drop-shadow(0 0 10px #5b6cff55)}
-:root{--bg:#0b0f17;--lg1:#b8c7d9;--lg2:#5b6cff;--lg3:#7dffd4}</style>
-<defs></defs>
-<figure><svg viewBox="0 0 120 120"><defs><linearGradient id="a" gradientUnits="userSpaceOnUse" x1="14" y1="14" x2="106" y2="106"><stop offset="0" stop-color="#b8c7d9"/><stop offset="1" stop-color="#5b6cff"/></linearGradient></defs>
-<circle cx="60" cy="60" r="46" fill="none" stroke="url(#a)" stroke-width="9"/><g fill="#5b6cff"><rect x="55" y="4" width="10" height="16" rx="2"/><rect x="55" y="100" width="10" height="16" rx="2"/><rect x="4" y="55" width="16" height="10" rx="2"/><rect x="100" y="55" width="16" height="10" rx="2"/></g>
-<circle cx="60" cy="60" r="20" fill="url(#a)"/><path d="M60 34V86M34 60H86" stroke="#b8c7d9" stroke-width="5" stroke-linecap="round"/><circle cx="60" cy="60" r="7" fill="#0b0f17"/><circle cx="60" cy="60" r="3" fill="#7dffd4"/></svg>
-<figcaption><b>1. Drzwi skarbca</b> (wpięte) – pokrętło + 4 rygle</figcaption></figure>
-<figure><svg viewBox="0 0 120 120"><defs><linearGradient id="b" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="106"><stop offset="0" stop-color="#b8c7d9"/><stop offset="1" stop-color="#5b6cff"/></linearGradient></defs>
-<path d="M60 10L104 34V86L60 110L16 86V34Z" fill="url(#b)"/><path d="M60 30L86 44V76L60 90L34 76V44Z" fill="#0b0f17"/><path d="M60 48V72M48 60H72" stroke="#7dffd4" stroke-width="5" stroke-linecap="round"/></svg>
-<figcaption><b>2. Heks-sejf</b> – szóstokąt z krzyżem zamka</figcaption></figure>
-<figure><svg viewBox="0 0 120 120"><defs><linearGradient id="c" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="0" y2="100"><stop offset="0" stop-color="#b8c7d9"/><stop offset="1" stop-color="#5b6cff"/></linearGradient></defs>
-<g fill="url(#c)"><rect x="18" y="18" width="84" height="18" rx="4"/><rect x="18" y="51" width="84" height="18" rx="4"/><rect x="18" y="84" width="84" height="18" rx="4"/></g><g fill="#7dffd4"><circle cx="30" cy="27" r="3"/><circle cx="30" cy="60" r="3"/><circle cx="30" cy="93" r="3"/></g><path d="M80 27C112 27 112 93 80 93" fill="none" stroke="#7dffd4" stroke-width="3" stroke-dasharray="4 4"/></svg>
-<figcaption><b>3. Szafa z pętlą</b> – 3 dyski i port wracający w tę samą szafę (solo)</figcaption></figure>
-<figure><svg viewBox="0 0 120 120"><defs><linearGradient id="d" gradientUnits="userSpaceOnUse" x1="20" y1="20" x2="100" y2="100"><stop offset="0" stop-color="#b8c7d9"/><stop offset="1" stop-color="#5b6cff"/></linearGradient></defs>
-<path d="M60 12C34 12 22 30 22 52V64C22 90 40 108 60 108C80 108 98 90 98 64V52C98 30 86 12 60 12Z" fill="url(#d)"/><path d="M42 50H78V86H42Z" fill="#0b0f17"/><path d="M50 50V40A10 10 0 0 1 70 40V50" fill="none" stroke="#0b0f17" stroke-width="6"/><circle cx="60" cy="66" r="5" fill="#7dffd4"/><path d="M60 70V78" stroke="#7dffd4" stroke-width="4" stroke-linecap="round"/></svg>
-<figcaption><b>4. Tarcza z kłódką</b> – klasyczny „secure vault”</figcaption></figure>
+<!doctype html><meta charset="utf-8"><title>Firma #5 – nazwa + logo</title>
+<style>
+:root{--bg:#0a0d14;--ink:#dfe7f2;--muted:#a3adbf}
+body{margin:0;background:radial-gradient(circle at 50% 0,#141a28,#07090e 70%);color:var(--ink);font:13px/1.45 system-ui;padding:28px}
+h1{font-size:16px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 24px}
+.row{display:flex;flex-wrap:wrap;gap:22px}
+.card{width:240px;padding:22px 18px 18px;border-radius:14px;background:linear-gradient(160deg,#ffffff10,#ffffff04);border:1px solid #ffffff1c;box-shadow:inset 0 1px #ffffff22,0 10px 30px #0008;text-align:center}
+.card b{display:block;font-size:15px;margin-top:10px;letter-spacing:.02em}
+.card p{margin:6px 0 0;color:#bcc5d3;font-size:12.5px}
+.card .why{margin-top:10px;padding-top:8px;border-top:1px solid #ffffff14;color:#8fe9c9;font-size:12.5px;text-align:left}
+.n{color:var(--muted);font-size:12px;letter-spacing:.1em}
+/* copied from src/style.css */
+.flogo{width:150px;height:150px;filter:drop-shadow(0 0 10px color-mix(in srgb,var(--lg1) 40%,transparent))}
+.lg-trace{stroke-dasharray:22 100;animation:lgtrace 2.4s linear infinite}
+@keyframes lgtrace{from{stroke-dashoffset:22}to{stroke-dashoffset:-100}}
+.lg-twinkle{transform-box:fill-box;transform-origin:center;animation:lgtwinkle 3s ease-in-out infinite}
+@keyframes lgtwinkle{50%{transform:scale(.55);opacity:.6}}
+/* new */
+.lg-spin{transform-box:fill-box;transform-origin:center;animation:lgspin 9s linear infinite}
+@keyframes lgspin{to{transform:rotate(360deg)}}
+.lg-sweep{transform-box:view-box;transform-origin:60px 60px;animation:lgspin 4s linear infinite}
+.lg-flip{transform-box:view-box;transform-origin:60px 60px;animation:lgflip 5s ease-in-out infinite}
+@keyframes lgflip{0%,70%,100%{transform:scaleX(1)}80%{transform:scaleX(.06)}90%{transform:scaleX(1)}}
+.lg-blip{animation:lgblip 4s linear infinite}
+@keyframes lgblip{0%,8%{opacity:1}40%,100%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+.lg-rail{--lg1:#ffb347;--lg2:#c9d3e0;--lg3:#ff5a3c}
+.lg-abyss{--lg1:#2ee6d6;--lg2:#1f5cff;--lg3:#c8fff8}
+.lg-taiga{--lg1:#ff8a3d;--lg2:#9aa7b8;--lg3:#7dffd4}
+.lg-polaris{--lg1:#5dff9e;--lg2:#2bb8ff;--lg3:#eafff2}
+.lg-obol{--lg1:#d8dee9;--lg2:#8a7bff;--lg3:#7df9ff}
+</style>
+<h1>Firma #5 – nazwa, branża i logo (z animacją)</h1>
+<p class="sub">Każda propozycja: branża tłumaczy mechanikę firmy (2 długie cele w łańcuchu, porty, Dual, kształty). Logo w stylu istniejących (gradient z --lg1..3, wycięcia w kolorze tła, 1 subtelna animacja).</p>
+<div class="row">
+
+<div class="card"><span class="n">1</span><br>
+<svg class="flogo lg-rail" viewBox="0 0 120 120"><defs><linearGradient id="r1" gradientUnits="userSpaceOnUse" x1="0" y1="112" x2="0" y2="16"><stop offset="0" style="stop-color:var(--lg2)"/><stop offset="1" style="stop-color:var(--lg1)"/></linearGradient></defs>
+<path d="M31 100H89M36 82H84M40 66H80M44 52H76M47 40H73M50 30H70" style="stroke:var(--lg2)" stroke-width="3" opacity=".45" stroke-linecap="round"/>
+<path d="M34 112L56 16M86 112L64 16" stroke="url(#r1)" stroke-width="6" stroke-linecap="round" fill="none"/>
+<path class="lg-trace" pathLength="100" d="M34 112L56 16" style="stroke:var(--lg3)" stroke-width="3" stroke-linecap="round" fill="none"/>
+<path class="lg-trace" pathLength="100" d="M86 112L64 16" style="stroke:var(--lg3)" stroke-width="3" stroke-linecap="round" fill="none"/>
+<circle cx="60" cy="12" r="5" style="fill:var(--lg1)"/></svg>
+<b>Ironline Rail</b><p>National freight rail. Long trains, few departures, every junction thrown by hand.</p>
+<div class="why">Długi pociąg = długi łańcuch 2 celów. Zwrotnice = porty. Animacja: światła pociągu biegną po szynach ku horyzontowi.</div></div>
+
+<div class="card"><span class="n">2</span><br>
+<svg class="flogo lg-abyss" viewBox="0 0 120 120"><defs><linearGradient id="a1" gradientUnits="userSpaceOnUse" x1="0" y1="30" x2="0" y2="104"><stop offset="0" style="stop-color:var(--lg1)"/><stop offset="1" style="stop-color:var(--lg2)"/></linearGradient></defs>
+<path d="M6 26Q18 18 30 26T54 26T78 26T102 26T126 26" fill="none" style="stroke:var(--lg1)" stroke-width="4" stroke-linecap="round"/>
+<path d="M10 106H110" style="stroke:var(--lg2)" stroke-width="3" opacity=".5" stroke-linecap="round"/>
+<path d="M24 26C24 76 96 50 96 100" fill="none" stroke="url(#a1)" stroke-width="7" stroke-linecap="round"/>
+<rect x="50" y="56" width="20" height="12" rx="6" transform="rotate(-20 60 62)" style="fill:var(--lg1)" stroke="var(--bg)" stroke-width="3"/>
+<path class="lg-trace" pathLength="100" d="M24 26C24 76 96 50 96 100" fill="none" style="stroke:var(--lg3)" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="88" y="98" width="16" height="10" rx="2" style="fill:var(--lg2)"/></svg>
+<b>Abyssal Cable</b><p>Subsea fibre operator. One cable, three thousand kilometres, a repeater every sixty.</p>
+<div class="why">Jeden długi transfer przez ocean = długie cele. Wzmacniacz/stacje lądowe = porty. Animacja: impuls światła płynie kablem w dół.</div></div>
+
+<div class="card"><span class="n">3</span><br>
+<svg class="flogo lg-taiga" viewBox="0 0 120 120"><defs><linearGradient id="t1" gradientUnits="userSpaceOnUse" x1="8" y1="92" x2="112" y2="28"><stop offset="0" style="stop-color:var(--lg2)"/><stop offset="1" style="stop-color:var(--lg1)"/></linearGradient></defs>
+<path d="M8 92H44A24 24 0 0 0 68 68V52A24 24 0 0 1 92 28H112" fill="none" stroke="url(#t1)" stroke-width="16"/>
+<path d="M8 92H44A24 24 0 0 0 68 68V52A24 24 0 0 1 92 28H112" fill="none" stroke="var(--bg)" stroke-width="5"/>
+<path d="M18 80V104M102 16V40" style="stroke:var(--lg2)" stroke-width="5" stroke-linecap="round"/>
+<g class="lg-spin"><circle cx="68" cy="60" r="15" fill="var(--bg)" style="stroke:var(--lg3)" stroke-width="3.5"/>
+<path d="M68 47V73M55 60H81M58.8 50.8L77.2 69.2M77.2 50.8L58.8 69.2" style="stroke:var(--lg3)" stroke-width="2.2"/><circle cx="68" cy="60" r="4" style="fill:var(--lg3)"/></g></svg>
+<b>Taiga Pipeline</b><p>Gas transit across the tundra. Pipes that run for days and valves that loop the flow back.</p>
+<div class="why">Rura = długi ciąg kodów. Zawory zawracające przepływ = para portów w jednej macierzy (solo). Animacja: koło zaworu powoli się obraca.</div></div>
+
+<div class="card"><span class="n">4</span><br>
+<svg class="flogo lg-polaris" viewBox="0 0 120 120"><defs><radialGradient id="p1" gradientUnits="userSpaceOnUse" cx="60" cy="60" r="48"><stop offset="0" style="stop-color:var(--lg1)" stop-opacity=".0"/><stop offset="1" style="stop-color:var(--lg1)" stop-opacity=".55"/></radialGradient></defs>
+<circle cx="60" cy="60" r="48" fill="none" style="stroke:var(--lg2)" stroke-width="4"/>
+<circle cx="60" cy="60" r="31" fill="none" style="stroke:var(--lg2)" stroke-width="1.5" opacity=".5"/>
+<path d="M60 12V108M12 60H108" style="stroke:var(--lg2)" stroke-width="1.2" opacity=".35"/>
+<g class="lg-sweep"><path d="M60 60L60 12A48 48 0 0 1 94 26Z" fill="url(#p1)"/><path d="M60 60L94 26" style="stroke:var(--lg1)" stroke-width="2.5" stroke-linecap="round"/></g>
+<circle class="lg-blip" cx="82" cy="44" r="4" style="fill:var(--lg3)"/>
+<path d="M60 50L62.6 57.4L70 60L62.6 62.6L60 70L57.4 62.6L50 60L57.4 57.4Z" style="fill:var(--lg3)"/></svg>
+<b>Polaris Air Control</b><p>Air navigation service. Long-haul routes handed from sector to sector, all night.</p>
+<div class="why">Lot długodystansowy = długi łańcuch. Przekazanie między sektorami = porty między macierzami. Animacja: obrót wiązki radaru.</div></div>
+
+<div class="card"><span class="n">5</span><br>
+<svg class="flogo lg-obol" viewBox="0 0 120 120"><defs><linearGradient id="o1" gradientUnits="userSpaceOnUse" x1="14" y1="14" x2="106" y2="106"><stop offset="0" style="stop-color:var(--lg1)"/><stop offset="1" style="stop-color:var(--lg2)"/></linearGradient></defs>
+<g class="lg-flip"><circle cx="60" cy="60" r="48" fill="url(#o1)"/>
+<circle cx="60" cy="60" r="41" fill="none" stroke="var(--bg)" stroke-width="2.5" stroke-dasharray="2 4"/>
+<path d="M36 44L42 30L50 40M84 44L78 30L70 40" fill="none" stroke="var(--bg)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="46" cy="58" r="11" fill="none" stroke="var(--bg)" stroke-width="5"/><circle cx="74" cy="58" r="11" fill="none" stroke="var(--bg)" stroke-width="5"/>
+<circle cx="46" cy="58" r="4" style="fill:var(--lg3)"/><circle cx="74" cy="58" r="4" style="fill:var(--lg3)"/>
+<path d="M55 72L60 82L65 72Z" fill="var(--bg)"/></g></svg>
+<b>Obol Mint</b><p>State mint and cash logistics. Every coin has two faces, every transfer two signatures.</p>
+<div class="why">Dwie strony monety = komórki Dual (dwa kody w jednej). Sowa jak na antycznym obolu. Animacja: moneta co kilka sekund się obraca.</div></div>
+
+</div>
