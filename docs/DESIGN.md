@@ -115,6 +115,7 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
   - **Failsafe** (rare): ×1,25, a ×1,6 gdy wgrasz wszystkie targety;
 - Signal flaw nie dotyczy Root (ma na stałe Runnera). Więcej daemonów nie dodajemy (3 common, 2 rare, 1 legendary);
 - **Paczki daemonów zamiast 3 kart** (pomysł gracza 2026-11-23, odłożony do playtestów z Root): w ofercie 2 paczki po ok. 3 daemony, każda oznaczona rodziną (np. Ghost, Splicer/Cron albo „mix”); gdy rodzina jest prawie wyczerpana, gra daje paczkę innej rodziny albo mix. Wariant: jedna paczka z pewną legendą za dopłatą. Uwaga: gracz widzi ok. 6 daemonów zamiast 3 (silniejszy wybór, balans do sima), a paczki kojarzą się z Balatro.
+  - 2026-11-24 (po dodaniu Root i Botnet: 37 daemonów, 6 rodzin): na razie oferta ma 4 karty zamiast 3. Paczki zostają kierunkiem docelowym, bo paczka z jednej rodziny nie rozmywa się wraz z pulą. Warianty paczek wg gracza: jedna rodzina, dwie rodziny (synergie między rodzinami), totalny mix, czasem paczka z gwarantowanym rare. Gracz odrzucił ukrytą „skłonność do rodzin” w losowaniu, bo synergie często idą między rodzinami.
 - otwarte: czy Root nie rozmyje puli za mocno (najpierw boty sima mają używać nowych daemonów, potem sim z Root i bez); od początku czy do odblokowania (skłania się: od początku); ikony.
 
 ## 5. Trudność i balans

@@ -146,7 +146,7 @@ describe('daemons', () => {
   it('applies (data + flat) × (1 + boost) × mult', () => {
     expect(scoreMatrix(ctx, run()).total).toBe(40); // 35 + linked Lv1 5
     expect(scoreMatrix(ctx, run('chain')).total).toBe(60); // B is shared: ×1.5
-    expect(scoreMatrix(ctx, run('overflow')).total).toBe(80); // 4 empty slots -> +1
+    expect(scoreMatrix(ctx, run('overflow')).total).toBe(72); // 4 empty slots -> +0.8
     expect(scoreMatrix(ctx, run('light', 'corner')).total).toBe(120); // ×2 ×1.5
     const five = { ...ctx, buf: [...ctx.buf, 'E'] };
     expect(scoreMatrix({ ...five, l: 9 }, run('light')).fired).toEqual([['light', { mult: 2 }]]); // half of 9 rounds up to 5
@@ -225,17 +225,17 @@ describe('daemons', () => {
     expect(minerIdle({ ...run(), items: ['chip'] as ItemId[] })).toBe(false);
   });
 
-  it('offers 3 distinct unowned daemons, stable per seed and section', () => {
+  it('offers 4 distinct unowned daemons, stable per seed and section', () => {
     const s = run('chain');
     const o = offerDaemons(s);
-    expect(new Set(o).size).toBe(3);
+    expect(new Set(o).size).toBe(4);
     expect(o).not.toContain('chain');
     expect(offerDaemons(run('chain'))).toEqual(o);
   });
 
   it('still offers daemons with every slot full', () => {
     const o = offerDaemons(run('chain', 'cache', 'corner', 'silent'));
-    expect(o).toHaveLength(3);
+    expect(o).toHaveLength(4);
     expect(o.some((id) => ['chain', 'cache', 'corner', 'silent'].includes(id))).toBe(false);
   });
 
@@ -794,6 +794,16 @@ describe('playtest daemons, bounties and Glob', () => {
     expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 64 }]]); // 4 cells at +16
     daemonsAfterMatrix({ ...ctx, buf: ['X', 'Y'] }, s, false); // nothing uploaded: the paint stays
     expect(s.paint).toEqual({ '0,0': 2, '4,0': 2, '4,2': 2, '0,2': 2 });
+    for (let i = 0; i < 4; i++) daemonsAfterMatrix(ctx, s, false);
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 192 }]]); // no cap: 4 cells at level 6, +48 each
+  });
+
+  it('Botnet pays for separate uploads, not linked ones', () => {
+    const two = { ...ctx, buf: ['A', 'B', 'X', 'Y'], targets: [...ctx.targets, ['X', 'Y']] }; // AB and XY uploaded, BCD left
+    expect(scoreMatrix(two, run('spray', 'fork', 'parallel', 'sweep', 'quorum')).fired)
+      .toEqual([['spray', { flat: 25 }], ['fork', { mult: 1.5 }], ['parallel', { boost: 1.5 }], ['quorum', { mult: 2 }]]);
+    expect(scoreMatrix(ctx, run('parallel')).fired).toEqual([]); // AB and BCD share B
+    expect(scoreMatrix({ ...two, targets: [['A', 'B'], ['X', 'Y']] }, run('fork', 'sweep', 'quorum')).fired).toEqual([['sweep', { mult: 2 }]]);
   });
 
   it('Sandbag stacks on a weak Disconnect for the rest of the room; Warm-up counts played matrices', () => {
@@ -1085,10 +1095,10 @@ describe('entries', () => {
     expect(s.shelf.length).toBe(3);
   });
 
-  it('Night shift offers 3 Cron daemons at normal prices', () => {
+  it('Night shift offers 4 Cron daemons at normal prices', () => {
     const s = { ...newRunState(1, co('meridian'), 'nightshift'), credits: 10, shelf: ['thumb'] as ItemId[] };
     const o = offerDaemons(s);
-    expect([o.length, o.every((id) => DAEMONS[id].family === 'Cron')]).toEqual([3, true]);
+    expect([o.length, o.every((id) => DAEMONS[id].family === 'Cron')]).toEqual([4, true]);
     expect([priceOf(s, 'thumb'), zipPrice(s), slotCost(s)]).toEqual([2, 1, 3]);
     expect(buy(s, 'thumb')).toBe(true);
     expect(s.credits).toBe(8);

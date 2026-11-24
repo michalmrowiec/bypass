@@ -98,7 +98,7 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 /* The lane a pick under the cursor leads into: brighter than the crosshair hint, below the active lane. */
 /* Scratchpad: planned cells get a dashed frame and their step number; the buffer shows the planned codes greyed. */
 .cell.planned{outline:1px dashed var(--ink);outline-offset:-4px}
-.cell .pnum{position:absolute;top:4px;left:50%;transform:translate(-50%,-50%);z-index:2;padding:0 2px;background:var(--bg);font-size:10px;font-style:normal;line-height:1.1;color:var(--ink);pointer-events:none}
+.cell .pnum{position:absolute;top:4px;left:50%;transform:translate(-50%,-50%);z-index:2;padding:0 2px;background:var(--bg);font-size:10px;font-style:normal;line-height:1.1;white-space:nowrap;color:var(--ink);pointer-events:none}
 .slot.plan{border-style:dashed;color:var(--muted);font-weight:400}
 .slot.plan:not(.filled)::before{content:none}
 .plantag{margin-left:6px;padding:0 4px;border:1px dashed var(--line);font-size:10px;color:var(--ink)}
@@ -196,7 +196,9 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .c-splicer{--fc:var(--cyan)}
 .c-ghost{--fc:#b9a6ff}
 .c-runner{--fc:#f0b35a}
+.c-cron{--fc:#c6e46b}
 .c-root{--fc:#f2f5f8}
+.c-botnet{--fc:#ff8f6b}
 
 /* Daemon cards: floating file strips that tilt toward the pointer and glow in their family color; lit when they count toward the matrix. */
 .daemons,.dlist{display:flex;flex-direction:column;gap:10px}
@@ -258,6 +260,9 @@ h1{font-weight:700;font-size:28px;line-height:1;margin:0;color:var(--mint);lette
 .c-runner{--tex:repeating-linear-gradient(0deg,color-mix(in srgb,var(--fc) 12%,transparent) 0 1px,transparent 1px 5px)}
 .c-cron{--tex:repeating-linear-gradient(90deg,color-mix(in srgb,var(--fc) 16%,transparent) 0 1px,transparent 1px 8px) 0 0/100% 4px no-repeat}
 .c-root{--tex:repeating-linear-gradient(0deg,color-mix(in srgb,var(--fc) 10%,transparent) 0 1px,transparent 1px 6px),repeating-linear-gradient(90deg,color-mix(in srgb,var(--fc) 10%,transparent) 0 1px,transparent 1px 6px)}
+/* Botnet: a staggered grid of nodes, many separate points. */
+.c-botnet{--tex:radial-gradient(circle,color-mix(in srgb,var(--fc) 22%,transparent) 0 1px,transparent 1.5px) 0 0/10px 10px,
+  radial-gradient(circle,color-mix(in srgb,var(--fc) 22%,transparent) 0 1px,transparent 1.5px) 5px 5px/10px 10px}
 /* Dog-ear: the clip cuts the corner away, this is the folded-back flap. */
 .fold{position:absolute;top:0;right:0;z-index:1;width:14px;height:14px;
   background:linear-gradient(225deg,transparent 50%,color-mix(in srgb,var(--fc) 35%,var(--panel)) 50%);box-shadow:-1px 1px 0 var(--edge)}
@@ -1121,7 +1126,6 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .dcard.poor{opacity:.5;cursor:not-allowed}
 .unit.ready:hover,.unit.ready:focus-visible{border-color:var(--mint);box-shadow:0 0 12px -3px var(--mint)}
 .unit.ready.pre:hover,.unit.ready.pre:focus-visible{border-color:var(--led-blue);box-shadow:0 0 12px -3px var(--led-blue)}
-.c-cron{--fc:#c6e46b}
 button.chip{font:inherit;font-size:12px;color:inherit;cursor:var(--hit)}
 button.chip:hover{border-color:var(--gold)}
 .chip .sell{font-style:normal;font-size:11px;color:var(--gold);margin-left:4px}

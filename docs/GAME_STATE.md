@@ -16,7 +16,7 @@
 
 ## 3. Run
 - **Run = jedna firma.** Pokoje mają po kilka macierzy i próg danych (quota). Brak progu kończy run.
-- Po każdym pokoju jest **darmowy wybór 1 z 3 daemonów** (można pominąć), potem **sklep**.
+- Po każdym pokoju jest **darmowy wybór 1 z 4 daemonów** (można pominąć), potem **sklep**.
 - Ostatni pokój to **SOC** (boss) z ICE z puli firmy.
 - **3 iteracje** (`LOOPS`). Po SOC firma się łata („Patch notes”: 1 ICE do losowego pokoju) i rundy lecą od nowa.
   - Progi ×2,5 na iterację (`QUOTA_GROWTH`), zaokrąglone do 5.
@@ -79,9 +79,10 @@ Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Ho
 | rodzina | daemony |
 |---|---|
 | **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×(1 + 0,2 za slot bufora) (legendary), All-in ×2/×0,5 (rare) |
-| **Ghost** (minimalizm) | Overflow, Light footprint (legendary), Silent, Cache (rare, stack; zeruje się przy wgraniu wszystkich targetów), Echo (rare), Sandbag (rare, room) |
-| **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler |
+| **Ghost** (minimalizm) | Overflow (+0,2 boost za pusty slot), Light footprint (legendary), Silent, Cache (rare, stack; zeruje się przy wgraniu wszystkich targetów), Echo (rare), Sandbag (rare, room) |
+| **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler, Painter (rare; +8 data za poziom farby, bez limitu poziomów, max 6 komórek) |
 | **Cron** (serie) | Heartbeat (rare), Rotate (+5), Backup (rare), Uptime (+8), Overtime (rare, room), Warm-up (room) |
+| **Botnet** (osobne targety, koral) | Spray (+25 data za każdy wgrany target po pierwszym), Fork (×1,5 przy 2+ wgranych, ale nie wszystkich), Parallel (rare; +0,75 boost za wgrany target bez wspólnego kodu, przy 2+), Sweep (rare; ×2 gdy wszystkie wgrane i żadne nie dzielą kodu), Quorum (legendary; ×(1 + 0,5 za wgrany target), gdy 1+ target zostaje) |
 
 Pełne opisy są w `DAEMONS` w `src/roguelike.ts`.
 

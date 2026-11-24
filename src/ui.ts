@@ -257,7 +257,7 @@ const famCounts = (ids: DaemonId[]): [string, number][] => {
   for (const id of ids) { const f = DAEMONS[id].family.toLowerCase(); n[f] = (n[f] ?? 0) + 1; }
   return Object.entries(n).sort((x, y) => y[1] - x[1]);
 };
-const FAM_COLOR: Record<string, string> = { splicer: 'var(--cyan)', ghost: '#b9a6ff', runner: '#f0b35a', cron: '#c6e46b', root: '#f2f5f8' };
+const FAM_COLOR: Record<string, string> = { splicer: 'var(--cyan)', ghost: '#b9a6ff', runner: '#f0b35a', cron: '#c6e46b', botnet: '#ff8f6b', root: '#f2f5f8' };
 function render() {
   const { grid, targets, l } = S.puzzle;
   const n = grid.length, cols = grid[0].length, w = S.puzzle.half;
@@ -333,11 +333,11 @@ function render() {
     } else {
       b.setAttribute('aria-disabled', 'true');
     }
-    const at = plan.findIndex(([pr, pc]) => pr === r && pc === c);
-    if (at >= 0) {
-      const tools = plan.filter(([pr, pc, , t]) => t && pr === r && pc === c).map(([, , , t]) => STEP_TAG[t!]).join(' ');
+    // Every step on this cell, so a pick on a planned ** or a Loopback onto a used cell shows its own number.
+    const here = plan.flatMap(([pr, pc, , t], i) => (pr === r && pc === c ? [i + 1 + (t ? STEP_TAG[t]! : '')] : []));
+    if (here.length) {
       b.classList.add('planned');
-      b.insertAdjacentHTML('beforeend', "<i class='pnum'>" + (at + 1) + (tools && ' ' + tools) + '</i>');
+      b.insertAdjacentHTML('beforeend', "<i class='pnum'>" + here.join(' · ') + '</i>');
     }
     // Plan mode: clicks plan instead of pick; the lit cells are the plan's next legal ones.
     // An armed path item becomes a script step; Split and Bitshift still act for real.
@@ -373,6 +373,7 @@ function render() {
   go.hidden = pb.hidden || planning || !plan.length;
   go.textContent = planTimer ? '[ ^C ]' : ($('exitEnd') as HTMLInputElement).checked ? '[ ./run && exit ]' : '[ ./run ]';
   $('exitOpt').hidden = pb.hidden || !planning;
+  $('clearPlanBtn').hidden = pb.hidden || !planning || !plan.length;
   // Terminal under the matrix: the run's event log, newest last.
   const term = $('term');
   term.hidden = S.mode !== 'run';
@@ -410,7 +411,7 @@ function render() {
     }
     s.className = 'slot' + (buffer[i] ? ' filled' : '') + (i === buffer.length - 1 && !S.over ? ' new' : '') + (i >= l - bought ? ' extra' : '')
       + (cover[i] >= 2 ? ' shared' : '') + (has('light') && i === Math.ceil(l / 2) - 1 ? ' half' : '') + (buffer[i] === WILD ? ' wild' : '') + (i === M.kept ? ' kept' : '') + (has('backup') && i === l - 1 ? ' spare' : '');
-    if (has('overflow')) s.dataset.bonus = '+.25';
+    if (has('overflow')) s.dataset.bonus = '+.2';
     if (s.classList.contains('extra')) s.dataset.tip = 'Extra slot from your rack';
     if (s.classList.contains('spare')) s.dataset.tip = 'Backup: leave this slot empty to grow the stack; any other ending halves it';
     if (i === M.kept) s.dataset.tip = 'Kept by Rewind: the buffer gained a slot for it';
@@ -590,6 +591,14 @@ const ICONS: Record<DaemonId, string> = {
   allin: "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='3.5'/><path d='M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3'/>",
   overtime: "<circle cx='12' cy='13' r='7.5'/><path d='M12 9v4l2.5 2M9 3h6M18.5 6.5l1.5-1.5'/>",
   warmup: "<path d='M12 3c3 4 5 6 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z'/>",
+  // Botnet: one source, many separate hits.
+  spray: "<path d='M3 10h5v4H3zM8 12h3'/><circle class='f' cx='15' cy='7' r='1.2'/><circle class='f' cx='18' cy='12' r='1.2'/><circle class='f' cx='15' cy='17' r='1.2'/><circle class='f' cx='20.5' cy='5.5' r='1'/><circle class='f' cx='20.5' cy='18.5' r='1'/>",
+  fork: "<path d='M12 21v-8M12 13L6 6M12 13l6-7M4 7.5L6 6l.4 2.2M20 7.5L18 6l-.4 2.2'/><circle class='f' cx='12' cy='21' r='1.4'/>",
+  parallel: "<path d='M3 6h15M3 12h15M3 18h15M16 4l2.5 2-2.5 2M16 10l2.5 2-2.5 2M16 16l2.5 2-2.5 2'/>",
+  // A radar sweep over separate blips.
+  sweep: "<circle cx='12' cy='12' r='8.5'/><path d='M12 12l6-6'/><circle class='f' cx='8' cy='9' r='1.2'/><circle class='f' cx='15' cy='15.5' r='1.2'/><circle class='f' cx='8.5' cy='16' r='1.2'/>",
+  // Most of the seats taken, one left empty.
+  quorum: "<circle class='f' cx='7' cy='7' r='2.5'/><circle class='f' cx='17' cy='7' r='2.5'/><circle class='f' cx='7' cy='17' r='2.5'/><circle cx='17' cy='17' r='2.5'/>",
   // A boost arrow rising off the base line.
   baseline: "<path d='M3 19h18M12 15V5M8 9l4-4 4 4'/>",
   payroll: "<rect x='3' y='6' width='18' height='12' rx='2'/><circle cx='12' cy='12' r='3'/><path d='M6 9v.01M18 15v.01'/>",
@@ -817,7 +826,7 @@ function renderDaemons() {
     const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
     return { id, t, ready, miner, cut: inScript, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && drained ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + (verOf(id) && '_v' + verOf(id)) + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
-        + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') };
+        + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') + (id.startsWith('hotkey') && R.hotkey ? ' · <b>bound to ' + payFile(R.hotkey) + '</b>' : '') };
   });
   const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
   const lcd = on ? on.spec
@@ -842,7 +851,7 @@ function renderDaemons() {
       return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && drained ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : u.cut ? " data-cut='" + u.t + "'" : " tabindex='0'")
         + " aria-label='" + it.name + (verOf(u.id) && ' v' + verOf(u.id)) + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
-        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' && verOf(u.id) ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
+        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' && verOf(u.id) ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : u.id.startsWith('hotkey') && R.hotkey ? '▸ ' + payFile(R.hotkey) : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
         + '</small></span>' + (it.ver !== '1.0' ? "<i class='vplate v" + parseInt(it.ver) + "'>v" + parseInt(it.ver) + '</i>' : '') + "<i class='led'></i>" + scr(i, 1) + '</' + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   const use = (tool: string) => {
@@ -2555,6 +2564,7 @@ export function init() {
   $('catalogBtn').onclick = () => showCatalog(null);
   $('logBtn').onclick = showLog;
   $('planBtn').onclick = () => { stopPlan(); planning = !planning; render(); };
+  $('clearPlanBtn').onclick = () => { plan = []; armed = null; render(); };
   $('exitEnd').onchange = render;
   $('runPlanBtn').onclick = () => { if (planTimer) { stopPlan(); render(); } else runPlan(); };
   $('exportSave').onclick = () => {

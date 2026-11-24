@@ -229,7 +229,7 @@ function deployPatches(s: RunState): Patch[] {
 // Re-dealing a matrix (before the first move) needs a Burner SIM: once per room.
 const restartsFor = (s: { items: ItemId[] }) => (s.items.includes('sim') ? 1 : 0);
 export const DAEMON_SLOTS = 4;
-export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron' | 'Root';
+export type Family = 'Splicer' | 'Ghost' | 'Runner' | 'Cron' | 'Botnet' | 'Root';
 // Credits: one per SURPLUS_PER_CREDIT data over the quota, SECTION_CREDIT per cleared section,
 // one per SLOTS_PER_CREDIT empty buffer slots in a matrix that uploaded something, only with a Credit chip in idle,
 // FULL_CREDIT for a matrix with every target uploaded.
@@ -280,7 +280,7 @@ export interface RunState {
   daemons: DaemonId[];
   stacks: Partial<Record<string, number>>; // by daemon id (string keeps DAEMONS from typing itself) // streak daemons' banked stacks
   lastStart?: number; // column of the previous matrix's first pick (cron/rotate)
-  paint?: Record<string, number>; // Painter: cell 'r,c' → level 1–3, from the last matrix with an upload
+  paint?: Record<string, number>; // Painter: cell 'r,c' → level 1+, from the last matrix with an upload
   rack: number; // rack slots for items
   items: ItemId[]; // shop items owned, kept for the run
   shelf: ItemId[]; // what the shop offers on this visit
@@ -451,6 +451,7 @@ interface Facts {
   done: string[][];
   all: boolean;
   shared: number; // buffer slots inside 2+ uploaded targets
+  lone: number; // uploaded targets sharing no buffer slot with another
   empty: number;
   slots: number; // buffer length
   light: boolean; // at most half the buffer used, rounded up
@@ -499,13 +500,14 @@ function facts({ buf, path, targets, l, n, jumps, ports, stay }: MatrixCtx): Fac
   const done = targets.filter((t) => contains(buf, t));
   const moves = moveLens(path, jumps, ports, stay);
   const keys = path.map((p) => p[0] + ',' + p[1]);
-  const wins = done.map((t) => windowOf(buf, t));
+  const wins = done.map((t) => windowOf(buf, t)), cover = coverage(buf, done);
   return {
     codes: done.reduce((a, t) => a + t.length, 0), picks: path.length, cells: new Set(keys).size,
     // trace: any match of an uploaded target counts, since ** lets a target match earlier than the real upload.
     wilds: wins.filter((w) => w.some((i) => buf[i] === WILD)).length,
     trace: buf.every((_, i) => done.some((t) => t.some((_, j) => i >= j && t.every((c, k) => fits(buf[i - j + k], c))))),
-    done, all: done.length === targets.length, shared: coverage(buf, done).filter((k) => k >= 2).length,
+    done, all: done.length === targets.length, shared: cover.filter((k) => k >= 2).length,
+    lone: wins.filter((w) => w.every((i) => cover[i] === 1)).length,
     empty: l - buf.length, slots: l, light: buf.length <= Math.ceil(l / 2),
     moves, edgeJumps: moves.filter((d) => d === n - 1).length, corner: isCorner(path[0], n) || isCorner(path[path.length - 1], n),
     start: path[0]?.[1],
@@ -541,8 +543,8 @@ interface Daemon {
 
 // Flat data per stack: Uptime (no Disconnect) pays more than the easy Rotate.
 export const CRON_DATA = 8, ROTATE_DATA = 5;
-export const LONGJUMP_DATA = 15;
-export const PAINT_DATA = 8, PAINT_LEVELS = 3, PAINT_CELLS = 6;
+export const LONGJUMP_DATA = 15, SPRAY_DATA = 25;
+export const PAINT_DATA = 8, PAINT_CELLS = 6;
 // Painter: data a painted cell pays when picked.
 export const paintData = (level: number) => PAINT_DATA * level;
 
@@ -553,8 +555,8 @@ export const DAEMONS = {
     score: (f) => (f.shared ? { flat: 10 * f.shared } : null) },
   fullstack: { name: 'Full stack', family: 'Splicer', rarity: 'legendary', text: '×(1 + 0.4 per target) when every target is uploaded',
     score: (f) => (f.all ? { mult: Math.round((1 + 0.4 * f.done.length) * 10) / 10 } : null) },
-  overflow: { name: 'Overflow', family: 'Ghost', text: '+0.25 boost per empty buffer slot',
-    score: (f) => (f.empty ? { boost: 0.25 * f.empty } : null) },
+  overflow: { name: 'Overflow', family: 'Ghost', text: '+0.2 boost per empty buffer slot',
+    score: (f) => (f.empty ? { boost: Math.round(2 * f.empty) / 10 } : null) },
   light: { name: 'Light footprint', family: 'Ghost', rarity: 'legendary', text: '×2 when at most half the buffer is used, rounded up',
     score: (f) => (f.light ? { mult: 2 } : null) },
   silent: { name: 'Silent', family: 'Ghost', text: '+$2 each time you end a matrix early with Disconnect',
@@ -587,11 +589,11 @@ export const DAEMONS = {
     score: (f) => (f.done.length && f.trace ? { mult: 1 + 0.25 * f.done.length } : null) },
   crawler: { name: 'Crawler', family: 'Runner', text: '+5 data per different cell on the path',
     score: (f) => (f.cells ? { flat: 5 * f.cells } : null) },
-  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Every cell on your path stays painted in the next matrix (once a target is uploaded); picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again (up to +' + paintData(PAINT_LEVELS) + ')',
+  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Every cell on your path stays painted in the next matrix (once a target is uploaded); picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again, with no limit',
     score: (f, s) => { const v = [...new Set(f.keys)].reduce((a, k) => a + (s.paint?.[k] ? paintData(s.paint[k]) : 0), 0); return v ? { flat: v } : null; },
     end: (s, f) => {
       // Repainted cells go up a level; the highest levels stay when there are too many.
-      const next = [...new Set(f.keys)].map((k) => [k, Math.min(PAINT_LEVELS, (s.paint?.[k] ?? 0) + 1)] as const);
+      const next = [...new Set(f.keys)].map((k) => [k, (s.paint?.[k] ?? 0) + 1] as const);
       s.paint = Object.fromEntries(next.sort((a, b) => b[1] - a[1]).slice(0, PAINT_CELLS));
     } },
   circuit: { name: 'Circuit', family: 'Runner', rarity: 'legendary', text: '×2 when the last pick is in the row or column of the first',
@@ -607,6 +609,17 @@ export const DAEMONS = {
   overtime: { name: 'Overtime', family: 'Cron', rarity: 'rare', scope: 'run', text: 'Half the data over a room\'s quota carries into the next room' },
   warmup: { name: 'Warm-up', family: 'Cron', scope: 'room', text: '+0.5 boost per matrix already played in this room',
     score: (_f, s) => (played(s) ? { boost: 0.5 * played(s) } : null) },
+  // Botnet: many targets, each on its own; the middle between a single upload and every target linked.
+  spray: { name: 'Spray', family: 'Botnet', text: '+' + SPRAY_DATA + ' data per uploaded target after the first',
+    score: (f) => (f.done.length > 1 ? { flat: SPRAY_DATA * (f.done.length - 1) } : null) },
+  fork: { name: 'Fork', family: 'Botnet', text: '×1.5 when you upload 2+ targets, but not every one',
+    score: (f) => (f.done.length >= 2 && !f.all ? { mult: 1.5 } : null) },
+  parallel: { name: 'Parallel', family: 'Botnet', rarity: 'rare', text: '+0.75 boost per uploaded target that shares no code with another, with 2+ uploaded',
+    score: (f) => (f.done.length >= 2 && f.lone ? { boost: 0.75 * f.lone } : null) },
+  sweep: { name: 'Sweep', family: 'Botnet', rarity: 'rare', text: '×2 when every target is uploaded and no two share a code',
+    score: (f) => (f.all && f.done.length >= 2 && !f.shared ? { mult: 2 } : null) },
+  quorum: { name: 'Quorum', family: 'Botnet', rarity: 'legendary', text: '×(1 + 0.5 per uploaded target) when at least one target is left',
+    score: (f) => (f.done.length && !f.all ? { mult: 1 + 0.5 * f.done.length } : null) },
   // Root: flat bonuses with easy conditions that fit any build.
   baseline: { name: 'Baseline', family: 'Root', text: '+0.4 boost on every matrix', score: () => ({ boost: 0.4 }) },
   payroll: { name: 'Payroll', family: 'Root', text: '+$1 after every matrix where you upload 2+ targets',
@@ -639,7 +652,7 @@ export const PAYLOADS = {
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['E9', '55']] } },
   linked: { text: '2+ targets sharing codes', data: 5, mult: 0.05, met: (f) => f.shared > 0,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: [['7A', '1C'], ['1C', 'E9'], ['BD', '4F']] } },
-  multi: { text: '2+ targets', data: 3, mult: 0.05, met: (f) => f.done.length >= 2,
+  multi: { text: '2+ targets', data: 4, mult: 0.1, met: (f) => f.done.length >= 2,
     ex: { buf: ['7A', '1C', 'E9', '55'], l: 6, targets: EX3 } },
   single: { text: '1 target', data: 2, mult: 0.05, met: () => true,
     ex: { buf: ['55', '7A', '1C', 'E9'], l: 6, targets: EX3 } },
@@ -917,7 +930,7 @@ export function globTarget(seed: number, targets: string[][]): void {
   t[Math.floor(r() * t.length)] = WILD;
 }
 
-// Three daemons the run doesn't own yet, the same for a given run seed and section.
+// Four daemons (an entry may set its own number) the run doesn't own yet, the same for a given run seed and section.
 // Seed key of a visit between rooms; iterations after the first get their own offers and shelves.
 const visit = (s: RunState) => s.section + (s.loop ? '.' + s.loop : '');
 
@@ -927,7 +940,7 @@ export const leadsBonus = (s: RunState, offer: DaemonId[]) => !!s.legendOffer &&
 
 export function offerDaemons(s: RunState): DaemonId[] {
   const r = rng(hashStr(s.seed + '/offer/' + visit(s)));
-  const fam = entryOf(s).family, size = entryOf(s).offer ?? 3;
+  const fam = entryOf(s).family, size = entryOf(s).offer ?? 4;
   const free = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && (!fam || DAEMONS[id].family === fam));
   const pool = shuffled(free.filter((id) => !s.lastOffer?.includes(id)), r);
   // A fixed family can run short: refill with what the last offer showed.
