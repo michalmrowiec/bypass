@@ -9,7 +9,8 @@ const rad = (id: string, [cx, cy, r]: number[], cs: string) =>
 const ecg = 'M4 60H34L40 50L48 74L56 38L64 82L70 60H116';
 const bolt = 'M62 12L26 66H54L44 110L94 48H66L80 12Z';
 const strand = (a: number, b: number) => `M${a} 12C${a} 38 ${b} 34 ${b} 60C${b} 86 ${a} 82 ${a} 108`;
-const ringBack = 'M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
+const metro = 'M10 94L44 60H76L110 26';
+const ringBack ='M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
 const star = (x: number, y: number, r: number) => `M${x} ${y - r}L${x + r * .3} ${y - r * .3}L${x + r} ${y}L${x + r * .3} ${y + r * .3}L${x} ${y + r}L${x - r * .3} ${y + r * .3}L${x - r} ${y}L${x - r * .3} ${y - r * .3}Z`;
 
 // u: a per-render prefix, so gradient ids never clash between copies of one logo on the page.
@@ -71,13 +72,23 @@ const LOGOS: Record<string, (u: string) => string> = {
       const d = (r * Math.SQRT1_2).toFixed(1), lo = (60 - +d).toFixed(1), hi = (60 + +d).toFixed(1);
       return `<path class='lg-wave' style='animation-delay:${i * .3}s' d='M${hi} ${lo}A${r} ${r} 0 0 1 ${hi} ${hi}M${lo} ${lo}A${r} ${r} 0 0 0 ${lo} ${hi}'/>`;
     }).join('') + `</g><circle cx='60' cy='60' r='9' style='fill:var(--lg2)'/>`,
-  // Sable Vault: a vault door, a dial with four bolts.
-  sable: (u) => `<defs>${lin(u + 'a', [14, 14, 106, 106], '1 2')}</defs>`
-    + `<circle cx='60' cy='60' r='46' fill='none' stroke='url(#${u}a)' stroke-width='9'/>`
-    + `<g style='fill:var(--lg2)'><rect x='55' y='4' width='10' height='16' rx='2'/><rect x='55' y='100' width='10' height='16' rx='2'/><rect x='4' y='55' width='16' height='10' rx='2'/><rect x='100' y='55' width='16' height='10' rx='2'/></g>`
-    + `<circle cx='60' cy='60' r='20' fill='url(#${u}a)'/>`
-    + `<path d='M60 34V86M34 60H86' style='stroke:var(--lg1)' stroke-width='5' stroke-linecap='round'/><circle cx='60' cy='60' r='7' fill='${BG}'/>`
-    + `<circle cx='60' cy='60' r='3' style='fill:var(--lg3)'/>`,
+  // Loopline Metro: a circle line, a cross-town line, two interchanges; a train shuttles along the cross-town line.
+  loopline: () => `<g fill='none' stroke-linecap='round' stroke-linejoin='round'><circle cx='60' cy='60' r='32' style='stroke:var(--lg2)' stroke-width='9'/>`
+    + `<path d='${metro}' stroke='${BG}' stroke-width='17'/><path d='${metro}' style='stroke:var(--lg1)' stroke-width='9'/>`
+    + `<path class='lg-shuttle' pathLength='100' d='${metro}' style='stroke:var(--lg3)' stroke-width='4'/></g>`
+    + [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join('')
+    + `<g style='fill:var(--lg1)'><circle cx='10' cy='94' r='5'/><circle cx='110' cy='26' r='5'/></g>`,
+  // Coming soon. Polaris Air Control: a radar dial around the pole star; the sweep lights two echoes, a third one flies across.
+  // Echo delays sync each flash to the sweep edge (starts at 60°, one turn per 4.5s).
+  polaris: (u) => `<defs>${lin(u + 'a', [12, 12, 108, 108], '1 2')}<radialGradient id='${u}s' gradientUnits='userSpaceOnUse' cx='60' cy='60' r='46'>`
+    + `<stop offset='0' style='stop-color:var(--lg1)' stop-opacity='0'/><stop offset='1' style='stop-color:var(--lg1)' stop-opacity='.6'/></radialGradient></defs>`
+    + `<circle cx='60' cy='60' r='48' fill='none' stroke='url(#${u}a)' stroke-width='8'/>`
+    + `<circle cx='60' cy='60' r='30' fill='none' style='stroke:var(--lg2)' stroke-width='2' opacity='.45'/>`
+    + `<path d='M60 20V30M60 90V100M20 60H30M90 60H100' style='stroke:var(--lg2)' stroke-width='3' stroke-linecap='round' opacity='.7'/>`
+    + `<g class='lg-sweep'><path d='M60 60V14A46 46 0 0 1 99.8 37Z' fill='url(#${u}s)'/><path d='M60 60L99.8 37' style='stroke:var(--lg1)' stroke-width='3' stroke-linecap='round'/></g>`
+    + `<circle class='lg-blip' style='animation-delay:-.09s;fill:var(--lg3)' cx='84' cy='42' r='4'/><circle class='lg-blip' style='animation-delay:-2.37s;fill:var(--lg3)' cx='38' cy='78' r='4'/>`
+    + `<g class='lg-fly'><path d='M24 31L30 36' style='stroke:var(--lg3)' stroke-width='2' stroke-linecap='round' opacity='.4'/><circle cx='31' cy='37' r='3.2' style='fill:var(--lg3)'/></g>`
+    + `<path d='${star(60, 60, 13)}' style='fill:var(--lg3)'/>`,
 };
 
 const LOCKED = "<circle class='lg-ring dashed' cx='60' cy='60' r='54'/><text class='lg-q' x='60' y='78'>?</text>";

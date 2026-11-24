@@ -30,6 +30,7 @@ h2{font-size:14px;margin:30px 0 10px;color:var(--muted);letter-spacing:.08em;tex
 </style></head>
 <body><main class="page">
 <h1>Firma #5 · 4 propozycje (logo + motyw w tle kontraktu)</h1>
+<p class="note"><b>Wybrane:</b> 4 Loopline Metro = firma #5 (w grze), 2 Polaris Air Control = karta „coming soon” w karuzeli. Ich logo poniżej to już wersja z <code>src/logos.ts</code>.</p>
 <p class="note">Wszystko na prawdziwym <code>style.css</code> gry: logo to ten sam format co w <code>src/logos.ts</code> (gradient z <code>--lg1..3</code>, wycięcia w kolorze tła, jedna subtelna animacja),
 pasek pod spodem to prawdziwy markup kontraktu (<code>#steps</code> z <code>.coTag</code> i <code>.step</code>), a motyw w tle to kafel 220×60 przesuwany animacją <code>motif</code> jak u obecnych firm.</p>
 
@@ -86,7 +87,7 @@ const P = [{
 }, {
   id: 'loopline', name: 'Loopline Metro', text: 'City metro operator. A circle line, a cross-town line, and two interchanges everyone gets lost in.',
   why: ['Linia = długi cel, przesiadka = port. Linia okrężna = para portów w jednej macierzy (solo), ma tę samą pętlę co logo.', 'Logo: mapa metra; linia okrężna i przelotowa, 2 stacje przesiadkowe; po linii przelotowej jedzie pociąg.', 'Tło kontraktu: linia z przystankami i druga, która ją przecina.'],
-  rooms: ['Platform', 'Interchange', 'Circle Line', 'Depot', 'SOC'],
+  rooms: ['Platform', 'Circle Line', 'Tunnels', 'Interchange', 'SOC'],
   logo: (u) => `<g fill='none' stroke-linecap='round' stroke-linejoin='round'><circle cx='60' cy='60' r='32' style='stroke:var(--lg2)' stroke-width='9'/>`
     + `<path d='${route}' stroke='${BG}' stroke-width='17'/><path d='${route}' style='stroke:var(--lg1)' stroke-width='9'/>`
     + `<path class='lg-train' pathLength='100' d='${route}' style='stroke:var(--lg3)' stroke-width='4'/></g>`
@@ -99,7 +100,8 @@ const tile = (svg) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns=
 document.head.insertAdjacentHTML('beforeend', '<style>' + P.map((p) => `#steps[data-co="${p.id}"]::before{background-image:${tile(p.motif)}}`).join('') + '</style>');
 
 let seq = 0;
-const svg = (p) => `<svg class='flogo lg-${p.id}' viewBox='0 0 120 120' aria-hidden='true'>${p.logo('m' + ++seq)}</svg>`;
+// Picked ones render from src/logos.ts, the version in the game.
+const svg = (p) => (['polaris', 'loopline'].includes(p.id) ? logo(p.id) : `<svg class='flogo lg-${p.id}' viewBox='0 0 120 120' aria-hidden='true'>${p.logo('m' + ++seq)}</svg>`);
 const strip = (id, name, mark, rooms) => `<div class='pane' id='steps' data-co='${id}'><p class='label'>contract</p><div class='steplist'>`
   + `<div class='coTag'>${mark}<span>${name}<small>run 1/3</small></span></div>`
   + rooms.map((r, i) => `<div class='step ${i < 2 ? 'done' : i === 2 ? 'now' : ''}'><span class='sname'>${r}</span><span class='squota'>${i <= 2 ? `<b class='${i < 2 ? 'met' : ''}'>${[120, 260, 90][i]}</b>/` : 'quota '}${[80, 170, 220, 300, 420][i]}</span><div class='boxes'>${'<span class="box"></span>'.repeat(i ? 2 : 1)}</div></div>`).join("<span class='sarrow' aria-hidden='true'>›</span>")

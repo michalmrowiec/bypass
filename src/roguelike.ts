@@ -148,26 +148,26 @@ export const COMPANIES: Company[] = [{
     { id: 'fibre', name: 'Fibre tap', traits: ['Start with Linker v1.', 'Linker cannot be sold.', 'No Wildcard in the shop.', 'The shop shelf holds 3 modules instead of 4.', 'Quotas ×3 per iteration (from iteration 2).'],
       startItems: ['linker1'], noSell: ['linker1'], banned: ['wildcard1', 'wildcard2'], shelf: 3, quotaGrowth: 3 }],
 }, {
-  id: 'sable',
-  name: 'Sable Vault',
-  text: 'Cold-storage data vault. Few transfers, each one long, through odd-shaped racks and ports that loop back.',
-  codes: ['V0', 'K9', 'Q8', 'Z6', 'N5'],
-  rowLabel: (r) => 'R' + (r + 1), // rack
-  colLabel: (c) => 'D' + String(c + 1).padStart(2, '0'), // drive
+  id: 'loopline',
+  name: 'Loopline Metro',
+  text: 'City metro operator. A circle line, a cross-town line, and two interchanges everyone gets lost in.',
+  codes: ['M1', 'C4', 'R8', 'X2', 'N6'],
+  rowLabel: (r) => 'L' + (r + 1), // line
+  colLabel: (c) => 'S' + String(c + 1).padStart(2, '0'), // station
   // Only two long targets, always chained: one long script per matrix on Lab boards (Dual, solo ports, shapes, port boards).
   sections: [
-    { name: 'Intake', quota: 80, matrices: 1, size: { n: 5, lens: [3, 5], links: [1], slack: 0, dual: 3 }, brief: 'A loading bay terminal. Every drive gets two labels, and both are valid.' },
-    { name: 'Cold Aisle', quota: 170, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true }, brief: 'Racks cabled back into themselves: one port jumps across the same matrix.' },
-    { name: 'Tape Wing', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'An L-shaped library of tape robots. Half the floor is a wall.' },
-    { name: 'Mirror', quota: 300, matrices: 2, size: { n: 5, lens: [4, 5], links: [1], slack: 0, ports: 2 }, brief: 'The vault and its offsite mirror, synced through two gateways.' },
-    { name: 'SOC', quota: 420, matrices: 2, size: { n: 7, lens: [4, 5], links: [1], slack: 0, mask: ['##...##', '##...##', '.......', '.......', '.......', '##...##', '##...##'] }, brief: 'A cross-shaped vault core. Two long transfers, one guard who checks them all.' },
+    { name: 'Platform', quota: 80, matrices: 1, size: { n: 5, lens: [3, 5], links: [1], slack: 0, dual: 3 }, brief: 'Ticket barriers and a departure board that shows two lines in every slot.' },
+    { name: 'Circle Line', quota: 170, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true }, brief: 'The loop line: one port pair jumps across the same board.' },
+    { name: 'Tunnels', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'Service tunnels behind the platforms. Half the map is solid rock.' },
+    { name: 'Interchange', quota: 300, matrices: 2, size: { n: 5, lens: [4, 5], links: [1], slack: 0, ports: 2 }, brief: 'Two lines and two transfer corridors between them.' },
+    { name: 'SOC', quota: 420, matrices: 2, size: { n: 7, lens: [4, 5], links: [1], slack: 0, mask: ['##...##', '##...##', '.......', '.......', '.......', '##...##', '##...##'] }, brief: 'Line control where every route crosses. Two long trains, one dispatcher.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
-  entries: [standard('loading', 'Loading bay'),
-    { id: 'tapecourier', name: 'Tape courier', traits: ['linked.bin and all_targets.bin start at Lv2.', 'No Mux in the shop.', 'Quotas ×3.2 per iteration (from iteration 2).'],
+  entries: [standard('turnstile', 'Turnstile'),
+    { id: 'maintenance', name: 'Maintenance pass', traits: ['linked.bin and all_targets.bin start at Lv2.', 'No Mux in the shop.', 'Quotas ×3.2 per iteration (from iteration 2).'],
       payLevels: { linked: 2, all_targets: 2 }, banned: ['mux'], quotaGrowth: 3.2 },
-    { id: 'rootkey', name: 'Root key', traits: ['Root daemons only.', 'Encryption in every room.', 'Quotas ×3 per iteration (from iteration 2).'],
+    { id: 'signalroom', name: 'Signal room', traits: ['Root daemons only.', 'Encryption in every room.', 'Quotas ×3 per iteration (from iteration 2).'],
       family: 'Root', always: ['encryption'], quotaGrowth: 3 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.

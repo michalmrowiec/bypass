@@ -1131,16 +1131,16 @@ describe('entries', () => {
   });
 });
 
-describe('Sable Vault', () => {
+describe('Loopline Metro', () => {
   it('deals two long chained targets on every room board, each solvable, in every iteration', () => {
-    const co = COMPANIES.findIndex((c) => c.id === 'sable');
+    const co = COMPANIES.findIndex((c) => c.id === 'loopline');
     for (let section = 0; section < COMPANIES[co].sections.length; section++) for (let loop = 0; loop < 3; loop++) for (let seed = 1; seed <= 6; seed++) {
       const s = { ...newRunState(seed, co), section, loop };
       const p = dealRunMatrix(seed * 31 + section, s);
       expect(p.targets.length).toBe(2);
       expect(Math.min(...p.targets.map((t) => t.length))).toBeGreaterThanOrEqual(3);
       // The boss room runs a boss ICE (Throttle can cut the chain), so only the plain rooms must clear every target.
-      if (!roomIce(s).length) expect([section, canComplete(newRun(p), p)]).toEqual([section, true]);
+      if (!roomIce(s).length) expect([section, canComplete(newRun(), p)]).toEqual([section, true]);
     }
   });
 });

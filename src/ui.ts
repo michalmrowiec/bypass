@@ -1492,6 +1492,10 @@ const firmCard = (co: Company | undefined, i: number) => {
   return "<div class='fcard" + (!co ? ' locked' : isOpen(i) ? '' : ' sealed') + "' role='button' tabindex='0' aria-label='" + (co ? co.name : 'Locked contract') + "'><div class='ftilt'><div class='finner'>"
     + front + back + '</div></div></div>';
 };
+// The next contract in the works: a teaser card after the last company, never playable.
+const SOON = { id: 'polaris', name: 'Polaris Air Control', text: 'Air navigation service. Long-haul flights handed from sector to sector, all night long.' };
+const soonCard = () => "<div class='fcard locked soon' role='button' tabindex='0' aria-label='" + SOON.name + ", coming soon'><div class='ftilt'><div class='finner'><div class='fface front'>"
+  + logo(SOON.id) + '<b>' + SOON.name + '</b><p>' + SOON.text + "</p><span class='fsoon'>coming soon</span></div></div></div></div>";
 
 // Contract map of a breached company: every iteration's rooms with grown quotas; patches are rolled per run, so only their rule shows.
 const patchNote = (l: number) => (!PATCH_COVER[l] ? 'no patches yet' : 'patches add ICE to ' + (PATCH_COVER[l] >= 1 ? 'every room' : '~' + PATCH_COVER[l] * 100 + '% of rooms')
@@ -1518,7 +1522,7 @@ function showCompanies(seed: number, back: Mode) {
   // Only the next company past the open ones is revealed.
   const shown = (i: number) => (i <= COMPANIES.findIndex((_, j) => !isOpen(j)) || isOpen(i) ? COMPANIES[i] : undefined);
   showResult(true, "<h2>Choose a target</h2><p class='meta'>one company per run · click a card for its rooms and ICE</p><div class='carousel'>"
-    + Array.from({ length: n }, (_, i) => firmCard(shown(i), i)).join('')
+    + Array.from({ length: n }, (_, i) => (i === COMPANIES.length ? soonCard() : firmCard(shown(i), i))).join('')
     + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div>"
     + "<div class='row'>" + (import.meta.env.DEV ? "<button class='btn devbtn' id='devUnlock'>dev · " + (breached().length ? 'lock all' : 'unlock all') + '</button>' : '')
     + "<button class='btn' id='briefing'><span class='ibadge' aria-hidden='true'>i</span>Briefing</button><button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
