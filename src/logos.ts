@@ -89,7 +89,9 @@ const LOGOS: Record<string, (u: string) => string> = {
     + `<g fill='none' stroke-linejoin='round'><path d='${metro}' stroke='${BG}' stroke-width='17'/><path d='${metro}' style='stroke:var(--lg1)' stroke-width='9'/>`
     + `<path d='M2.2 86.2L17.8 101.8M102.2 18.2L117.8 33.8' style='stroke:var(--lg1)' stroke-width='6'/>`
     + `<path class='lg-shuttle' pathLength='100' d='${metro}' style='stroke:var(--lg3)' stroke-width='4' stroke-linecap='round'/></g>`
-    + [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join(''),
+    + [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join('')
+    // The interchange the train stands at sends out a soft ring (half a cycle apart, like the stops).
+    + `<circle class='lg-stop' cx='30.8' cy='73.2' r='7.5'/><circle class='lg-stop' style='animation-delay:-3s' cx='89.2' cy='46.8' r='7.5'/>`,
   // Coming soon. Polaris Air Control: a radar dial around the pole star. Like a real scope, an echo only shows (and moves) when the
   // sweep passes it, then fades: two parked echoes, and a plane whose echo steps along a track beside the centre.
   polaris: (u) => `<defs>${lin(u + 'a', [12, 12, 108, 108], '1 2')}<radialGradient id='${u}s' gradientUnits='userSpaceOnUse' cx='60' cy='60' r='46'>`

@@ -125,10 +125,8 @@ const CUR = [['kestrel', 'Kestrel Logistics', ['Reception', 'Offices', 'Server R
 document.getElementById('cur').innerHTML = CUR.map(([id, n, r]) => strip(id, n, logo(id), r)).join('');
 const base = logo('loopline');
 const VARS = [
-  ['Teraz', 'Kursuje tam i z powrotem między końcami linii, staje na obu przesiadkach i na końcach.', base],
+  ['W grze: B · między przesiadkami', 'Kursuje tylko między białymi stacjami; stacja, na której stoi, wysyła delikatny pierścień.', base],
   ['A · przejazd', 'Wjeżdża z jednego końca, staje na obu przesiadkach, wyjeżdża drugim końcem i znów wjeżdża od początku, zawsze w tym samym kierunku.', base.replace('lg-shuttle', 'v-through')],
-  ['B · między przesiadkami', 'Kursuje tylko między białymi stacjami; stacja, na której stoi, wysyła delikatny pierścień.', base.replace('lg-shuttle', 'v-hop').replace('</svg>',
-    "<circle class='v-ring' cx='30.8' cy='73.2' r='7.5'/><circle class='v-ring' style='animation-delay:-3s' cx='89.2' cy='46.8' r='7.5'/></svg>")],
 ];
 document.getElementById('metroVars').innerHTML = VARS.map(([t, d, svg]) => `<div class='prop'><div class='big'>${svg}</div><div><b>${t}</b><p class='note'>${d}</p></div></div>`).join('');
 document.getElementById('props').innerHTML = P.map((p, i) => `<div class='prop'><div class='big'>${svg(p)}<b>${i + 1} · ${p.name}</b><p>${p.text}</p></div>`

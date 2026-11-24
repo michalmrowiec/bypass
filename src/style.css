@@ -1045,9 +1045,11 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .lg-ray{transform-box:view-box;transform-origin:60px 44px;opacity:.8;animation:lgray 2.5s ease-in-out infinite alternate}
 @keyframes lgray{from{transform:scale(.8);opacity:.55}to{transform:scale(1);opacity:.95}}.lg-wave{animation:lgwave 2.4s ease-in-out infinite}
 @keyframes lgwave{0%,100%{opacity:.35}40%{opacity:1}}
-/* Loopline: a train runs the cross-town line and back, braking into each station and the terminus and standing there a moment. */
-.lg-shuttle{stroke-dasharray:7 100;animation:lgshuttle 8s cubic-bezier(.45,0,.2,1) infinite}
-@keyframes lgshuttle{0%,7%,100%{stroke-dashoffset:-3}13.8%,17.3%,89.7%,93.2%{stroke-dashoffset:-19.4}39.7%,43.2%,63.8%,67.3%{stroke-dashoffset:-73.5}50%,57%{stroke-dashoffset:-90}}
+/* Loopline: a train shuttles between the two interchanges, braking in and standing a moment; the one it stands at rings. */
+.lg-shuttle{stroke-dasharray:7 100;animation:lgshuttle 6s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes lgshuttle{0%,12%,100%{stroke-dashoffset:-19.4}50%,62%{stroke-dashoffset:-73.5}}
+.lg-stop{fill:none;stroke:var(--lg3);stroke-width:2;transform-box:fill-box;transform-origin:center;opacity:0;animation:lgstop 6s ease-out infinite}
+@keyframes lgstop{0%{transform:scale(1);opacity:.8}12%{transform:scale(1.7);opacity:0}100%{opacity:0}}
 /* Polaris: the sweep turns, echoes flash as it passes and fade; a plane flying a racetrack leaves one echo per turn (16 turns), each fading before the next. */
 .lg-sweep{transform-origin:60px 60px;animation:lgspin 4.5s linear infinite}
 @keyframes lgspin{to{transform:rotate(360deg)}}
@@ -1083,7 +1085,7 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .cnav:hover:not(:disabled){border-color:var(--mint);color:var(--mint)}
 .cnav:disabled{opacity:.3;cursor:var(--cur)}
 .cnav.prev{left:12px}.cnav.next{right:12px}
-@media (prefers-reduced-motion:reduce){.fcard,.finner,.ftilt{transition:none}.lg-flick,.lg-twinkle,.lg-wave,.lg-sway,.lg-ray,.lg-shuttle,.lg-sweep,.lg-blip,.lg-track{animation:none}.lg-trace{animation:none;stroke-dasharray:none}}
+@media (prefers-reduced-motion:reduce){.fcard,.finner,.ftilt{transition:none}.lg-flick,.lg-twinkle,.lg-wave,.lg-sway,.lg-ray,.lg-shuttle,.lg-stop,.lg-sweep,.lg-blip,.lg-track{animation:none}.lg-trace{animation:none;stroke-dasharray:none}}
 .cell.burn{color:color-mix(in srgb,var(--pink) 45%,transparent);background:repeating-linear-gradient(-45deg,transparent 0 4px,rgba(255,61,139,.1) 4px 8px)}
 .btag{position:absolute;right:3px;bottom:1px;font-size:9px;font-style:normal;color:var(--pink)}
 .patch{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
