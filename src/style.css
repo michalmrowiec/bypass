@@ -1143,6 +1143,7 @@ button.chip:hover{border-color:var(--gold)}
 .lg-karman{--lg1:#4b3bff;--lg2:#ff7ad9;--lg3:#7df9ff}
 .lg-nyx{--lg1:#a259ff;--lg2:#ff4fd8;--lg3:#4dfcff}
 .lg-argus{--lg1:#ff3d5a;--lg2:#ffb03d}
+.lg-sable{--lg1:#b8c7d9;--lg2:#5b6cff;--lg3:#7dffd4}
 .fcard.sealed .flogo{--lg1:var(--muted);--lg2:var(--muted);--lg3:var(--muted);--lg4:var(--muted)}
 .wmark{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:0}
 .wmark .flogo{width:min(70%,420px);height:auto;aspect-ratio:1;--lg1:var(--ink);--lg2:var(--ink);--lg3:var(--ink);--lg4:var(--ink);opacity:.022;filter:none}

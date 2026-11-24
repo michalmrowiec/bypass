@@ -71,6 +71,13 @@ const LOGOS: Record<string, (u: string) => string> = {
       const d = (r * Math.SQRT1_2).toFixed(1), lo = (60 - +d).toFixed(1), hi = (60 + +d).toFixed(1);
       return `<path class='lg-wave' style='animation-delay:${i * .3}s' d='M${hi} ${lo}A${r} ${r} 0 0 1 ${hi} ${hi}M${lo} ${lo}A${r} ${r} 0 0 0 ${lo} ${hi}'/>`;
     }).join('') + `</g><circle cx='60' cy='60' r='9' style='fill:var(--lg2)'/>`,
+  // Sable Vault: a vault door, a dial with four bolts.
+  sable: (u) => `<defs>${lin(u + 'a', [14, 14, 106, 106], '1 2')}</defs>`
+    + `<circle cx='60' cy='60' r='46' fill='none' stroke='url(#${u}a)' stroke-width='9'/>`
+    + `<g style='fill:var(--lg2)'><rect x='55' y='4' width='10' height='16' rx='2'/><rect x='55' y='100' width='10' height='16' rx='2'/><rect x='4' y='55' width='16' height='10' rx='2'/><rect x='100' y='55' width='16' height='10' rx='2'/></g>`
+    + `<circle cx='60' cy='60' r='20' fill='url(#${u}a)'/>`
+    + `<path d='M60 34V86M34 60H86' style='stroke:var(--lg1)' stroke-width='5' stroke-linecap='round'/><circle cx='60' cy='60' r='7' fill='${BG}'/>`
+    + `<circle cx='60' cy='60' r='3' style='fill:var(--lg3)'/>`,
 };
 
 const LOCKED = "<circle class='lg-ring dashed' cx='60' cy='60' r='54'/><text class='lg-q' x='60' y='78'>?</text>";

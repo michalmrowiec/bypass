@@ -135,7 +135,7 @@ export const COMPANIES: Company[] = [{
   // Many matrices of many short targets, always throttled: links and buffer win here, empty-slot builds starve.
   always: ['throttle'],
   sections: [
-    { name: 'Call Center', quota: 90, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0 }, brief: 'Headsets, ticket queues and a shared login for the night shift.' },
+    { name: 'Call Center', quota: 90, matrices: 2, size: { n: 6, lens: [2, 2, 3, 3], links: [1], slack: 0, ports: 1, solo: true }, brief: 'Headsets, ticket queues and a shared login; one call forwarding loop jumps across the board.' },
     { name: 'Switching', quota: 115, matrices: 2, size: { n: 5, lens: [2, 2, 3, 3], links: [1, 2], slack: 0, ports: 2 }, brief: 'Two switch racks that route every call in the region, patched into each other by hand.' },
     { name: 'Backbone', quota: 300, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3], links: [1, 2], slack: 0 }, brief: 'Fibre trunks with packets queued on a belt. Watch the row that moves.', ice: ['conveyor'] },
     { name: 'SOC', quota: 380, matrices: 3, size: { n: 6, lens: [2, 3, 3, 3, 3], links: [2, 3], slack: 0 }, brief: 'A network operations floor that never sleeps, and a belt that never stops.', ice: ['conveyor'] },
@@ -147,6 +147,28 @@ export const COMPANIES: Company[] = [{
       payLevels: { all_linked: 2, all_targets: 2, linked: 2, multi: 2, single: 2 }, family: 'Runner', quotaGrowth: 3.4 },
     { id: 'fibre', name: 'Fibre tap', traits: ['Start with Linker v1.', 'Linker cannot be sold.', 'No Wildcard in the shop.', 'The shop shelf holds 3 modules instead of 4.', 'Quotas ×3 per iteration (from iteration 2).'],
       startItems: ['linker1'], noSell: ['linker1'], banned: ['wildcard1', 'wildcard2'], shelf: 3, quotaGrowth: 3 }],
+}, {
+  id: 'sable',
+  name: 'Sable Vault',
+  text: 'Cold-storage data vault. Few transfers, each one long, through odd-shaped racks and ports that loop back.',
+  codes: ['V0', 'K9', 'Q8', 'Z6', 'N5'],
+  rowLabel: (r) => 'R' + (r + 1), // rack
+  colLabel: (c) => 'D' + String(c + 1).padStart(2, '0'), // drive
+  // Only two long targets, always chained: one long script per matrix on Lab boards (Dual, solo ports, shapes, port boards).
+  sections: [
+    { name: 'Intake', quota: 80, matrices: 1, size: { n: 5, lens: [3, 5], links: [1], slack: 0, dual: 3 }, brief: 'A loading bay terminal. Every drive gets two labels, and both are valid.' },
+    { name: 'Cold Aisle', quota: 170, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true }, brief: 'Racks cabled back into themselves: one port jumps across the same matrix.' },
+    { name: 'Tape Wing', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'An L-shaped library of tape robots. Half the floor is a wall.' },
+    { name: 'Mirror', quota: 300, matrices: 2, size: { n: 5, lens: [4, 5], links: [1], slack: 0, ports: 2 }, brief: 'The vault and its offsite mirror, synced through two gateways.' },
+    { name: 'SOC', quota: 420, matrices: 2, size: { n: 7, lens: [4, 5], links: [1], slack: 0, dual: 2 }, brief: 'The vault core on a big board. Two long transfers, one guard who checks them all.' },
+  ],
+  ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
+  patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
+  entries: [standard('loading', 'Loading bay'),
+    { id: 'tapecourier', name: 'Tape courier', traits: ['linked.bin and all_targets.bin start at Lv2.', 'No Mux in the shop.', 'Quotas ×3.2 per iteration (from iteration 2).'],
+      payLevels: { linked: 2, all_targets: 2 }, banned: ['mux'], quotaGrowth: 3.2 },
+    { id: 'rootkey', name: 'Root key', traits: ['Root daemons only.', 'Encryption in every room.', 'Quotas ×3 per iteration (from iteration 2).'],
+      family: 'Root', always: ['encryption'], quotaGrowth: 3 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || !!COMPANIES[i]?.dev || breached.includes(COMPANIES[i - 1]?.id);
