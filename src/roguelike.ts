@@ -160,7 +160,7 @@ export const COMPANIES: Company[] = [{
     { name: 'Cold Aisle', quota: 170, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true }, brief: 'Racks cabled back into themselves: one port jumps across the same matrix.' },
     { name: 'Tape Wing', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'An L-shaped library of tape robots. Half the floor is a wall.' },
     { name: 'Mirror', quota: 300, matrices: 2, size: { n: 5, lens: [4, 5], links: [1], slack: 0, ports: 2 }, brief: 'The vault and its offsite mirror, synced through two gateways.' },
-    { name: 'SOC', quota: 420, matrices: 2, size: { n: 7, lens: [4, 5], links: [1], slack: 0, dual: 2 }, brief: 'The vault core on a big board. Two long transfers, one guard who checks them all.' },
+    { name: 'SOC', quota: 420, matrices: 2, size: { n: 7, lens: [4, 5], links: [1], slack: 0, mask: ['##...##', '##...##', '.......', '.......', '.......', '##...##', '##...##'] }, brief: 'A cross-shaped vault core. Two long transfers, one guard who checks them all.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
