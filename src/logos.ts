@@ -10,6 +10,13 @@ const ecg = 'M4 60H34L40 50L48 74L56 38L64 82L70 60H116';
 const bolt = 'M62 12L26 66H54L44 110L94 48H66L80 12Z';
 const strand = (a: number, b: number) => `M${a} 12C${a} 38 ${b} 34 ${b} 60C${b} 86 ${a} 82 ${a} 108`;
 const metro = 'M10 94L44 60H76L110 26';
+// Radar echo at (x, y): lit when the sweep edge (60° at t=0, one turn per SWEEP s) passes it on turn k of an n-turn cycle.
+const SWEEP = 4.5, TRACK = 8;
+const echo = (x: number, y: number, k: number, n: number, r: number) => {
+  const deg = (Math.atan2(x - 60, 60 - y) * 180) / Math.PI;
+  const t = k * SWEEP + (((deg - 60 + 720) % 360) / 360) * SWEEP;
+  return `<circle class='${n > 1 ? 'lg-track' : 'lg-blip'}' style='animation-delay:${(t - n * SWEEP).toFixed(2)}s;fill:var(--lg3)' cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${r}'/>`;
+};
 const ringBack ='M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
 const star = (x: number, y: number, r: number) => `M${x} ${y - r}L${x + r * .3} ${y - r * .3}L${x + r} ${y}L${x + r * .3} ${y + r * .3}L${x} ${y + r}L${x - r * .3} ${y + r * .3}L${x - r} ${y}L${x - r * .3} ${y - r * .3}Z`;
 
@@ -72,22 +79,23 @@ const LOGOS: Record<string, (u: string) => string> = {
       const d = (r * Math.SQRT1_2).toFixed(1), lo = (60 - +d).toFixed(1), hi = (60 + +d).toFixed(1);
       return `<path class='lg-wave' style='animation-delay:${i * .3}s' d='M${hi} ${lo}A${r} ${r} 0 0 1 ${hi} ${hi}M${lo} ${lo}A${r} ${r} 0 0 0 ${lo} ${hi}'/>`;
     }).join('') + `</g><circle cx='60' cy='60' r='9' style='fill:var(--lg2)'/>`,
-  // Loopline Metro: a circle line, a cross-town line, two interchanges; a train shuttles along the cross-town line.
-  loopline: () => `<g fill='none' stroke-linecap='round' stroke-linejoin='round'><circle cx='60' cy='60' r='32' style='stroke:var(--lg2)' stroke-width='9'/>`
-    + `<path d='${metro}' stroke='${BG}' stroke-width='17'/><path d='${metro}' style='stroke:var(--lg1)' stroke-width='9'/>`
-    + `<path class='lg-shuttle' pathLength='100' d='${metro}' style='stroke:var(--lg3)' stroke-width='4'/></g>`
-    + [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join('')
-    + `<g style='fill:var(--lg1)'><circle cx='10' cy='94' r='5'/><circle cx='110' cy='26' r='5'/></g>`,
-  // Coming soon. Polaris Air Control: a radar dial around the pole star; the sweep lights two echoes, a third one flies across.
-  // Echo delays sync each flash to the sweep edge (starts at 60°, one turn per 4.5s).
+  // Loopline Metro: a circle line, a cross-town line with metro-map terminus bars, two interchanges; a train runs the cross-town line,
+  // stopping at every station (the stops are keyframes in style.css).
+  loopline: () => `<circle cx='60' cy='60' r='32' fill='none' style='stroke:var(--lg2)' stroke-width='9'/>`
+    + `<g fill='none' stroke-linejoin='round'><path d='${metro}' stroke='${BG}' stroke-width='17'/><path d='${metro}' style='stroke:var(--lg1)' stroke-width='9'/>`
+    + `<path d='M3.6 87.6L16.4 100.4M103.6 19.6L116.4 32.4' style='stroke:var(--lg1)' stroke-width='6'/>`
+    + `<path class='lg-shuttle' pathLength='100' d='${metro}' style='stroke:var(--lg3)' stroke-width='4' stroke-linecap='round'/></g>`
+    + [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join(''),
+  // Coming soon. Polaris Air Control: a radar dial around the pole star. Like a real scope, an echo only shows (and moves) when the
+  // sweep passes it, then fades: two parked echoes, and a plane whose echo steps along a track beside the centre.
   polaris: (u) => `<defs>${lin(u + 'a', [12, 12, 108, 108], '1 2')}<radialGradient id='${u}s' gradientUnits='userSpaceOnUse' cx='60' cy='60' r='46'>`
     + `<stop offset='0' style='stop-color:var(--lg1)' stop-opacity='0'/><stop offset='1' style='stop-color:var(--lg1)' stop-opacity='.6'/></radialGradient></defs>`
     + `<circle cx='60' cy='60' r='48' fill='none' stroke='url(#${u}a)' stroke-width='8'/>`
     + `<circle cx='60' cy='60' r='30' fill='none' style='stroke:var(--lg2)' stroke-width='2' opacity='.45'/>`
     + `<path d='M60 20V30M60 90V100M20 60H30M90 60H100' style='stroke:var(--lg2)' stroke-width='3' stroke-linecap='round' opacity='.7'/>`
     + `<g class='lg-sweep'><path d='M60 60V14A46 46 0 0 1 99.8 37Z' fill='url(#${u}s)'/><path d='M60 60L99.8 37' style='stroke:var(--lg1)' stroke-width='3' stroke-linecap='round'/></g>`
-    + `<circle class='lg-blip' style='animation-delay:-.09s;fill:var(--lg3)' cx='84' cy='42' r='4'/><circle class='lg-blip' style='animation-delay:-2.37s;fill:var(--lg3)' cx='38' cy='78' r='4'/>`
-    + `<g class='lg-fly'><path d='M24 31L30 36' style='stroke:var(--lg3)' stroke-width='2' stroke-linecap='round' opacity='.4'/><circle cx='31' cy='37' r='3.2' style='fill:var(--lg3)'/></g>`
+    + echo(80, 36, 0, 1, 4) + echo(89, 46, 0, 1, 3.5)
+    + Array.from({ length: TRACK }, (_, k) => echo(26 + (32 * k) / (TRACK - 1), 46 + (50 * k) / (TRACK - 1), k, TRACK, 3.2)).join('')
     + `<path d='${star(60, 60, 13)}' style='fill:var(--lg3)'/>`,
 };
 
