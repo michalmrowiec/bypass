@@ -1046,15 +1046,15 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 @keyframes lgray{from{transform:scale(.8);opacity:.55}to{transform:scale(1);opacity:.95}}.lg-wave{animation:lgwave 2.4s ease-in-out infinite}
 @keyframes lgwave{0%,100%{opacity:.35}40%{opacity:1}}
 /* Loopline: a train runs the cross-town line and back, braking into each station and the terminus and standing there a moment. */
-.lg-shuttle{stroke-dasharray:7 100;animation:lgshuttle 8s ease-in-out infinite}
+.lg-shuttle{stroke-dasharray:7 100;animation:lgshuttle 8s cubic-bezier(.45,0,.2,1) infinite}
 @keyframes lgshuttle{0%,7%,100%{stroke-dashoffset:-3}13.8%,17.3%,89.7%,93.2%{stroke-dashoffset:-19.4}39.7%,43.2%,63.8%,67.3%{stroke-dashoffset:-73.5}50%,57%{stroke-dashoffset:-90}}
-/* Polaris: the sweep turns, echoes flash as it passes and fade; a plane leaves a trail of fading echoes, one per turn (8 turns). */
+/* Polaris: the sweep turns, echoes flash as it passes and fade; a plane flying a racetrack leaves one echo per turn (16 turns), each fading before the next. */
 .lg-sweep{transform-origin:60px 60px;animation:lgspin 4.5s linear infinite}
 @keyframes lgspin{to{transform:rotate(360deg)}}
 .lg-blip{animation:lgblip 4.5s linear infinite}
 @keyframes lgblip{0%,6%{opacity:1}45%,100%{opacity:.12}}
-.lg-track{opacity:0;animation:lgtrack 36s linear infinite}
-@keyframes lgtrack{0%{opacity:1}12.5%{opacity:.35}25%{opacity:.08}26%,100%{opacity:0}}
+.lg-track{opacity:0;animation:lgtrack 72s linear infinite}
+@keyframes lgtrack{0%{opacity:1}4%{opacity:.15}5.5%,100%{opacity:0}}
 .lg-q{fill:currentColor;font:700 56px var(--mono);text-anchor:middle}
 .fcard.locked{cursor:var(--cur)}
 .fcard.locked .fface{border-style:dashed}
