@@ -13,7 +13,8 @@ const metro = 'M10 94L44 60H76L110 26';
 // Radar echo at (x, y): lit when the sweep edge (60° at t=0, one turn per SWEEP s) passes it on turn k of an n-turn cycle.
 const SWEEP = 4.5, TRACK = 8;
 // The plane flies a racetrack beside the centre: out along one leg, a U-turn, back along a parallel leg a little further out.
-const leg = (k: number, o: number) => [26 + (30 * k) / (TRACK - 1) - 6.7 * o, 46 + (46 * k) / (TRACK - 1) + 4.3 * o];
+// Every point stays inside r 38, so an echo never touches the ring (inner edge r 44).
+const leg = (k: number, o: number) => [30 + (24 * k) / (TRACK - 1) - 6.9 * o, 46 + (42 * k) / (TRACK - 1) + 4 * o];
 const racetrack = [...Array.from({ length: TRACK }, (_, k) => leg(k, 0)), ...Array.from({ length: TRACK }, (_, k) => leg(TRACK - 1 - k, 1))];
 const echo = (x: number, y: number, k: number, n: number, r: number) => {
   const deg = (Math.atan2(x - 60, 60 - y) * 180) / Math.PI;
@@ -97,7 +98,7 @@ const LOGOS: Record<string, (u: string) => string> = {
     + `<circle cx='60' cy='60' r='30' fill='none' style='stroke:var(--lg2)' stroke-width='2' opacity='.45'/>`
     + `<path d='M60 20V30M60 90V100M20 60H30M90 60H100' style='stroke:var(--lg2)' stroke-width='3' stroke-linecap='round' opacity='.7'/>`
     + `<g class='lg-sweep'><path d='M60 60V14A46 46 0 0 1 99.8 37Z' fill='url(#${u}s)'/><path d='M60 60L99.8 37' style='stroke:var(--lg1)' stroke-width='3' stroke-linecap='round'/></g>`
-    + echo(77, 33, 0, 1, 4) + echo(93, 50, 0, 1, 3.5)
+    + echo(74, 30, 0, 1, 4) + echo(96, 54, 0, 1, 3.5)
     + racetrack.map(([x, y], k) => echo(x, y, k, racetrack.length, 3.2)).join('')
     + `<path d='${star(60, 60, 13)}' style='fill:var(--lg3)'/>`,
 };

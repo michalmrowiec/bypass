@@ -23,6 +23,17 @@ h2{font-size:14px;margin:30px 0 10px;color:var(--muted);letter-spacing:.08em;tex
 @keyframes lgswing{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
 .lg-train{stroke-dasharray:7 100;animation:lgtrace 3.2s linear infinite}
 @media (prefers-reduced-motion:reduce){.lg-sweep,.lg-blip,.lg-swing,.lg-train{animation:none}}
+.vars{display:flex;flex-wrap:wrap;gap:14px}
+.vars .prop{grid-template-columns:170px 1fr;margin:0;flex:1 1 340px}
+/* Variant A: enters at one terminus, stops at both interchanges, leaves at the other end, comes again from the start. */
+.v-through{stroke-dasharray:7 100;animation:vthrough 7s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes vthrough{0%{stroke-dashoffset:7}18%,25%{stroke-dashoffset:-19.4}58%,65%{stroke-dashoffset:-73.5}86%,100%{stroke-dashoffset:-100}}
+/* Variant B: shuttles between the two interchanges; the station it stands at sends out a soft ring. */
+.v-hop{stroke-dasharray:7 100;animation:vhop 6s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes vhop{0%,12%,100%{stroke-dashoffset:-19.4}50%,62%{stroke-dashoffset:-73.5}}
+.v-ring{fill:none;stroke:var(--lg3);stroke-width:2;transform-box:fill-box;transform-origin:center;opacity:0;animation:vring 6s ease-out infinite}
+@keyframes vring{0%{transform:scale(1);opacity:.8}12%{transform:scale(1.7);opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.v-through,.v-hop,.v-ring{animation:none}}
 .lg-ironline{--lg1:#eef2f8;--lg2:#6f8bff;--lg3:#3dff8a}
 .lg-polaris{--lg1:#5dff9e;--lg2:#2bb8ff;--lg3:#eafff2}
 .lg-tidewater{--lg1:#ff7a59;--lg2:#1fb5a8;--lg3:#ffe1d6}
@@ -37,6 +48,8 @@ pasek pod spodem to prawdziwy markup kontraktu (<code>#steps</code> z <code>.coT
 <h2>Obecne firmy (dla porównania)</h2>
 <div class="cur" id="cur"></div>
 
+<h2>Metro · warianty pociągu</h2>
+<div class="vars" id="metroVars"></div>
 <h2>Propozycje</h2>
 <div id="props"></div>
 </main>
@@ -110,6 +123,14 @@ const strip = (id, name, mark, rooms) => `<div class='pane' id='steps' data-co='
 const CUR = [['kestrel', 'Kestrel Logistics', ['Reception', 'Offices', 'Server Room', 'SOC']], ['meridian', 'Meridian Health', ['Lobby', 'Wards', 'Records', 'SOC']],
   ['ashgrove', 'Ashgrove & Pike', ['Lobby', 'Mailroom', 'Paralegals', 'Partners', 'Archive', 'SOC']], ['argus', 'Argus Telecom', ['Call Center', 'Switching', 'Backbone', 'SOC']]];
 document.getElementById('cur').innerHTML = CUR.map(([id, n, r]) => strip(id, n, logo(id), r)).join('');
+const base = logo('loopline');
+const VARS = [
+  ['Teraz', 'Kursuje tam i z powrotem między końcami linii, staje na obu przesiadkach i na końcach.', base],
+  ['A · przejazd', 'Wjeżdża z jednego końca, staje na obu przesiadkach, wyjeżdża drugim końcem i znów wjeżdża od początku, zawsze w tym samym kierunku.', base.replace('lg-shuttle', 'v-through')],
+  ['B · między przesiadkami', 'Kursuje tylko między białymi stacjami; stacja, na której stoi, wysyła delikatny pierścień.', base.replace('lg-shuttle', 'v-hop').replace('</svg>',
+    "<circle class='v-ring' cx='30.8' cy='73.2' r='7.5'/><circle class='v-ring' style='animation-delay:-3s' cx='89.2' cy='46.8' r='7.5'/></svg>")],
+];
+document.getElementById('metroVars').innerHTML = VARS.map(([t, d, svg]) => `<div class='prop'><div class='big'>${svg}</div><div><b>${t}</b><p class='note'>${d}</p></div></div>`).join('');
 document.getElementById('props').innerHTML = P.map((p, i) => `<div class='prop'><div class='big'>${svg(p)}<b>${i + 1} · ${p.name}</b><p>${p.text}</p></div>`
   + `<div><ul class='why'>${p.why.map((w) => '<li>' + w + '</li>').join('')}</ul>${strip(p.id, p.name, svg(p), p.rooms)}</div></div>`).join('');
 </script>
