@@ -1348,3 +1348,40 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 .packbtn.t-rare .pbadge{color:var(--rare)}
 .packbtn.t-legendary{border-color:var(--legend);box-shadow:0 0 14px -6px var(--legend)}
 .packbtn.t-legendary .pbadge{color:var(--legend)}
+
+/* Sudo: the player's AI, a messenger toast with a hooded avatar (src/sudo.ts). Above the dialogs, never focused. */
+.sudo-toast{position:fixed;right:16px;bottom:16px;z-index:11;width:340px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;
+  padding:10px 10px 11px;color:var(--ink);border:1px solid rgba(90,242,168,.22);border-radius:10px;
+  background:linear-gradient(180deg,rgba(32,38,42,.84),rgba(15,18,20,.92));backdrop-filter:blur(8px) saturate(1.2);
+  box-shadow:0 12px 32px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.07);animation:stIn .28s ease-out both;overflow:hidden}
+.sudo-toast::before{content:'';position:absolute;left:14px;right:14px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(90,242,168,.7),transparent)}
+.sudo-toast.static{position:relative;right:auto;bottom:auto;width:auto;grid-template-columns:auto 1fr;animation:none;box-shadow:none}
+@keyframes stIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.st-av{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;border:1px solid rgba(90,242,168,.22);
+  background:radial-gradient(circle at 50% 35%,rgba(90,242,168,.1),transparent 70%),#121517}
+.st-av svg{width:36px;height:36px;display:block}
+.st-head{display:flex;gap:8px;align-items:baseline;font-size:11px;line-height:1.2;margin:1px 0 4px}
+.st-head b{color:var(--mint);font-size:12px}
+.st-head span,.st-when{color:var(--muted)}
+.st-text{margin:0;font-size:12.5px;line-height:1.45;min-height:2.9em}
+.st-text em{font-style:normal;color:var(--mint)}
+.st-when{margin:4px 0 0;font-size:10.5px}
+.st-cur{display:inline-block;width:.55em;height:1em;margin-left:1px;vertical-align:-2px;background:var(--mint);opacity:.8;animation:stCur 1s steps(1) infinite}
+@keyframes stCur{50%{opacity:0}}
+.st-x{all:unset;cursor:var(--hit);color:var(--muted);font-size:14px;line-height:1;padding:2px 4px}
+.st-x:hover{color:var(--ink)}
+.comms{display:grid;gap:8px;max-height:60vh;overflow-y:auto;margin:10px 0}
+[data-style="classic"] .sudo-toast{border-radius:0;border-color:var(--mint-dim);background:var(--panel);backdrop-filter:none;box-shadow:0 0 0 1px #000}
+[data-style="classic"] .sudo-toast::before{display:none}
+[data-style="classic"] .st-av{border-radius:0;background:#121517;border-color:var(--line)}
+@media (max-width:600px){.sudo-toast:not(.static){left:8px;right:8px;width:auto;bottom:calc(8px + env(safe-area-inset-bottom))}}
+/* Avatar moods: n normal, h laugh, s smug, d deadpan. */
+.sv [class^="m-"]{display:none}
+.sv[data-mood="n"] .m-n,.sv[data-mood="h"] .m-h,.sv[data-mood="s"] .m-s,.sv[data-mood="d"] .m-d{display:inline}
+.sv .e{fill:var(--mint)}
+.sv .es{fill:none;stroke:var(--mint);stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
+.sv .blink{transform-box:fill-box;transform-origin:center;animation:svBlink 5.5s infinite}
+@keyframes svBlink{0%,93%,100%{transform:none}95%{transform:scaleY(.12)}}
+.sv .glow{animation:svGlow 3.2s ease-in-out infinite}
+@keyframes svGlow{50%{filter:drop-shadow(0 0 1.2px var(--mint))}}
+@media (prefers-reduced-motion:reduce){.sv *,.sudo-toast,.st-cur{animation:none!important}}

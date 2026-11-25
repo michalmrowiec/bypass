@@ -5,6 +5,7 @@ import {
 } from './game';
 import { gear, DATA_PATHS } from './gear';
 import { hacker, logo } from './logos';
+import { commsHtml, say, setSudo, sudoSave, type SudoId } from './sudo';
 import {
   applyPick, canPick, cellView, replayRoute, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, loopAny, playStep, stepOk, toolReady, SCRIPT_TOOLS, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Step, type Tool,
 } from './matrix';
@@ -169,6 +170,7 @@ function runPlan() {
   stopPlan();
   scripting = true;
   hold = [];
+  if (S.mode === 'run') sudoRun().idle = 0; // Sudo's script reminder counts rooms since the last ./run
   const n = plan.length, exit = ($('exitEnd') as HTMLInputElement).checked;
   note('$ ./run · ' + n + (n > 1 ? ' steps' : ' step') + (exit ? ' · exit at end' : ''));
   let k = 0;
@@ -1518,6 +1520,11 @@ function winUnlocks(co: Company, next: Company | undefined) {
   const first = !breached().includes(co.id), was = entriesOpen(wins(co.id));
   const now = co.entries.indexOf(entryOf(R)) === was - 1 ? entriesOpen(recordWin(co.id)) : was;
   const fresh = now > was ? co.entries[now - 1] : undefined;
+  // Sudo: the Argus twist first, else the new entry, else what is next.
+  const or = first && next ? ' Or try <em>' + next.name + '</em>.' : '';
+  if (!(co.id === 'argus' && sudo('twist', { co: co.name }))
+    && !(fresh && sudo(co.entries.indexOf(fresh) === 1 ? 'entry2' : 'entry3', { co: co.name, entry: entryTitle(co, fresh), then: or }, 'entry:' + co.id + '.' + fresh.id)))
+    sudo('win', { co: co.name, then: first && next ? ' Next: <em>' + next.name + '</em>.' : " Go again; that record won't beat itself." });
   return (fresh ? "<p class='iceRule unlock'><b>Unlocked entry · " + entryTitle(co, fresh) + '</b> ' + entryLine(fresh) + '</p>' : '')
     + (first && next ? "<p class='iceRule unlock'><b>Unlocked · " + next.name + '</b> ' + next.text + '</p>' : '');
 }
@@ -1864,6 +1871,46 @@ function enterSection() {
     hideResult();
     pour();
   };
+  // Sudo: at most one line per room; one-time lines first.
+  const idle = sudoRun().idle = (sudoRun().idle ?? 0) + 1;
+  void (sudo('intro') || (sudoSave().seen.includes('twist') && sudo('twist2'))
+    || roomIce(R).some((id) => sudo('ice', { ice: ICE[id].name }, 'ice:' + id))
+    || (R.daemons.some((d) => rarityOf(d) === 'legendary') && sudo('legend'))
+    || (idle > 4 && sudo('script')));
+}
+
+// Sudo speaks in run mode only; its budget lives in the run, one message per room (iteration.room).
+const sudoRun = () => (R.sudo ??= { n: 0, room: '', used: [] });
+const sudo = (id: SudoId, vars?: Record<string, string | number>, key?: string) =>
+  S.mode === 'run' && say(sudoRun(), R.loop + '.' + R.section, id, vars, key);
+
+// Sudo after a matrix: the run's end, else at most one comment on something worth it.
+function sudoAfter(out: string, total: number, spare: number, goal: number, sc: number, disconnected: boolean) {
+  if (out === 'lose') return void sudo('lose');
+  if (out === 'win' || S.mode !== 'run') return; // winUnlocks speaks
+  const sv = sudoSave(), prev = sv.best ?? 0;
+  if (total > prev) setSudo({ ...sv, best: total });
+  const cron = R.daemons.filter((d) => DAEMONS[d].family === 'Cron').map((d) => [d, Math.floor(R.stacks[d] ?? 0)] as const).sort((a, b) => b[1] - a[1])[0];
+  const paint = Math.max(0, ...Object.values(R.paint ?? {}));
+  void ((prev > 0 && total > prev && sudo('record', { n: total }))
+    || (cron && cron[1] >= 5 && sudo('cron', { d: DAEMONS[cron[0]].name, n: cron[1] }))
+    || (paint >= 50 && sudo('paint', { n: paint }))
+    || ((out === 'section' || out === 'loop') && spare >= 0 && spare < goal * 0.1 && sudo('close', { n: spare }))
+    || (!sc && !disconnected && sudo('whiff')));
+}
+
+// Header comms: Sudo's past messages and its on/off switch.
+function showComms() {
+  const close = () => { $('modal').onkeydown = null; hideResult(); focusGrid(); };
+  const draw = () => {
+    const off = !!sudoSave().off;
+    showResult(true, "<h2>Comms</h2><p class='meta'>Sudo, your AI. It speaks rarely, in run mode only.</p>" + commsHtml()
+      + "<div class='row'><button class='btn' id='sudoOff' aria-pressed='" + !off + "'>sudo: " + (off ? 'off' : 'on') + "</button><button class='btn' id='closeComms'>Close</button></div>");
+    $('sudoOff').onclick = () => { setSudo({ ...sudoSave(), off: !off }); draw(); };
+    $('closeComms').onclick = close;
+  };
+  $('modal').onkeydown = (e) => { if (e.key === 'Escape') close(); };
+  draw();
 }
 
 // Snapshot: the moves of the saved board (picks and path items, from this matrix's action log), loaded as the replay's script.
@@ -1939,6 +1986,7 @@ function doSplit(i: number, at?: number) {
   logAct({ s: i, at });
   note(toolName('split') + ' · split target ' + S.puzzle.targets[i].join(' '));
   ({ targets: S.puzzle.targets, worth: M.worth } = splitTarget(S.puzzle.targets, M.worth, i, at));
+  if (S.puzzle.targets.some((t) => t.length === 1)) sudo('split1');
   M.split = false;
   M.tools = true;
   armed = null;
@@ -2192,6 +2240,7 @@ function finish(sc: number, disconnected = false) {
       newMatrix();
     });
     if (hold) { $('modal').hidden = true; hold.push(() => playBill(bill, room, before, goal)); } else playBill(bill, room, before, goal);
+    sudoAfter(out, bill.total, before + bill.total - goal, goal, sc, disconnected);
     return;
   } else {
     const c = settle(win);
@@ -2621,6 +2670,7 @@ export function init() {
   $('modeTrain').onclick = () => setMode('train');
   $('modeSprint').onclick = () => setMode('sprint');
   $('modeRun').onclick = () => setMode('run');
+  $('commsBtn').onclick = showComms;
   $('styleBtn').onclick = () => { style = style === 'glass' ? 'classic' : 'glass'; save(STYLE, style); syncStyle(); };
   syncStyle();
   $('catalogBtn').onclick = () => showCatalog(null);

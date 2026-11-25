@@ -1,6 +1,7 @@
 import { contains, fits, newRun, partner, pick, stageSeed, WILD, type Run } from './game';
 import { beltSrc, BLOCK, CODES, generate, hashStr, rng, colsOf, rowsOf, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
+import type { SudoRun } from './sudo';
 
 // Roguelike mode: a run breaches one company, a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
 export const RUN_POOL = [...CODES];
@@ -331,6 +332,7 @@ export interface RunState {
   charges?: number; // bonus reward: ×2 data charges, spent by hand on a matrix
   bonus?: RewardId[]; // bonus rewards claimed since the last shop, marked in the offer and shop
   events?: string[]; // what happened in the run, shown to the player as a log
+  sudo?: SudoRun; // Sudo's comment budget, so a resumed run keeps it
   bonusHits?: string[]; // bonus matrices met, as 'loop.room.matrix'; missing on saves from before it, where outcomes are unknown
   payLevels?: Partial<Record<string, number>>; // by payload id; missing means level 1
   payPlays?: Partial<Record<string, number>>; // matrices each payload scored this run
