@@ -1519,10 +1519,14 @@ function showCompanies(seed: number, back: Mode) {
   R = newRunState(seed);
   dealMatrix();
   const n = Math.max(FIRM_SLOTS, COMPANIES.length + 1);
+  // Card positions: the real companies, the coming-soon card (-1), then dev companies (always last in COMPANIES) and empty slots.
+  const real = COMPANIES.filter((c) => !c.dev).length;
+  const order = Array.from({ length: n }, (_, p) => (p < real ? p : p === real ? -1 : p - 1));
+  let at = Math.max(0, order.indexOf(firmAt));
   // Only the next company past the open ones is revealed.
   const shown = (i: number) => (i <= COMPANIES.findIndex((_, j) => !isOpen(j)) || isOpen(i) ? COMPANIES[i] : undefined);
   showResult(true, "<h2>Choose a target</h2><p class='meta'>one company per run · click a card for its rooms and ICE</p><div class='carousel'>"
-    + Array.from({ length: n }, (_, i) => (i === COMPANIES.length ? soonCard() : firmCard(shown(i), i))).join('')
+    + order.map((c) => (c < 0 ? soonCard() : firmCard(shown(c), c))).join('')
     + "<button class='cnav prev' id='cPrev' aria-label='Previous company'>‹</button><button class='cnav next' id='cNext' aria-label='Next company'>›</button></div>"
     + "<div class='row'>" + (import.meta.env.DEV ? "<button class='btn devbtn' id='devUnlock'>dev · " + (breached().length ? 'lock all' : 'unlock all') + '</button>' : '')
     + "<button class='btn' id='briefing'><span class='ibadge' aria-hidden='true'>i</span>Briefing</button><button class='btn' id='closeFirms'>Close</button><button class='btn go' id='startFirm'>Start contract ›</button></div>");
@@ -1538,20 +1542,20 @@ function showCompanies(seed: number, back: Mode) {
   const cards = [...$('modalBox').querySelectorAll<HTMLElement>('.fcard')];
   const place = () => {
     cards.forEach((c, i) => {
-      const o = i - firmAt, a = Math.abs(o);
+      const o = i - at, a = Math.abs(o);
       c.style.transform = 'translateX(' + Math.sign(o) * (110 + a * 75) + 'px) translateZ(' + -a * 70 + 'px) rotateY(' + -Math.sign(o) * 28 + 'deg)';
       c.style.zIndex = String(10 - a);
       c.style.opacity = a > 2 ? '0' : String(1 - a * 0.3);
       c.classList.toggle('now', !o);
       if (o) c.classList.remove('flip');
     });
-    ($('cPrev') as HTMLButtonElement).disabled = firmAt === 0;
-    ($('cNext') as HTMLButtonElement).disabled = firmAt === n - 1;
+    ($('cPrev') as HTMLButtonElement).disabled = at === 0;
+    ($('cNext') as HTMLButtonElement).disabled = at === n - 1;
     const start = $('startFirm') as HTMLButtonElement;
     start.disabled = !COMPANIES[firmAt] || !isOpen(firmAt);
     start.textContent = start.disabled ? 'Locked' : 'Choose ' + COMPANIES[firmAt].name + ' ›';
   };
-  const go = (i: number) => { firmAt = Math.max(0, Math.min(n - 1, i)); place(); };
+  const go = (i: number) => { at = Math.max(0, Math.min(n - 1, i)); firmAt = order[at]; place(); };
   // Drag or swipe sideways to turn the carousel; a drag never counts as a click.
   const car = $('modalBox').querySelector<HTMLElement>('.carousel')!;
   let dragX: number | null = null, dragged = false;
@@ -1562,7 +1566,7 @@ function showCompanies(seed: number, back: Mode) {
   car.addEventListener('pointermove', (e) => {
     if (dragX === null || !(e.buttons & 1)) { dragX = null; return; }
     if (Math.abs(e.clientX - dragX) < 120) return;
-    go(firmAt - Math.sign(e.clientX - dragX));
+    go(at - Math.sign(e.clientX - dragX));
     dragX = e.clientX;
     dragged = true;
   });
@@ -1579,14 +1583,14 @@ function showCompanies(seed: number, back: Mode) {
   };
   const press = (c: HTMLElement, i: number, e?: MouseEvent) => {
     if (dragged) dragged = false;
-    else if (i === firmAt && e && overMap(c, e)) showMap(COMPANIES[i], seed, back);
-    else if (i !== firmAt) go(i);
+    else if (i === at && e && overMap(c, e)) showMap(COMPANIES[order[i]], seed, back);
+    else if (i !== at) go(i);
     else if (!c.classList.contains('locked')) c.classList.toggle('flip');
   };
   cards.forEach((c, i) => {
     c.onclick = (e) => press(c, i, e);
     const map = c.querySelector<HTMLElement>('.fmap');
-    if (map) map.onclick = (e) => { e.stopPropagation(); showMap(COMPANIES[i], seed, back); };
+    if (map) map.onclick = (e) => { e.stopPropagation(); showMap(COMPANIES[order[i]], seed, back); };
     c.onkeydown = (e) => { if (e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); press(c, i); } };
     const t = c.querySelector<HTMLElement>('.ftilt')!;
     c.onpointermove = (e) => {
@@ -1605,11 +1609,11 @@ function showCompanies(seed: number, back: Mode) {
     R = newRunState(seed, firmAt, co.entries[0].id);
     startChoice();
   };
-  $('cPrev').onclick = () => go(firmAt - 1);
-  $('cNext').onclick = () => go(firmAt + 1);
+  $('cPrev').onclick = () => go(at - 1);
+  $('cNext').onclick = () => go(at + 1);
   $('modal').onkeydown = (e) => {
-    if (e.key === 'ArrowLeft') go(firmAt - 1);
-    else if (e.key === 'ArrowRight') go(firmAt + 1);
+    if (e.key === 'ArrowLeft') go(at - 1);
+    else if (e.key === 'ArrowRight') go(at + 1);
     else if (e.key === 'Escape') close();
   };
   place();

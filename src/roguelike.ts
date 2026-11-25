@@ -165,8 +165,9 @@ export const COMPANIES: Company[] = [{
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
   entries: [standard('turnstile', 'Turnstile'),
-    { id: 'maintenance', name: 'Maintenance pass', traits: ['linked.bin and all_targets.bin start at Lv2.', 'No Mux in the shop.', 'Quotas ×3.2 per iteration (from iteration 2).'],
-      payLevels: { linked: 2, all_targets: 2 }, banned: ['mux'], quotaGrowth: 3.2 },
+    // The loop in Loopline: a free Loopback from the first room.
+    { id: 'loopticket', name: 'Loop ticket', traits: ['Start with Loopback v1.0.', 'Loopback cannot be sold.', 'No Mux in the shop.', 'Quotas ×3.2 per iteration (from iteration 2).'],
+      startItems: ['loopback1'], noSell: ['loopback1'], banned: ['mux'], quotaGrowth: 3.2 },
     { id: 'signalroom', name: 'Signal room', traits: ['Root daemons only.', 'Encryption in every room.', 'Quotas ×3 per iteration (from iteration 2).'],
       family: 'Root', always: ['encryption'], quotaGrowth: 3 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
