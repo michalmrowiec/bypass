@@ -14,8 +14,9 @@ export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 // ports: a port board, two n×n matrices side by side with this many port pairs (block and burn are not supported there).
 export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number; ports?: number; solo?: boolean; dual?: number; mask?: string[] }
 export const BLOCK = '##';
-// Rows that exist: a long board (4×8 on n 8) masks its bottom rows away.
+// Rows and columns that exist: a long board (8×4 on n 8) masks its right half away.
 export const rowsOf = (z: Pick<Size, 'n' | 'mask'>) => z.mask?.filter((m) => m.includes('.')).length ?? z.n;
+export const colsOf = (z: Pick<Size, 'n' | 'mask'>) => (z.mask ? Math.max(...z.mask.map((m) => m.lastIndexOf('.') + 1)) : z.n);
 export const SIZES = {
   easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
   normal: { n: 6, lens: [2, 3, 3], links: [0, 1, 1, 2], slack: 0 },

@@ -27,7 +27,7 @@ const roomSize = (z) => (z.mask?.filter((m) => m.includes('.')).length ?? z.n) +
 function grid(b) {
   const { grid } = b.puzzle, n = grid.length, all = grid[0].length;
   const live = [...Array(all).keys()].filter((c) => !b.puzzle.shape || grid.some((row) => row[c] !== BLOCK)), cols = live.length;
-  let h = `<div class='grid' style='grid-template-columns:auto repeat(${cols},minmax(0,1fr))'><div class='hx'></div>`;
+  let h = `<div class='grid' style='grid-template-columns:auto repeat(${cols},minmax(0,1fr))${cols < 6 ? ';max-width:calc(' + cols + ' / 6 * 100%);margin-inline:auto' : ''}'><div class='hx'></div>`;
   for (const c of live) h += `<div class='hx${b.run.axis === 'col' && c === b.run.idx ? ' on' : ''}'>${C.colLabel(c)}</div>`;
   const pairs = b.puzzle.ports ?? [];
   for (let r = 0; r < n; r++) {
@@ -55,7 +55,7 @@ const show = (secs, title) => '<h2 class="note" style="margin-top:34px"><b>' + t
 }).join('');
 const base = C.sections.map((sec, i) => [sec, i]);
 const tall = base.filter(([sec]) => sec.size.n === 8).map(([sec, i]) => [{ ...sec, size: { ...sec.size, mask: TALL } }, i]);
-document.getElementById('rooms').innerHTML = show(tall, 'Wariant 8×4 (wysokie, wąskie)') + show(base.map(([sec, i]) => [sec, i]), 'Obecnie: 4×8');
+document.getElementById('rooms').innerHTML = show(base, 'W grze: długie plansze 8×4, komórki jak na 6×6');
 base.forEach(([sec, i]) => (C.sections[i] = sec));
 </script>
 </body></html>

@@ -1,5 +1,5 @@
 import { contains, fits, newRun, partner, pick, stageSeed, WILD, type Run } from './game';
-import { beltSrc, BLOCK, CODES, generate, hashStr, rng, rowsOf, SIZES, type Puzzle, type Size } from './generator';
+import { beltSrc, BLOCK, CODES, generate, hashStr, rng, colsOf, rowsOf, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
 
 // Roguelike mode: a run breaches one company, a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
@@ -64,8 +64,8 @@ const LAB: Company = {
   entries: [standard('bench', 'Bench')],
 };
 
-// A long 4×8 board: an 8×8 with its bottom four rows masked away.
-const LONG = [...Array(4).fill('........'), ...Array(4).fill('########')];
+// A long 8×4 board (one line, eight stations down): an 8×8 with its right half masked away.
+const LONG = Array(8).fill('....####');
 
 export const COMPANIES: Company[] = [{
   id: 'kestrel',
@@ -157,10 +157,10 @@ export const COMPANIES: Company[] = [{
   codes: ['M1', 'C4', 'R8', 'X2', 'U5'],
   rowLabel: (r) => 'L' + (r + 1), // line
   colLabel: (c) => 'S' + String(c + 1).padStart(2, '0'), // station
-  // Only two long targets, always chained, one long trip per matrix. Boards are lines and loops: long 4×8 boards,
+  // Only two long targets, always chained, one long trip per matrix. Boards are lines and loops: long 8×4 boards,
   // port pairs inside one matrix, one L; Dual cells only in the SOC (no ports there, so every boss ICE fits).
   sections: [
-    { name: 'Platform', quota: 80, matrices: 1, size: { n: 8, lens: [3, 5], links: [1], slack: 0, mask: LONG }, brief: 'One long platform, eight doors, a departure board nobody reads.' },
+    { name: 'Platform', quota: 80, matrices: 1, size: { n: 8, lens: [3, 5], links: [1], slack: 0, mask: LONG }, brief: 'One long platform, eight cars, a departure board nobody reads.' },
     { name: 'Circle Line', quota: 170, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true }, brief: 'The loop line: one port pair jumps across the same board.' },
     { name: 'Tunnels', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'Service tunnels behind the platforms: half the map is solid rock, one shaft cuts through it.' },
     { name: 'Interchange', quota: 300, matrices: 2, size: { n: 8, lens: [4, 5], links: [1], slack: 0, ports: 2, solo: true, mask: LONG }, brief: 'A long line with two transfer corridors that jump along it.' },
@@ -1319,7 +1319,7 @@ export function dealRunMatrix(seed: number, s: RunState): Puzzle {
   if (rules.includes('firewall')) {
     const r = rng(hashStr(seed + '/ice'));
     const row = r() < 0.5;
-    size = { ...size, block: row ? ['row', 1 + Math.floor(r() * (rowsOf(size) - 1))] : ['col', Math.floor(r() * size.n)] };
+    size = { ...size, block: row ? ['row', 1 + Math.floor(r() * (rowsOf(size) - 1))] : ['col', Math.floor(r() * colsOf(size))] };
   }
   const deal = (sd: number) => (rules.includes('deadcells') ? killCells(sd, generate(sd, size)) : generate(sd, size));
   let p = deal(seed);

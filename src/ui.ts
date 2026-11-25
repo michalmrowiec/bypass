@@ -1,4 +1,4 @@
-import { BLOCK, CODES, generate, hashStr, rng, rowsOf, SIZES, type Puzzle, type Size, type SizeKey } from './generator';
+import { BLOCK, CODES, generate, hashStr, rng, colsOf, rowsOf, SIZES, type Puzzle, type Size, type SizeKey } from './generator';
 import {
   MAX_TRIES, SPRINTS, contains, type ChallengeKind, type SprintLen, type Challenge, challengeCode, isFinished, newRun, parseChallenge, parseCode, score,
   stageSeed, targetProgress, WILD, fits, inLane, nextLane, burning, pairOf, partner, altOf,
@@ -276,7 +276,11 @@ function render() {
   }
   const pl = planBoard();
   // Port board: the two matrices sit apart, with a narrow gap column between them.
-  g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + n + ',minmax(0,1fr))';
+  // Shaped boards drop fully masked columns; a narrow one (8×4) keeps the cell size of a 6×6 instead of growing.
+  const live = Array.from({ length: cols }, (_, c) => !S.puzzle.shape || grid.some((row) => row[c] !== BLOCK)), k = live.filter(Boolean).length;
+  g.style.gridTemplateColumns = w ? 'auto repeat(' + w + ',minmax(0,1fr)) 10px repeat(' + w + ',minmax(0,1fr))' : 'auto repeat(' + k + ',minmax(0,1fr))';
+  g.style.maxWidth = !w && k < 6 ? 'calc(' + k + ' / 6 * 100%)' : '';
+  g.style.marginInline = g.style.maxWidth ? 'auto' : '';
   const gap = () => { const d = document.createElement('div'); d.setAttribute('aria-hidden', 'true'); g.appendChild(d); };
   const portNo = (r: number, c: number) => pairOf(S.puzzle, r, c) + 1;
   const names = portNames(S.puzzle), portTag = (p: number) => names[p - 1]; // pair name: both ends show the same real port
@@ -293,6 +297,7 @@ function render() {
   // cron/rotate: before the first pick, the column the last matrix started in glows in the cron colour.
   const lastCol = S.mode === 'run' && R.daemons.includes('rotate') && !S.run.path.length && !S.over ? R.lastStart : undefined;
   for (let c = 0; c < cols; c++) {
+    if (!live[c]) continue;
     if (w && c === w) gap();
     hx(colName(c),free ? c === free[1] : axis === 'col' && c === idx, c === lastCol ? ' cronmark' : '');
   }
@@ -301,7 +306,7 @@ function render() {
   const moved = !!S.puzzle.belt && S.run.path.length > 0 && S.run.path.length !== beltSeen;
   beltSeen = S.run.path.length;
   for (let r = 0; r < n; r++) for (let c = 0; c < cols; c++) {
-    if (S.puzzle.shape && grid[r].every((v) => v === BLOCK)) continue; // a long board's masked rows take no space
+    if (!live[c] || (S.puzzle.shape && grid[r].every((v) => v === BLOCK))) continue; // masked rows and columns take no space
     if (c === 0) hx(rowName(r), free ? r === free[0] : axis === 'row' && r === idx, S.puzzle.belt?.row === r ? ' belt' : '');
     if (w && c === w) gap();
     const b = document.createElement('button');
@@ -1514,7 +1519,7 @@ function showMap(co: Company, seed: number, back: Mode) {
 }
 
 // Port rooms show both matrices: 5×5 ⇄ 5×5.
-const roomSize = (z: Size) => rowsOf(z) + '×' + z.n + (z.ports ? (z.solo ? ' ⇄' : ' ⇄ ' + z.n + '×' + z.n) : '');
+const roomSize = (z: Size) => rowsOf(z) + '×' + colsOf(z) + (z.ports ? (z.solo ? ' ⇄' : ' ⇄ ' + z.n + '×' + z.n) : '');
 
 function showCompanies(seed: number, back: Mode) {
   R = newRunState(seed);
