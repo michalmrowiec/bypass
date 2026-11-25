@@ -38,6 +38,25 @@ h2{font-size:14px;margin:30px 0 10px;color:var(--muted);letter-spacing:.08em;tex
 .lg-polaris{--lg1:#5dff9e;--lg2:#2bb8ff;--lg3:#eafff2}
 .lg-tidewater{--lg1:#ff7a59;--lg2:#1fb5a8;--lg3:#ffe1d6}
 .lg-loopline{--lg1:#ff4fa3;--lg2:#4f7bff;--lg3:#ffffff}
+/* Round 3: polar palette (snow, glacier blue, aurora) and calmer logos. */
+.lg-polar{--lg1:#eef7ff;--lg2:#4f8fd0;--lg3:#7dffcf}
+.lg-needle{transform-box:view-box;transform-origin:60px 60px;animation:lgneedle 9s ease-in-out infinite}
+@keyframes lgneedle{0%,62%,100%{transform:rotate(0)}8%{transform:rotate(-16deg)}20%{transform:rotate(10deg)}31%{transform:rotate(-5deg)}41%{transform:rotate(2.5deg)}51%{transform:rotate(-1deg)}}
+@media (prefers-reduced-motion:reduce){.lg-needle{animation:none}}
+.r3 .big{gap:10px}
+.r3 .mini{display:flex;gap:10px;align-items:center;justify-content:center}
+.r3 .mini .flogo{width:34px;height:34px;filter:none}
+.r3 .mini .flogo.seal{--lg1:var(--muted);--lg2:var(--muted);--lg3:var(--muted)}
+.r3 .note{margin:4px 0 0}
+.p-facet{opacity:0;animation:pfacet 7s ease-in-out infinite}
+@keyframes pfacet{0%{opacity:.85}9%,100%{opacity:0}}
+.m-fade{animation:mfade 10s ease-in-out infinite}
+@keyframes mfade{0%,8%{opacity:0}18%,52%{opacity:1}62%,100%{opacity:0}}
+.m-wipe path{stroke-dasharray:100 100;animation:mwipe 10s ease-in-out infinite}
+@keyframes mwipe{0%,6%{stroke-dashoffset:100}22%,52%{stroke-dashoffset:0}68%,100%{stroke-dashoffset:-100}}
+.m-wipe .bar{stroke-dasharray:none;opacity:0;animation:mbar 10s ease-in-out infinite}
+@keyframes mbar{0%,6%{opacity:0}9%,52%{opacity:1}55%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.p-facet,.m-fade,.m-wipe path{animation:none}}
 </style></head>
 <body><main class="page">
 <h1>Firma #5 · 4 propozycje (logo + motyw w tle kontraktu)</h1>
@@ -45,10 +64,15 @@ h2{font-size:14px;margin:30px 0 10px;color:var(--muted);letter-spacing:.08em;tex
 <p class="note">Wszystko na prawdziwym <code>style.css</code> gry: logo to ten sam format co w <code>src/logos.ts</code> (gradient z <code>--lg1..3</code>, wycięcia w kolorze tła, jedna subtelna animacja),
 pasek pod spodem to prawdziwy markup kontraktu (<code>#steps</code> z <code>.coTag</code> i <code>.step</code>), a motyw w tle to kafel 220×60 przesuwany animacją <code>motif</code> jak u obecnych firm.</p>
 
+<h2>Runda 5 · Polaris: lśnienie po pojedynczych ścianach róży</h2>
+<div class="vars r3" id="r3pol"></div>
+<h2>Runda 5 · Loopline: linie zamieniają się kolorami</h2>
+<div class="vars r3" id="r3metro"></div>
+
 <h2>Obecne firmy (dla porównania)</h2>
 <div class="cur" id="cur"></div>
 
-<h2>Metro · warianty pociągu</h2>
+<h2>W grze teraz</h2>
 <div class="vars" id="metroVars"></div>
 <h2>Propozycje</h2>
 <div id="props"></div>
@@ -125,11 +149,56 @@ const CUR = [['kestrel', 'Kestrel Logistics', ['Reception', 'Offices', 'Server R
 document.getElementById('cur').innerHTML = CUR.map(([id, n, r]) => strip(id, n, logo(id), r)).join('');
 const base = logo('loopline');
 const VARS = [
-  ['W grze: B · między przesiadkami', 'Kursuje tylko między białymi stacjami; stacja, na której stoi, wysyła delikatny pierścień.', base],
-  ['A · przejazd', 'Wjeżdża z jednego końca, staje na obu przesiadkach, wyjeżdża drugim końcem i znów wjeżdża od początku, zawsze w tym samym kierunku.', base.replace('lg-shuttle', 'v-through')],
+  ['W grze: M, kolor wyjeżdża z przesiadki', 'Kolor drugiej linii wyjeżdża ze środkowej białej przesiadki do obu stacji końcowych, stoi, potem pierwszy kolor wyjeżdża za nim.', logo('loopline')],
+  ['W grze: Polaris, róża ze śnieżnym połyskiem', 'Róża 16 kierunków w polarnych kolorach, północ w kolorze zorzy; co ~5 s przechodzi ukośny połysk.', logo('polaris')],
 ];
 document.getElementById('metroVars').innerHTML = VARS.map(([t, d, svg]) => `<div class='prop'><div class='big'>${svg}</div><div><b>${t}</b><p class='note'>${d}</p></div></div>`).join('');
 document.getElementById('props').innerHTML = P.map((p, i) => `<div class='prop'><div class='big'>${svg(p)}<b>${i + 1} · ${p.name}</b><p>${p.text}</p></div>`
   + `<div><ul class='why'>${p.why.map((w) => '<li>' + w + '</li>').join('')}</ul>${strip(p.id, p.name, svg(p), p.rooms)}</div></div>`).join('');
+
+// Round 3. A compass point: kite from the centre to the tip, split into two halves (a = left, b = right), turned by rot.
+const half = (len, w, s) => `M60 ${60 - len}L${60 + s * w} ${60 - w}L60 60Z`;
+const pt = (len, w, rot, a, b) => `<g transform='rotate(${rot} 60 60)'><path d='${half(len, w, -1)}' style='${a}'/><path d='${half(len, w, 1)}' style='${b}'/></g>`;
+const F = (n, o = 1) => `fill:var(--lg${n});fill-opacity:${o}`;
+const cut = `stroke='${BG}' stroke-width='1.4' stroke-linejoin='round'`;
+// The 16-wind rose: [len, w, first angle, step, count, left fill, right fill] per ring of arms, small to big.
+const ARMS = [[30, 4.5, 22.5, 45, 8, F(2, .35), F(2, .6)], [40, 6.5, 45, 90, 4, F(2, .7), F(1, .55)], [54, 8, 0, 90, 4, F(2), F(1)]];
+// Every facet (half arm) of the rose, with its ring index, angle and side.
+const FACETS = ARMS.flatMap(([len, w, r0, step, n], ring) => Array.from({ length: n }, (_, k) => [-1, 1].map((s) => ({ len, w, rot: r0 + step * k, s, ring, k }))).flat());
+// order(f) in 0..1 = when in the cycle that facet catches the light.
+const glints = (order, dur) => FACETS.map((f) => `<path class='p-facet' style='animation-duration:${dur}s;animation-delay:${(order(f) * dur - dur).toFixed(2)}s' transform='rotate(${f.rot} 60 60)' d='${half(f.len, f.w, f.s)}' fill='#fff'/>`).join('');
+const rose = (extra = '') => `<circle cx='60' cy='60' r='22' fill='none' style='stroke:var(--lg2)' stroke-width='1.5' opacity='.6'/><g ${cut}>`
+  + ARMS.map(([len, w, r0, step, n, a, b], ring) => Array.from({ length: n }, (_, k) => pt(len, w, r0 + step * k, ring === 2 && k === 0 ? F(3) : a, b)).join('')).join('')
+  + '</g>' + extra + `<circle cx='60' cy='60' r='3.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='1.5'/>`;
+let rnd = 7; const rand = () => ((rnd = (rnd * 9301 + 49297) % 233280) / 233280);
+const RND = new Map(FACETS.map((f) => [f, rand()]));
+const POL = [
+  ['A · iskrzenie po ścianach', 'Pojedyncze trójkąty róży łapią światło jeden po drugim, w przypadkowej kolejności, jak lód albo szron w słońcu. W danej chwili błyszczą 1–2 ściany.', () => rose(glints((f) => RND.get(f), 7))],
+  ['B · światło obiega różę', 'Ściany łapią światło po kolei dookoła: duże ramiona zgodnie z zegarem, małe w przeciwną stronę, więc błyski mijają się na róży.',
+    () => rose(glints((f) => { const a = ((f.rot + (f.s > 0 ? 8 : 0)) % 360) / 360; return f.ring === 1 ? (1 - a) % 1 : a; }, 6))],
+  ['C · dwie strony ramion', 'Najpierw błyskają lewe ściany wszystkich ramion po kolei dookoła, potem prawe w drugą stronę, jakby słońce przeszło nad różą i wróciło.',
+    () => rose(glints((f) => { const a = (f.rot % 360) / 720; return f.s < 0 ? a : 1 - a; }, 7))],
+];
+// M of two lines; overlay draws the same M with the colours swapped.
+const mDots = [[24, 30], [96, 30]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='4.5' style='fill:var(--lg3)'/>`).join('')
+  + `<circle cx='60' cy='68' r='9' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3.5'/>`;
+const mLines = (cls, a, b) => `<g class='${cls}' fill='none' stroke-width='12' stroke-linejoin='round'><path pathLength='100' d='M24 98V30L60 68' style='stroke:var(--lg${a})'/><path pathLength='100' d='M96 98V30L60 68' style='stroke:var(--lg${b})'/>`
+  + `<path class='bar' d='M12 98H36' style='stroke:var(--lg${a})' stroke-width='7'/><path class='bar' d='M84 98H108' style='stroke:var(--lg${b})' stroke-width='7'/></g>`;
+// The loop-and-line map (the game's logo), still; overlay swaps the two line colours.
+const map = (cls, a, b) => `<g class='${cls}' fill='none' stroke-linejoin='round'><circle cx='60' cy='60' r='32' style='stroke:var(--lg${b})' stroke-width='9'/>`
+  + `<path d='${route}' stroke='${BG}' stroke-width='17'/><path d='${route}' style='stroke:var(--lg${a})' stroke-width='9'/>`
+  + `<path d='M2.2 86.2L17.8 101.8M102.2 18.2L117.8 33.8' style='stroke:var(--lg${a})' stroke-width='6'/></g>`;
+const mapDots = [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join('');
+const MET = [
+  ['A · M, kolory przenikają', 'Linie M co kilka sekund płynnie zamieniają się kolorami (lewa różowa ↔ niebieska), postoją i wracają.', () => mLines('', 1, 2) + mLines('m-fade', 2, 1) + mDots],
+  ['B · M, kolor wjeżdża linią', 'Nowy kolor wjeżdża każdą linią od stacji końcowej do białej przesiadki (jak przemalowanie linii przejazdem), stoi, potem zjeżdża tą samą drogą.', () => mLines('', 1, 2) + mLines('m-wipe', 2, 1) + mDots],
+  ['C · mapa, kolory przenikają', 'Logo-mapa z gry (pętla + linia przelotowa), nieruchome; pętla i linia co kilka sekund płynnie zamieniają się kolorami.', () => map('', 1, 2) + map('m-fade', 2, 1) + mapDots],
+];
+const r3 = (cls, items) => items.map(([t, d, f]) => {
+  const s = (extra) => `<svg class='flogo ${cls}${extra}' viewBox='0 0 120 120' aria-hidden='true'>${f('r' + ++seq)}</svg>`;
+  return `<div class='prop'><div class='big'>${s('')}<div class='mini'>${s('')}${s(' seal')}</div></div><div><b>${t}</b><p class='note'>${d}</p><p class='note'>Pod spodem: rozmiar z paska kontraktu i wersja zapieczętowana (jeden kolor).</p></div></div>`;
+}).join('');
+document.getElementById('r3pol').innerHTML = r3('lg-polar', POL);
+document.getElementById('r3metro').innerHTML = r3('lg-loopline', MET);
 </script>
 </body></html>

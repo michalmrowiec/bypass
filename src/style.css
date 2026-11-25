@@ -1045,18 +1045,14 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .lg-ray{transform-box:view-box;transform-origin:60px 44px;opacity:.8;animation:lgray 2.5s ease-in-out infinite alternate}
 @keyframes lgray{from{transform:scale(.8);opacity:.55}to{transform:scale(1);opacity:.95}}.lg-wave{animation:lgwave 2.4s ease-in-out infinite}
 @keyframes lgwave{0%,100%{opacity:.35}40%{opacity:1}}
-/* Loopline: a train shuttles between the two interchanges, braking in and standing a moment; the one it stands at rings. */
-.lg-shuttle{stroke-dasharray:7 100;animation:lgshuttle 6s cubic-bezier(.45,0,.2,1) infinite}
-@keyframes lgshuttle{0%,12%,100%{stroke-dashoffset:-19.4}50%,62%{stroke-dashoffset:-73.5}}
-.lg-stop{fill:none;stroke:var(--lg3);stroke-width:2;transform-box:fill-box;transform-origin:center;opacity:0;animation:lgstop 6s ease-out infinite}
-@keyframes lgstop{0%{transform:scale(1);opacity:.8}12%{transform:scale(1.7);opacity:0}100%{opacity:0}}
-/* Polaris: the sweep turns, echoes flash as it passes and fade; a plane flying a racetrack leaves one echo per turn (16 turns), each fading before the next. */
-.lg-sweep{transform-origin:60px 60px;animation:lgspin 4.5s linear infinite}
-@keyframes lgspin{to{transform:rotate(360deg)}}
-.lg-blip{animation:lgblip 4.5s linear infinite}
-@keyframes lgblip{0%,6%{opacity:1}45%,100%{opacity:.12}}
-.lg-track{opacity:0;animation:lgtrack 72s linear infinite}
-@keyframes lgtrack{0%{opacity:1}4%{opacity:.15}5.5%,100%{opacity:0}}
+/* Loopline: the other line's colour runs out of the middle interchange to both termini, stands, then the first colour follows it out. */
+.lg-wipe path{stroke-dasharray:100 100;animation:lgwipe 10s ease-in-out infinite}
+@keyframes lgwipe{0%,6%{stroke-dashoffset:100}22%,52%{stroke-dashoffset:0}68%,100%{stroke-dashoffset:-100}}
+.lg-wipe .bar{stroke-dasharray:none;opacity:0;animation:lgbar 10s linear infinite}
+@keyframes lgbar{0%,20%{opacity:0}23%,66%{opacity:1}69%,100%{opacity:0}}
+/* Polaris: a snowy sheen slides across the compass rose now and then. */
+.lg-sheen{animation:lgsheen 5s ease-in-out infinite}
+@keyframes lgsheen{0%{transform:translateX(0)}35%,100%{transform:translateX(200px)}}
 .lg-q{fill:currentColor;font:700 56px var(--mono);text-anchor:middle}
 .fcard.locked{cursor:var(--cur)}
 .fcard.locked .fface{border-style:dashed}
@@ -1085,7 +1081,7 @@ details ol{padding-left:20px;margin:12px 0 0;display:flex;flex-direction:column;
 .cnav:hover:not(:disabled){border-color:var(--mint);color:var(--mint)}
 .cnav:disabled{opacity:.3;cursor:var(--cur)}
 .cnav.prev{left:12px}.cnav.next{right:12px}
-@media (prefers-reduced-motion:reduce){.fcard,.finner,.ftilt{transition:none}.lg-flick,.lg-twinkle,.lg-wave,.lg-sway,.lg-ray,.lg-shuttle,.lg-stop,.lg-sweep,.lg-blip,.lg-track{animation:none}.lg-trace{animation:none;stroke-dasharray:none}}
+@media (prefers-reduced-motion:reduce){.fcard,.finner,.ftilt{transition:none}.lg-flick,.lg-twinkle,.lg-wave,.lg-sway,.lg-ray,.lg-sheen{animation:none}.lg-wipe{display:none}.lg-trace{animation:none;stroke-dasharray:none}}
 .cell.burn{color:color-mix(in srgb,var(--pink) 45%,transparent);background:repeating-linear-gradient(-45deg,transparent 0 4px,rgba(255,61,139,.1) 4px 8px)}
 .btag{position:absolute;right:3px;bottom:1px;font-size:9px;font-style:normal;color:var(--pink)}
 .patch{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
@@ -1157,7 +1153,7 @@ button.chip:hover{border-color:var(--gold)}
 .lg-nyx{--lg1:#a259ff;--lg2:#ff4fd8;--lg3:#4dfcff}
 .lg-argus{--lg1:#ff3d5a;--lg2:#ffb03d}
 .lg-loopline{--lg1:#ff4fa3;--lg2:#4f7bff;--lg3:#ffffff}
-.lg-polaris{--lg1:#5dff9e;--lg2:#2bb8ff;--lg3:#eafff2}
+.lg-polaris{--lg1:#eef7ff;--lg2:#4f8fd0;--lg3:#7dffcf}
 .fcard.sealed .flogo{--lg1:var(--muted);--lg2:var(--muted);--lg3:var(--muted);--lg4:var(--muted)}
 .wmark{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:0}
 .wmark .flogo{width:min(70%,420px);height:auto;aspect-ratio:1;--lg1:var(--ink);--lg2:var(--ink);--lg3:var(--ink);--lg4:var(--ink);opacity:.022;filter:none}

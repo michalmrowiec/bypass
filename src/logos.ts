@@ -9,18 +9,13 @@ const rad = (id: string, [cx, cy, r]: number[], cs: string) =>
 const ecg = 'M4 60H34L40 50L48 74L56 38L64 82L70 60H116';
 const bolt = 'M62 12L26 66H54L44 110L94 48H66L80 12Z';
 const strand = (a: number, b: number) => `M${a} 12C${a} 38 ${b} 34 ${b} 60C${b} 86 ${a} 82 ${a} 108`;
-const metro = 'M10 94L44 60H76L110 26';
-// Radar echo at (x, y): lit when the sweep edge (60° at t=0, one turn per SWEEP s) passes it on turn k of an n-turn cycle.
-const SWEEP = 4.5, TRACK = 8;
-// The plane flies a racetrack beside the centre: out along one leg, a U-turn, back along a parallel leg a little further out.
-// Every point stays inside r 38, so an echo never touches the ring (inner edge r 44).
-const leg = (k: number, o: number) => [30 + (24 * k) / (TRACK - 1) - 6.9 * o, 46 + (42 * k) / (TRACK - 1) + 4 * o];
-const racetrack = [...Array.from({ length: TRACK }, (_, k) => leg(k, 0)), ...Array.from({ length: TRACK }, (_, k) => leg(TRACK - 1 - k, 1))];
-const echo = (x: number, y: number, k: number, n: number, r: number) => {
-  const deg = (Math.atan2(x - 60, 60 - y) * 180) / Math.PI;
-  const t = k * SWEEP + (((deg - 60 + 720) % 360) / 360) * SWEEP;
-  return `<circle class='${n > 1 ? 'lg-track' : 'lg-blip'}' style='animation-delay:${(t - n * SWEEP).toFixed(2)}s;fill:var(--lg3)' cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${r}'/>`;
-};
+// Loopline's M: two lines from the middle interchange out to the termini, with terminus bars.
+const metroM = (cls: string, a: number, b: number) => `<g class='${cls}' fill='none' stroke-width='12' stroke-linejoin='round'>`
+  + `<path pathLength='100' d='M60 68L24 30V98' style='stroke:var(--lg${a})'/><path pathLength='100' d='M60 68L96 30V98' style='stroke:var(--lg${b})'/>`
+  + `<path class='bar' d='M12 98H36' style='stroke:var(--lg${a})' stroke-width='7'/><path class='bar' d='M84 98H108' style='stroke:var(--lg${b})' stroke-width='7'/></g>`;
+// Polaris compass rose, 16 winds: [length, half width, first angle, step, count] per ring of arms, small to big.
+const ARMS = [[30, 4.5, 22.5, 45, 8], [40, 6.5, 45, 90, 4], [54, 8, 0, 90, 4]];
+const kite = (len: number, w: number, s: number) => `M60 ${60 - len}L${60 + s * w} ${60 - w}L60 60Z`;
 const ringBack ='M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
 const star = (x: number, y: number, r: number) => `M${x} ${y - r}L${x + r * .3} ${y - r * .3}L${x + r} ${y}L${x + r * .3} ${y + r * .3}L${x} ${y + r}L${x - r * .3} ${y + r * .3}L${x - r} ${y}L${x - r * .3} ${y - r * .3}Z`;
 
@@ -83,26 +78,29 @@ const LOGOS: Record<string, (u: string) => string> = {
       const d = (r * Math.SQRT1_2).toFixed(1), lo = (60 - +d).toFixed(1), hi = (60 + +d).toFixed(1);
       return `<path class='lg-wave' style='animation-delay:${i * .3}s' d='M${hi} ${lo}A${r} ${r} 0 0 1 ${hi} ${hi}M${lo} ${lo}A${r} ${r} 0 0 0 ${lo} ${hi}'/>`;
     }).join('') + `</g><circle cx='60' cy='60' r='9' style='fill:var(--lg2)'/>`,
-  // Loopline Metro: a circle line, a cross-town line with metro-map terminus bars, two interchanges; a train runs the cross-town line,
-  // stopping at every station (the stops are keyframes in style.css).
-  loopline: () => `<circle cx='60' cy='60' r='32' fill='none' style='stroke:var(--lg2)' stroke-width='9'/>`
-    + `<g fill='none' stroke-linejoin='round'><path d='${metro}' stroke='${BG}' stroke-width='17'/><path d='${metro}' style='stroke:var(--lg1)' stroke-width='9'/>`
-    + `<path d='M2.2 86.2L17.8 101.8M102.2 18.2L117.8 33.8' style='stroke:var(--lg1)' stroke-width='6'/>`
-    + `<path class='lg-shuttle' pathLength='100' d='${metro}' style='stroke:var(--lg3)' stroke-width='4' stroke-linecap='round'/></g>`
-    + [[30.8, 73.2], [89.2, 46.8]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='7.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3'/>`).join('')
-    // The interchange the train stands at sends out a soft ring (half a cycle apart, like the stops).
-    + `<circle class='lg-stop' cx='30.8' cy='73.2' r='7.5'/><circle class='lg-stop' style='animation-delay:-3s' cx='89.2' cy='46.8' r='7.5'/>`,
-  // Coming soon. Polaris Air Control: a radar dial around the pole star. Like a real scope, an echo only shows (and moves) when the
-  // sweep passes it, then fades: two parked echoes, and a plane whose echo steps along a track beside the centre.
-  polaris: (u) => `<defs>${lin(u + 'a', [12, 12, 108, 108], '1 2')}<radialGradient id='${u}s' gradientUnits='userSpaceOnUse' cx='60' cy='60' r='46'>`
-    + `<stop offset='0' style='stop-color:var(--lg1)' stop-opacity='0'/><stop offset='1' style='stop-color:var(--lg1)' stop-opacity='.6'/></radialGradient></defs>`
-    + `<circle cx='60' cy='60' r='48' fill='none' stroke='url(#${u}a)' stroke-width='8'/>`
-    + `<circle cx='60' cy='60' r='30' fill='none' style='stroke:var(--lg2)' stroke-width='2' opacity='.45'/>`
-    + `<path d='M60 20V30M60 90V100M20 60H30M90 60H100' style='stroke:var(--lg2)' stroke-width='3' stroke-linecap='round' opacity='.7'/>`
-    + `<g class='lg-sweep'><path d='M60 60V14A46 46 0 0 1 99.8 37Z' fill='url(#${u}s)'/><path d='M60 60L99.8 37' style='stroke:var(--lg1)' stroke-width='3' stroke-linecap='round'/></g>`
-    + echo(74, 30, 0, 1, 4) + echo(96, 54, 0, 1, 3.5)
-    + racetrack.map(([x, y], k) => echo(x, y, k, racetrack.length, 3.2)).join('')
-    + `<path d='${star(60, 60, 13)}' style='fill:var(--lg3)'/>`,
+  // Loopline Metro: an M drawn as two metro lines meeting at a white interchange; now and then each line's colour
+  // runs out of the interchange to the terminus (the overlay copy with swapped colours, wiped in style.css).
+  loopline: () => metroM('', 1, 2) + metroM('lg-wipe', 2, 1)
+    + [[24, 30], [96, 30]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='4.5' style='fill:var(--lg3)'/>`).join('')
+    + `<circle cx='60' cy='68' r='9' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3.5'/>`,
+  // Coming soon. Polaris Air Control: a 16-wind compass rose in polar colours, north in aurora; a snowy sheen slides across it.
+  polaris: (u) => {
+    // Each arm is two faces: [left colour, opacity, right colour, opacity] per ring of arms.
+    const faces = [[2, .35, 2, .6], [2, .7, 1, .55], [2, 1, 1, 1]];
+    const arms = ARMS.map(([len, w, r0, step, n], i) => Array.from({ length: n }, (_, k) => {
+      const [a, oa, b, ob] = faces[i];
+      return `<g transform='rotate(${r0 + step * k} 60 60)'><path d='${kite(len, w, -1)}' style='fill:var(--lg${i === 2 && !k ? 3 : a})' fill-opacity='${oa}'/>`
+        + `<path d='${kite(len, w, 1)}' style='fill:var(--lg${b})' fill-opacity='${ob}'/></g>`;
+    }).join('')).join('');
+    const clip = ARMS.flatMap(([len, w, r0, step, n]) => Array.from({ length: n }, (_, k) =>
+      `<path transform='rotate(${r0 + step * k} 60 60)' d='M60 ${60 - len}L${60 + w} ${60 - w}L60 60L${60 - w} ${60 - w}Z'/>`)).join('');
+    return `<defs><clipPath id='${u}c'>${clip}</clipPath><linearGradient id='${u}w' x1='0' x2='1'><stop offset='0' style='stop-color:var(--lg1)' stop-opacity='0'/>`
+      + `<stop offset='.5' style='stop-color:var(--lg1)' stop-opacity='.85'/><stop offset='1' style='stop-color:var(--lg1)' stop-opacity='0'/></linearGradient></defs>`
+      + `<circle cx='60' cy='60' r='22' fill='none' style='stroke:var(--lg2)' stroke-width='1.5' opacity='.6'/>`
+      + `<g stroke='${BG}' stroke-width='1.4' stroke-linejoin='round'>${arms}</g>`
+      + `<g clip-path='url(#${u}c)'><g transform='rotate(25 60 60)'><rect class='lg-sheen' x='-50' y='-30' width='26' height='180' fill='url(#${u}w)'/></g></g>`
+      + `<circle cx='60' cy='60' r='3.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='1.5'/>`;
+  },
 };
 
 const LOCKED = "<circle class='lg-ring dashed' cx='60' cy='60' r='54'/><text class='lg-q' x='60' y='78'>?</text>";
