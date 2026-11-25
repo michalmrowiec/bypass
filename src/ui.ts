@@ -2658,4 +2658,6 @@ function playChallenge(ch: Challenge) {
 }
 
 // Dev server only: jump straight to the daemon offer from the console (window.bypassDev.offer()).
+// Fetch the 3D pack module early so the first daemon offer does not wait for three.js.
+if (use3d()) setTimeout(() => import('./pack3d').catch(() => {}), 3000);
 if (import.meta.env.DEV) (window as unknown as { bypassDev: object }).bypassDev = { run: () => R, offer: (legend = false) => { R.packPick = undefined; R.legendOffer = legend; showOffer(); } };

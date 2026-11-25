@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import type { PackHandle, PackOpts, PackView } from './pack3d-api';
 
 const FONT = '"JetBrains Mono", monospace', HEX = '0123456789ABCDEF', MINT = '#5af2a8', DATA = '#2ee6d6', MUTED = '#6b767c';
+// Mix order: warm, white in the middle, cool, so no colour gets squeezed at an edge.
+const MIX = ['botnet', 'runner', 'cron', 'root', 'splicer', 'ghost'];
 const FC = { splicer: '#3dd9ff', ghost: '#b9a6ff', runner: '#f0b35a', cron: '#c6e46b', botnet: '#ff8f6b', root: '#f2f5f8' }; // .c-<family> --fc in style.css
 const HOLO = ['#ff3d8b', '#f3e9ff', '#5af2a8', '#3dd9ff', '#b9a6ff', '#ff3d8b'];
 const METAL = ['#7d868c', '#f4f8fa', '#98a1a7', '#ffffff', '#7b848a', '#dce3e7', '#8f989e'];
@@ -67,7 +69,8 @@ function famGlass(v, w, o = {}) {
   const t = canvasTex(512, 4, (g, cw, ch) => {
     const r = g.createLinearGradient(0, 0, cw, 0);
     if (n === 1) { r.addColorStop(0, cs[0]); r.addColorStop(.5, mixc(cs[0], .8, '#ffffff')); r.addColorStop(1, cs[0]); }
-    else cs.forEach((c, i) => { const e = n === 2 ? .15 : .04; r.addColorStop(Math.max(0, i / n + e), c); r.addColorStop(Math.min(1, (i + 1) / n - e), c); });
+    else if (n === 6) cs.forEach((c, i) => r.addColorStop((i + .5) / n, c));
+    else cs.forEach((c, i) => { const e = .15; r.addColorStop(Math.max(0, i / n + e), c); r.addColorStop(Math.min(1, (i + 1) / n - e), c); });
     g.fillStyle = r; g.fillRect(0, 0, cw, ch);
   });
   t.repeat.set(1 / w, 1); t.offset.set(.5, 0);
@@ -189,7 +192,7 @@ function buildCase(v, cards, holo) {
   cards.forEach((c, i) => { c.m.position.set(0, 0, z0(i)); box.add(c.m); });
   const last = 1800 + (n - 1) * 220 + 200;
   return {
-    g, rest: { x: -.42, y: -.1 }, end: last + 700,
+    g, rest: { x: -.55, y: -.04 }, end: last + 700,
     tick(now) { seal.tick(now); if (seam && seam.visible) seam.material.opacity = v.tier === 'legendary' ? .55 + .35 * Math.sin(now / 520) : .5; },
     step(t, release) {
       const fl = seal.step(t);
@@ -257,7 +260,7 @@ export async function mountPack3d(host: HTMLElement, view: PackView, opts: PackO
   if (!host.isConnected) return null;
   let R3;
   try { R3 = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch { return null; }
-  const v = { ...view, fc: view.fams.length === 6 ? '#cfd8dc' : FC[view.fams[0]] };
+  const v = { ...view, fams: view.fams.length === 6 ? MIX : view.fams, fc: view.fams.length === 6 ? '#cfd8dc' : FC[view.fams[0]] };
   host.innerHTML = "<div class='pk3dom'></div>";
   const dom = host.querySelector('.pk3dom');
   host.prepend(R3.domElement); R3.domElement.className = 'pk3gl';
@@ -278,7 +281,7 @@ export async function mountPack3d(host: HTMLElement, view: PackView, opts: PackO
     w = host.clientWidth; h = host.clientHeight;
     // a fixed camera distance (the open stage's) keeps the perspective mild in a short sealed slot; the fov keeps 1 world unit = 1 px at z = 0
     R3.setSize(w, h, false); cam.aspect = w / h; cam.fov = 2 * Math.atan(h / 2 / CAMD) * 180 / Math.PI; cam.position.set(0, 0, CAMD); cam.updateProjectionMatrix();
-    s1 = Math.min(1, (w - 24) / W); pk.g.scale.setScalar(.82 * Math.min(1, w / 620));
+    s1 = Math.min(1, (w - 24) / W); pk.g.scale.setScalar(.6 * Math.min(1, w / 620));
     cards.forEach((c) => c.dom && place(c));
   };
   // Hand a card over to the game's own 2D card at the same spot, edge-on mid-flip: it finishes the turn and plays its reveal.
@@ -353,8 +356,8 @@ export async function mountPack3d(host: HTMLElement, view: PackView, opts: PackO
     holo.forEach((t) => (t.offset.x = now / 6000 % 1));
     if (pk.g.visible) pk.tick(now);
     if (state === 'sealed') { // follows the pointer; idle sway shows off the thickness
-      const idle = now - lastMove > 1500, gx = idle ? Math.sin(now / 2600) * .5 : tx, gy = idle ? Math.sin(now / 3400) * .4 : ty;
-      cx += (gx - cx) * .05; cy += (gy - cy) * .05; pk.g.rotation.set(pk.rest.x + cy * .07, pk.rest.y + cx * .12, 0); // a small lean, not a swing
+      const idle = now - lastMove > 1500, gx = idle ? Math.sin(now / 2600) * .35 : tx, gy = idle ? Math.sin(now / 3400) * .3 : ty;
+      cx += (gx - cx) * .05; cy += (gy - cy) * .05; pk.g.rotation.set(pk.rest.x + cy * .03, pk.rest.y + cx * .05, 0); // a small lean, not a swing
     } else if (pk.g.visible) { const fl = pk.step(now - t0, release); if (fl) glow.material.opacity = .45 + .9 * Math.sin(Math.PI * fl); }
     stepCards(now);
     R3.render(scene, cam);
