@@ -93,9 +93,16 @@ function label(v, w, h) {
     });
     scanlines(g, w, h);
     g.fillStyle = hgrad(g, 0, w, n > 1 ? v.fams.map((f) => FC[f]) : [FC[v.fams[0]], mixc(FC[v.fams[0]], .55, '#ffffff')]); g.fillRect(0, h - 3, w, 3);
-    const fs = Math.min(h * .34, 22), fc = n === 6 ? '#cfd8dc' : FC[v.fams[0]];
-    g.font = '800 ' + fs + 'px ' + FONT; g.fillStyle = '#fff'; g.shadowColor = ca(fc, .7); g.shadowBlur = 8; g.fillText(v.name, 12, h / 2 - fs * .05); g.shadowBlur = 0;
-    g.font = '600 ' + Math.round(fs * .42) + 'px ' + FONT; g.fillStyle = 'rgba(214,221,224,.7)'; g.fillText((v.sub + ' · encrypted').toUpperCase(), 12, h / 2 + fs * .62);
+    const word = v.name, fc = n === 6 ? '#cfd8dc' : FC[v.fams[0]];
+    let fs = h * .62; do g.font = '800 ' + fs + 'px ' + FONT; while (g.measureText(word).width > w - 28 && --fs > 8);
+    // family names in their colours, like on the daemon cards; "+" and ".tgz" stay grey; mixed/legendary run a gradient
+    g.textBaseline = 'middle'; g.shadowBlur = 8; let x = 14;
+    const ww = g.measureText(word).width, grad = n === 6 ? hgrad(g, 14, 14 + ww, MIX.map((f) => FC[f])) : v.tier === 'legendary' && !FC[word.split(/[+.]/)[0]] ? hgrad(g, 14, 14 + ww, HOLO) : null;
+    word.split(/(\+|\.tgz$)/).filter(Boolean).forEach((p) => {
+      const c = FC[p] || (grad && p !== '.tgz' ? null : '#9aa6ab'); g.fillStyle = c || grad; g.shadowColor = ca(c && FC[p] ? c : fc, .6);
+      g.fillText(p, x, h / 2 + 1); x += g.measureText(p).width;
+    });
+    g.shadowBlur = 0;
   });
   t.anisotropy = 8; return plane(w, h, t);
 }
