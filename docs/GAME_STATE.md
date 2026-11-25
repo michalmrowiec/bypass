@@ -80,7 +80,7 @@ Wszystkie ICE mogą się sumować. Timeout odrzuciliśmy, bo czas zostaje dla Ho
 |---|---|
 | **Splicer** (nakładanie) | Chain (rare), Compressor, Full stack (legendary), Deflate (legendary), Joker (rare), Saturate ×(1 + 0,2 za slot bufora) (legendary), All-in ×2/×0,5 (rare) |
 | **Ghost** (minimalizm) | Overflow (+0,2 boost za pusty slot), Light footprint (legendary), Silent, Cache (rare, stack; zeruje się przy wgraniu wszystkich targetów), Echo (rare), Sandbag (rare, room) |
-| **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler, Painter (rare; +8 data za poziom farby, bez limitu poziomów, max 6 komórek) |
+| **Runner** (geometria) | Long jump, Corner, Zigzag (rare), Crawler, Painter (rare; +7 data za każde malowanie, bez limitu poziomów i komórek; pominięta komórka raz zostaje z 20%, drugi raz znika) |
 | **Cron** (serie) | Heartbeat (rare), Rotate (+5), Backup (rare), Uptime (+8), Overtime (rare, room), Warm-up (room) |
 | **Botnet** (osobne targety, koral) | Spray (+25 data za każdy wgrany target po pierwszym), Fork (×1,5 przy 2+ wgranych, ale nie wszystkich), Parallel (rare; +0,75 boost za wgrany target bez wspólnego kodu, przy 2+), Sweep (rare; ×2 gdy wszystkie wgrane i żadne nie dzielą kodu), Quorum (legendary; ×(1 + 0,5 za wgrany target), gdy 1+ target zostaje) |
 

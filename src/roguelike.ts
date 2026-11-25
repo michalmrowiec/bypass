@@ -280,7 +280,8 @@ export interface RunState {
   daemons: DaemonId[];
   stacks: Partial<Record<string, number>>; // by daemon id (string keeps DAEMONS from typing itself) // streak daemons' banked stacks
   lastStart?: number; // column of the previous matrix's first pick (cron/rotate)
-  paint?: Record<string, number>; // Painter: cell 'r,c' → level 1+, from the last matrix with an upload
+  paint?: Record<string, number>; // Painter: cell 'r,c' → data it pays, from the last matrix with an upload
+  paintFaded?: string[]; // Painter: cells already cut to PAINT_KEEP; skipped again, they go
   rack: number; // rack slots for items
   items: ItemId[]; // shop items owned, kept for the run
   shelf: ItemId[]; // what the shop offers on this visit
@@ -545,9 +546,7 @@ interface Daemon {
 // Flat data per stack: Uptime (no Disconnect) pays more than the easy Rotate.
 export const CRON_DATA = 8, ROTATE_DATA = 5;
 export const LONGJUMP_DATA = 15, SPRAY_DATA = 25;
-export const PAINT_DATA = 8, PAINT_CELLS = 6;
-// Painter: data a painted cell pays when picked.
-export const paintData = (level: number) => PAINT_DATA * level;
+export const PAINT_DATA = 7, PAINT_KEEP = 0.2;
 
 export const DAEMONS = {
   chain: { name: 'Chain', family: 'Splicer', rarity: 'rare', text: '+0.5 boost per buffer slot shared by 2 uploaded targets',
@@ -590,12 +589,18 @@ export const DAEMONS = {
     score: (f) => (f.done.length && f.trace ? { mult: 1 + 0.25 * f.done.length } : null) },
   crawler: { name: 'Crawler', family: 'Runner', text: '+5 data per different cell on the path',
     score: (f) => (f.cells ? { flat: 5 * f.cells } : null) },
-  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Every cell on your path stays painted in the next matrix (once a target is uploaded); picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again, with no limit',
-    score: (f, s) => { const v = [...new Set(f.keys)].reduce((a, k) => a + (s.paint?.[k] ? paintData(s.paint[k]) : 0), 0); return v ? { flat: v } : null; },
+  painter: { name: 'Painter', family: 'Runner', rarity: 'rare', text: 'Every cell on your path stays painted in the next matrix (once a target is uploaded); picking one pays +' + PAINT_DATA + ' data, +' + PAINT_DATA + ' more each time it is painted again, with no limit; a painted cell off your path keeps ' + PAINT_KEEP * 100 + '% once, the next time it is gone',
+    score: (f, s) => { const v = [...new Set(f.keys)].reduce((a, k) => a + (s.paint?.[k] ?? 0), 0); return v ? { flat: v } : null; },
     end: (s, f) => {
-      // Repainted cells go up a level; the highest levels stay when there are too many.
-      const next = [...new Set(f.keys)].map((k) => [k, (s.paint?.[k] ?? 0) + 1] as const);
-      s.paint = Object.fromEntries(next.sort((a, b) => b[1] - a[1]).slice(0, PAINT_CELLS));
+      const on = new Set(f.keys), paint: Record<string, number> = {}, faded: string[] = [];
+      for (const k of on) paint[k] = (s.paint?.[k] ?? 0) + PAINT_DATA;
+      for (const [k, v] of Object.entries(s.paint ?? {})) {
+        if (on.has(k) || s.paintFaded?.includes(k)) continue;
+        paint[k] = Math.max(1, Math.round(v * PAINT_KEEP));
+        faded.push(k);
+      }
+      s.paint = paint;
+      s.paintFaded = faded;
     } },
   circuit: { name: 'Circuit', family: 'Runner', rarity: 'legendary', text: '×2 when the last pick is in the row or column of the first',
     score: (f) => (f.loop ? { mult: 2 } : null) },

@@ -787,15 +787,29 @@ describe('playtest daemons, bounties and Glob', () => {
   it('Painter paints the path of a matrix with an upload and levels up a repainted cell', () => {
     const s = run('painter');
     daemonsAfterMatrix(ctx, s, false); // A B C D all uploaded
-    expect(s.paint).toEqual({ '0,0': 1, '4,0': 1, '4,2': 1, '0,2': 1 });
-    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 32 }]]);
+    expect(s.paint).toEqual({ '0,0': 7, '4,0': 7, '4,2': 7, '0,2': 7 });
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 28 }]]);
     daemonsAfterMatrix({ ...ctx, buf: ['A', 'B', 'X', 'Y'], targets: [['A', 'B']] }, s, false); // only AB
-    expect(s.paint).toEqual({ '0,0': 2, '4,0': 2, '4,2': 2, '0,2': 2 }); // the whole path, not only AB
-    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 64 }]]); // 4 cells at +16
+    expect(s.paint).toEqual({ '0,0': 14, '4,0': 14, '4,2': 14, '0,2': 14 }); // the whole path, not only AB
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 56 }]]);
     daemonsAfterMatrix({ ...ctx, buf: ['X', 'Y'] }, s, false); // nothing uploaded: the paint stays
-    expect(s.paint).toEqual({ '0,0': 2, '4,0': 2, '4,2': 2, '0,2': 2 });
+    expect(s.paint).toEqual({ '0,0': 14, '4,0': 14, '4,2': 14, '0,2': 14 });
     for (let i = 0; i < 4; i++) daemonsAfterMatrix(ctx, s, false);
-    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 192 }]]); // no cap: 4 cells at level 6, +48 each
+    expect(scoreMatrix(ctx, s).fired).toEqual([['painter', { flat: 168 }]]); // no cap: 4 cells at +42
+  });
+
+  it('Painter: a skipped cell keeps 20% once, then goes; repainting builds on what is left', () => {
+    const s = run('painter');
+    for (let i = 0; i < 5; i++) daemonsAfterMatrix(ctx, s, false); // 4 cells at 35
+    const half = { ...ctx, path: [[0, 0], [4, 0]] as [number, number][] };
+    daemonsAfterMatrix(half, s, false);
+    expect(s.paint).toEqual({ '0,0': 42, '4,0': 42, '4,2': 7, '0,2': 7 });
+    daemonsAfterMatrix(half, s, false);
+    expect(s.paint).toEqual({ '0,0': 49, '4,0': 49 });
+    daemonsAfterMatrix(ctx, s, false);
+    daemonsAfterMatrix(half, s, false);
+    daemonsAfterMatrix(ctx, s, false); // back on a faded cell: 1 + 7
+    expect(s.paint).toEqual({ '0,0': 70, '4,0': 70, '4,2': 8, '0,2': 8 });
   });
 
   it('Botnet pays for separate uploads, not linked ones', () => {
