@@ -3,7 +3,7 @@ import { contains, isLegal, newRun, partner, pick, WILD } from './game';
 import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
-  buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, played, shareSquares,
+  buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, offerPacks, played, shareSquares,
   beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop, lockItem,
   setMiner, minerIdle, entryOf, payLevel, priceOf, zipPrice, setBossIce, canDisconnect, needsStartChoice, DAEMONS, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
@@ -1093,6 +1093,46 @@ describe('entries', () => {
     const s = newRunState(1, co('kestrel'), 'courier');
     stockShop(s);
     expect(s.shelf.length).toBe(3);
+  });
+
+  it('offers two packs of 3 (a mega pack 4) distinct unowned daemons from their families, stable per seed and section', () => {
+    let mega = 0;
+    for (let seed = 0; seed < 200; seed++) {
+      const st = { ...newRunState(seed), daemons: ['chain'] as DaemonId[] }, packs = offerPacks(st), all = packs.flatMap((p) => p.cards);
+      expect(packs).toHaveLength(2);
+      expect(new Set(all).size).toBe(all.length);
+      for (const p of packs) { expect([3, 4]).toContain(p.cards.length); if (p.cards.length === 4) mega++; }
+      expect(all).not.toContain('chain');
+      for (const p of packs) for (const id of p.cards) expect(p.fams).toContain(DAEMONS[id].family);
+      expect(packs[0].fams.join()).not.toBe(packs[1].fams.join());
+      for (const p of packs) expect([1, 2, 6]).toContain(p.fams.length);
+      expect(offerPacks({ ...newRunState(seed), daemons: ['chain'] as DaemonId[] })).toEqual(packs);
+    }
+    expect(mega).toBeGreaterThan(10);
+  });
+
+  it('a RARE+ / LEGENDARY+ pack holds at least one card of its tier, best card last', () => {
+    let seen = 0;
+    for (let seed = 0; seed < 600; seed++) for (const p of offerPacks(newRunState(seed))) {
+      const rank = p.cards.map((id) => ['common', 'rare', 'legendary'].indexOf(rarityOf(id)));
+      expect(rank).toEqual([...rank].sort());
+      if (p.tier) { seen++; expect(p.cards.some((id) => rarityOf(id) === p.tier)).toBe(true); }
+    }
+    expect(seen).toBeGreaterThan(50);
+  });
+
+  it('the legendary bonus is one pack of two legendaries', () => {
+    const s = newRunState(3);
+    s.legendOffer = true;
+    const packs = offerPacks(s);
+    expect(packs.map((p) => [p.kind, p.cards.length])).toEqual([['legend2', 2]]);
+    expect(packs[0].cards.every((id) => rarityOf(id) === 'legendary')).toBe(true);
+  });
+
+  it('a fixed-family entry offers a single pack of that family', () => {
+    const p = offerPacks(newRunState(1, co('meridian'), 'nightshift'));
+    expect(p.map((x) => [x.kind, x.fams, x.cards.length])).toEqual([['one', ['Cron'], 3]]);
+    expect(p[0].cards.every((id) => DAEMONS[id].family === 'Cron')).toBe(true);
   });
 
   it('Night shift offers 4 Cron daemons at normal prices', () => {

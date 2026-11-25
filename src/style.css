@@ -1311,3 +1311,26 @@ button.icebtn:hover .iceRule,button.icebtn:focus-visible .iceRule{background:col
 .paytable .pthumb img{display:block;width:64px;aspect-ratio:96/130;border-radius:5px;background:#0e1214;box-shadow:0 3px 10px rgba(0,0,0,.45)}
 .paytable .pthumb img:not([src]){visibility:hidden}
 .paytable:not(.wide) .pthumb{display:none}
+
+/* Daemon packs (offer): sealed cases to choose from. Glass: pack3d.ts draws each in its own canvas; the picked one grows and opens. */
+.packs{display:flex;flex-direction:column;gap:0;margin:8px 0}
+.pk3{position:relative;height:112px;transition:height .35s ease-out;user-select:none;-webkit-user-select:none}
+.pk3.open{height:440px}
+.pk3gl{position:absolute;inset:0;width:100%;height:100%}
+.pk3dom{position:absolute;inset:0;pointer-events:none}
+.pk3card{position:absolute;display:flex;pointer-events:auto;transform-origin:0 0}
+.pk3card .dslot{flex:1}
+/* Classic style (or no WebGL): flat packs in the family colours and textures, two families side by side. */
+.packbtn{position:relative;display:flex;flex-direction:column;gap:2px;padding:14px 16px;overflow:hidden;text-align:left;font:inherit;color:var(--ink);cursor:var(--hit);
+  background:var(--panel);border:1px solid var(--line)}
+.packbtn:hover,.packbtn:focus-visible{border-color:var(--mint)}
+.pskin{position:absolute;inset:0;display:flex;pointer-events:none}
+.pskin i{flex:1;background:var(--tex,none),linear-gradient(165deg,color-mix(in srgb,var(--fc) 22%,transparent),transparent 80%)}
+.packbtn>b,.packbtn>small,.pbadge{position:relative}
+.packbtn>b{font-size:15px}
+.packbtn>small{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.pbadge{position:absolute;top:50%;right:16px;transform:translateY(-50%);padding:2px 8px;font-style:normal;font-size:11px;font-weight:700;letter-spacing:.1em;border:1px solid currentColor}
+.packbtn.t-rare{border-color:var(--rare)}
+.packbtn.t-rare .pbadge{color:var(--rare)}
+.packbtn.t-legendary{border-color:var(--legend);box-shadow:0 0 14px -6px var(--legend)}
+.packbtn.t-legendary .pbadge{color:var(--legend)}

@@ -299,6 +299,7 @@ export interface RunState {
   freeRerolls?: number; // bonus rewards
   legendOffer?: boolean; // bonus reward: the next offer leads with a legendary (a rare if none is left)
   lastOffer?: DaemonId[]; // the previous daemon offer, kept out of the next one
+  packPick?: number; // the daemon pack opened at this offer (offerPacks index)
   charges?: number; // bonus reward: ×2 data charges, spent by hand on a matrix
   bonus?: RewardId[]; // bonus rewards claimed since the last shop, marked in the offer and shop
   events?: string[]; // what happened in the run, shown to the player as a log
@@ -953,6 +954,60 @@ export function offerDaemons(s: RunState): DaemonId[] {
     const x = r(), tier: Rarity = x < RARITY.legendary ? 'legendary' : x < RARITY.legendary + RARITY.rare ? 'rare' : 'common';
     const left = pool.filter((id) => !out.includes(id));
     out.push(left.find((id) => rarityOf(id) === tier) ?? left[0]);
+  }
+  return out;
+}
+
+// Daemon packs (docs/DESIGN.md "Paczki daemonów"): the offer is two sealed packs to choose from, each one family, two families or a mix,
+// sometimes guaranteeing a rare or a legendary. A fixed-family entry gets a single pack; the legendary bonus is one pack of two legendaries.
+export type PackKind = 'one' | 'duo' | 'mix' | 'legend2';
+export type DaemonPack = { kind: PackKind; fams: Family[]; tier?: 'rare' | 'legendary'; cards: DaemonId[] };
+export const PACK_TIER = { rare: 0.15, legendary: 0.04 };
+export const PACK_SIZE = 3, PACK_MEGA = 0.1; // now and then a mega pack holds 4
+export const PACK_KIND = { mix: 0.5, duo: 0.35 }; // the rest (15%) is a single family // chance a pack is labelled RARE+ / LEGENDARY+
+const FAMILIES: Family[] = ['Splicer', 'Ghost', 'Runner', 'Cron', 'Botnet', 'Root'];
+const RANK: Record<Rarity, number> = { common: 0, rare: 1, legendary: 2 };
+// The label's tier is guaranteed (falling back to the next rarity down when the pack's pool has none); the other cards roll as usual.
+function fillPack(s: RunState, fams: Family[], size: number, tier: DaemonPack['tier'], taken: DaemonId[], r: () => number): DaemonId[] {
+  const free = (Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && !taken.includes(id) && fams.includes(DAEMONS[id].family));
+  const pool = shuffled(free.filter((id) => !s.lastOffer?.includes(id)), r);
+  if (pool.length < size) pool.push(...shuffled(free.filter((id) => s.lastOffer?.includes(id)), r)); // a small pool reuses the last offer
+  const out: DaemonId[] = [];
+  if (tier) { const g = pool.find((id) => rarityOf(id) === tier) ?? (tier === 'legendary' ? pool.find((id) => rarityOf(id) === 'rare') : undefined); if (g) out.push(g); }
+  while (out.length < size && out.length < pool.length) {
+    const x = r(), t: Rarity = x < RARITY.legendary ? 'legendary' : x < RARITY.legendary + RARITY.rare ? 'rare' : 'common';
+    const left = pool.filter((id) => !out.includes(id));
+    out.push(left.find((id) => rarityOf(id) === t) ?? left[0]);
+  }
+  return out.sort((a, b) => RANK[rarityOf(a)] - RANK[rarityOf(b)]); // common → rare → legendary: the best card opens last
+}
+export function offerPacks(s: RunState): DaemonPack[] {
+  const r = rng(hashStr(s.seed + '/packs/' + visit(s)));
+  const fam = entryOf(s).family, size = PACK_SIZE;
+  const left = (f: Family) => (Object.keys(DAEMONS) as DaemonId[]).some((id) => DAEMONS[id].family === f && !s.daemons.includes(id));
+  if (s.legendOffer) { // bonus: two legendaries to choose from (rares when legendaries run out)
+    const cards: DaemonId[] = [];
+    const pool = shuffled((Object.keys(DAEMONS) as DaemonId[]).filter((id) => !s.daemons.includes(id) && (!fam || DAEMONS[id].family === fam)), r);
+    for (const t of ['legendary', 'rare', 'common'] as Rarity[]) for (const id of pool) if (cards.length < 2 && rarityOf(id) === t) cards.push(id);
+    if (cards.length) return [{ kind: 'legend2', fams: [...new Set(cards.map((id) => DAEMONS[id].family))], tier: 'legendary', cards: cards.sort((a, b) => RANK[rarityOf(a)] - RANK[rarityOf(b)]) }];
+  }
+  const tierRoll = (): DaemonPack['tier'] => { const x = r(); return x < PACK_TIER.legendary ? 'legendary' : x < PACK_TIER.legendary + PACK_TIER.rare ? 'rare' : undefined; };
+  // The label promises only what the pack really holds (a pool with no legendary left falls back to rare).
+  const label = (cards: DaemonId[], tier: DaemonPack['tier']): DaemonPack['tier'] =>
+    tier && cards.some((id) => rarityOf(id) === tier) ? tier : tier && cards.some((id) => rarityOf(id) === 'rare') ? 'rare' : undefined;
+  if (fam) { const tier = tierRoll(), cards = fillPack(s, [fam], size, tier, [], r); return cards.length ? [{ kind: 'one', fams: [fam], tier: label(cards, tier), cards }] : []; }
+  const out: DaemonPack[] = [], fams = FAMILIES.filter(left);
+  const avail = (pick: Family[]) => (Object.keys(DAEMONS) as DaemonId[]).filter((id) => pick.includes(DAEMONS[id].family) && !s.daemons.includes(id) && !out.some((p) => p.cards.includes(id))).length;
+  for (let n = 0; n < 2 && fams.length; n++) {
+    let pick: Family[] = FAMILIES;
+    const size = r() < PACK_MEGA ? PACK_SIZE + 1 : PACK_SIZE;
+    for (let tries = 0; tries < 8; tries++) { // a full pack with a different look from the first one; a mix is the fallback
+      const x = r(), kind: PackKind = x < PACK_KIND.mix ? 'mix' : x < PACK_KIND.mix + PACK_KIND.duo && fams.length > 1 ? 'duo' : 'one';
+      const sub = shuffled([...fams], r).slice(0, kind === 'duo' ? 2 : 1), p = kind === 'mix' ? FAMILIES : FAMILIES.filter((f) => sub.includes(f));
+      if (avail(p) >= size && !out.some((o) => o.fams.join() === p.join())) { pick = p; break; }
+    }
+    const tier = tierRoll(), cards = fillPack(s, pick, size, tier, out.flatMap((p) => p.cards), r);
+    if (cards.length) out.push({ kind: pick.length === 6 ? 'mix' : pick.length === 2 ? 'duo' : 'one', fams: pick, tier: label(cards, tier), cards });
   }
   return out;
 }

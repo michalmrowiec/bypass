@@ -10,13 +10,14 @@ import {
 } from './matrix';
 import {
   buy, verOf, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
-  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerDaemons, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, travelledOf, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop, lockItem,
+  burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerPacks, type DaemonPack, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, travelledOf, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop, lockItem,
   logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
 } from './storage';
 import { webglOk, type ZipCard } from './zip3d-api';
+import type { PackHandle } from './pack3d-api';
 
 type Mode = 'daily' | 'train' | 'sprint' | 'run';
 interface DailyRecord { score: number; tries: number; time: number }
@@ -1202,32 +1203,70 @@ const owned = (shop = false) => {
     + (shop && R.rack < RACK_MAX ? "<button class='btn go slotbtn' id='buySlot'" + (R.credits < slotCost(R) ? ' disabled' : '') + '>Rack slot +1 · ' + money(slotCost(R)) + '</button>' : '') + '</div></div>';
 };
 
+// Daemon offer: sealed packs to choose from (offerPacks); the picked one opens and its daemons go on offer as before.
+// Glass style opens it in 3D (pack3d.ts, lazily loaded); classic style or no WebGL shows flat pack buttons and the card list.
+let packs: DaemonPack[] = [];
+const packName = (p: DaemonPack) => (p.kind === 'legend2' ? 'legendary.tgz' : p.kind === 'mix' ? 'mixed.tgz' : p.fams.map((f) => f.toLowerCase()).join('+') + '.tgz');
+const packSub = (p: DaemonPack) => (p.cards.length > 3 && p.kind !== 'legend2' ? 'mega · ' : '') + p.cards.length + ' daemons · ' + (p.kind === 'mix' ? 'all families' : p.fams.length + (p.fams.length > 1 ? ' families' : ' family'));
+const packBadge = (p: DaemonPack) => (p.kind === 'legend2' ? 'LEGENDARY ×2' : p.tier ? p.tier.toUpperCase() + '+' : '');
 function showOffer() {
-  offer = offerDaemons(R);
-  if (!offer.length) return showShop();
+  packs = offerPacks(R);
+  if (!packs.length) return showShop();
   checkpoint('offer');
+  const pick = R.packPick != null && packs[R.packPick] ? R.packPick : undefined;
+  offer = pick === undefined ? [] : packs[pick].cards;
   const full = R.daemons.length >= daemonSlots(R);
   // The swap price depends on which installed daemon goes, so the offer shows the range.
   const costs = R.daemons.map(swapCost), lo = Math.min(...costs), hi = Math.max(...costs);
   const range = money(lo) + (hi > lo ? '–' + money(hi) : '');
   const poor = full && R.credits < lo;
-  showResult(true, '<h2>Choose a daemon</h2><p class="meta">' + (full ? 'Slots full · swapping one in costs ' + range + ' by the rarity you drop · credits ' + money(R.credits)
-    : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
-    + "<div class='dlist' id='offerList'>" + offer.map((id, i) => card(id, i, 'button', (i === 0 && leadsBonus(R, offer) ? "<span class='bnt'>bonus</span> " : '') + rich(DAEMONS[id].text), !full ? 'install ›' : poor ? 'need ' + money(lo) : 'swap in · ' + range, ' reveal' + (poor ? ' poor' : ''))).join('') + '</div>'
+  const bonus = (i: number) => (packs[R.packPick ?? 0]?.kind === 'legend2' || (i === 0 && leadsBonus(R, offer)) ? "<span class='bnt'>bonus</span> " : '');
+  const offerCard = (i: number, cls: string) => card(offer[i], i, 'button', bonus(i) + rich(DAEMONS[offer[i]].text), !full ? 'install ›' : poor ? 'need ' + money(lo) : 'swap in · ' + range, cls + (poor ? ' poor' : ''));
+  const take = (i: number) => { if (!full) { R.daemons.push(offer[i]); note('offer · installed ' + dmnFile(offer[i])); showShop(); } else if (!poor) showSwap(offer[i]); };
+  const glass = pick === undefined && use3d();
+  const flat = (p: DaemonPack, i: number) => "<button class='packbtn" + (p.tier ? ' t-' + p.tier : '') + "' data-pack='" + i + "'>"
+    + "<span class='pskin'>" + p.fams.map((f) => "<i class='c-" + f.toLowerCase() + "'></i>").join('') + '</span><b>' + packName(p) + '</b><small>' + packSub(p) + '</small>'
+    + (packBadge(p) ? "<em class='pbadge'>" + packBadge(p) + '</em>' : '') + '</button>';
+  showResult(true, '<h2>' + (pick === undefined ? (packs.length > 1 ? 'Choose a daemon pack' : 'Open the daemon pack') : 'Choose a daemon') + '</h2><p class="meta">'
+    + (full ? 'Slots full · swapping one in costs ' + range + ' by the rarity you drop · credits ' + money(R.credits) : 'Free to take · slots ' + R.daemons.length + '/' + daemonSlots(R)) + '</p>' + owned()
+    + (pick !== undefined ? "<div class='dlist' id='offerList'>" + offer.map((_, i) => offerCard(i, ' reveal')).join('') + '</div>'
+      : glass ? "<div class='packs' id='packs'>" + packs.map((_, i) => "<div class='pk3' data-pack='" + i + "'></div>").join('') + "</div><p class='meta z3log' id='packLog'></p>"
+        : "<div class='packs flat' id='packs'>" + packs.map(flat).join('') + '</div>')
     + "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button><button class='btn' id='offerCatalog'>Catalog</button><button class='btn' id='skipDaemon'>Skip · take none</button></div>");
   fold($('modalBox').querySelector('.dfold')!);
   $('offerCatalog').onclick = () => showCatalog(showOffer);
   $('viewMatrix').onclick = () => peek(true);
-  $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => {
-    b.onclick = () => { if (!full) { R.daemons.push(offer[i]); note('offer · installed ' + dmnFile(offer[i])); showShop(); } else if (!poor) showSwap(offer[i]); };
-  });
   $('skipDaemon').onclick = () => { note('offer · skipped'); showShop(); };
-  tilt($('modalBox'));
+  const choose = (i: number) => { R.packPick = i; note('offer · opened ' + packName(packs[i])); };
+  if (pick !== undefined) {
+    $('offerList').querySelectorAll<HTMLElement>('.dcard').forEach((b, i) => { b.onclick = () => take(i); });
+    tilt($('modalBox'));
+    return;
+  }
+  if (!glass) { $('packs').querySelectorAll<HTMLElement>('.packbtn').forEach((b) => { b.onclick = () => { choose(+b.dataset.pack!); showOffer(); }; }); return; }
+  // 3D: each pack mounts sealed; the one clicked grows and opens, the other leaves. Any failure falls back to the flat packs.
+  const log = (s: string) => { const l = document.getElementById('packLog'); if (l) l.innerHTML = s; };
+  log(packs.length > 1 ? 'two sealed packs · open one' : '<b>' + packName(packs[0]) + '</b> · sealed · click to open');
+  const hosts = [...$('modalBox').querySelectorAll<HTMLElement>('.pk3')], handles: (PackHandle | null)[] = [];
+  const fallback = () => { if (!hosts[0]?.isConnected) return; style = 'classic'; showOffer(); style = 'glass'; };
+  import('./pack3d').then((m) => Promise.all(packs.map((p, i) => m.mountPack3d(hosts[i], {
+    fams: p.fams.map((f) => f.toLowerCase()), tier: p.tier, emblem: p.kind === 'legend2' ? 'LEGENDARY ×2' : undefined, name: packName(p), sub: packSub(p), rars: p.cards.map(rarityOf),
+  }, {
+    animate: !matchMedia('(prefers-reduced-motion: reduce)').matches, log,
+    onPick: () => {
+      if (R.packPick != null) return;
+      choose(i); offer = p.cards; const h2 = $('modalBox').querySelector('h2'); if (h2) h2.textContent = 'Choose a daemon';
+      hosts.forEach((h, k) => { if (k !== i) h.remove(); });
+      hosts[i].classList.add('open'); handles[i]?.open();
+    },
+    card: (k) => offerCard(k, ''),
+    onCard: (el, k) => { el.querySelector<HTMLElement>('.dcard')!.onclick = () => take(k); tilt(el); },
+  })))).then((hs) => { if (hs.some((h) => !h)) { hs.forEach((h) => h?.dispose()); fallback(); } else handles.push(...hs); }, fallback);
 }
 
 // Shop between rooms: a seeded shelf of items, a paid reroll and paid daemon removal; Continue opens the next room.
 function showShop(restock = true) {
-  if (restock) { stockShop(R); R.legendOffer = false; R.lastOffer = offer; } // the offer before the shop used it
+  if (restock) { stockShop(R); R.legendOffer = false; R.lastOffer = offer; R.packPick = undefined; } // the offer before the shop used it
   checkpoint('shop');
   const cr = (n: number) => money(n);
   const off = (n: number) => (R.credits < n ? ' disabled' : '');
@@ -2617,3 +2656,6 @@ function playChallenge(ch: Challenge) {
   const first = firstResult(ch.kind + '.' + ch.seed);
   if (typeof first === 'number') showPlayed(first);
 }
+
+// Dev server only: jump straight to the daemon offer from the console (window.bypassDev.offer()).
+if (import.meta.env.DEV) (window as unknown as { bypassDev: object }).bypassDev = { run: () => R, offer: (legend = false) => { R.packPick = undefined; R.legendOffer = legend; showOffer(); } };
