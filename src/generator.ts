@@ -9,11 +9,14 @@ export const CODES = ['4B', '7F', 'C9', '1D', 'E5'];
 // block: a sealed row or column (BLOCK cells); the solution path never touches it.
 // burn: Corruption; the solution path never steps next to any of its last `burn` cells.
 // solo: the port pairs sit inside one n×n matrix instead of joining two.
-// mask: board shape, one string per row, '#' = no cell there (an L, a cross); not on port boards.
+// mask: board shape, one string per row, '#' = no cell there (an L, a cross, a long 4×8 on n 8); with ports only when solo.
 // dual: 1 to this many Dual cells, each with a second code a pick may take instead.
 // ports: a port board, two n×n matrices side by side with this many port pairs (block and burn are not supported there).
 export interface Size { n: number; lens: number[]; links: number[]; slack: number; codes?: string[]; deep?: number; block?: ['row' | 'col', number]; burn?: number; ports?: number; solo?: boolean; dual?: number; mask?: string[] }
 export const BLOCK = '##';
+// Rows and columns that exist: a long board (8×4 on n 8) masks its right half away.
+export const rowsOf = (z: Pick<Size, 'n' | 'mask'>) => z.mask?.filter((m) => m.includes('.')).length ?? z.n;
+export const colsOf = (z: Pick<Size, 'n' | 'mask'>) => (z.mask ? Math.max(...z.mask.map((m) => m.lastIndexOf('.') + 1)) : z.n);
 export const SIZES = {
   easy: { n: 5, lens: [2, 2, 3], links: [1], slack: 0 },
   normal: { n: 6, lens: [2, 3, 3], links: [0, 1, 1, 2], slack: 0 },
@@ -55,8 +58,8 @@ export function rng(seed: number): () => number {
 
 // Port board walk: starts in row 0 of the left matrix and must pass at least one port, or the right matrix is decoration.
 // solo: both ends of each pair in one matrix, never in the same row or column (that jump would be plain).
-function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T, solo = false): Pick<Puzzle, 'half' | 'ports' | 'path'> | null {
-  const cells = (h: number) => Array.from({ length: N * N }, (_, i): [number, number] => [Math.floor(i / N), h * N + (i % N)]);
+function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T, solo = false, sealed = (_: [number, number]) => false): Pick<Puzzle, 'half' | 'ports' | 'path'> | null {
+  const cells = (h: number) => Array.from({ length: N * N }, (_, i): [number, number] => [Math.floor(i / N), h * N + (i % N)]).filter((x) => !sealed(x));
   const a = cells(0), b = solo ? a : cells(1), ports: Puzzle['ports'] = [];
   const taken = (x: [number, number]) => ports.some(([p, q]) => p === x || q === x);
   for (let k = 0; k < count; k++) {
@@ -69,7 +72,7 @@ function portWalk(N: number, count: number, len: number, pick: <T>(a: T[]) => T,
   const path: [number, number][] = [];
   let lane: Lane = { axis: 'row', idx: 0, half: 0 };
   while (path.length < len) {
-    const opts = laneCells(lane, shape).filter(([r, c]) => !path.some((q) => q[0] === r && q[1] === c));
+    const opts = laneCells(lane, shape).filter(([r, c]) => !sealed([r, c]) && !path.some((q) => q[0] === r && q[1] === c));
     if (!opts.length) return null;
     const [r, c] = pick(opts);
     path.push([r, c]);
@@ -90,7 +93,7 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
   const sealed = (c: [number, number]) => (!!block && c[block[0] === 'row' ? 0 : 1] === block[1]) || mask?.[c[0]]?.[c[1]] === '#';
   const startCols = Array.from({ length: N }, (_, c) => c).filter((c) => !sealed([0, c]));
   for (;;) {
-    const board = ports ? portWalk(N, ports, planted, pick, solo) : undefined;
+    const board = ports ? portWalk(N, ports, planted, pick, solo, sealed) : undefined;
     if (board === null) continue;
     // Walk a random legal path long enough for the chained targets, then plant them along it.
     const path: [number, number][] = [[0, pick(startCols)]];
@@ -131,8 +134,8 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
     const seq = order.flatMap((ti, j) => targets[ti].slice(j === deepAt ? 2 : linked.has(j) ? 1 : 0));
     const grid = Array.from({ length: N }, () => Array.from({ length: board?.half ? 2 * N : N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
-    if (!board) grid.forEach((row, y) => row.forEach((_, x) => { if (sealed([y, x])) row[x] = BLOCK; }));
-    const p: Puzzle = board ? { grid, targets, l: planted + slack, ...board } : { grid, targets, l: planted + slack, path, ...(mask && { shape: true as const }) };
+    if (!board?.half) grid.forEach((row, y) => row.forEach((_, x) => { if (sealed([y, x])) row[x] = BLOCK; }));
+    const p: Puzzle = { grid, targets, l: planted + slack, path, ...board, ...(mask && { shape: true as const }) };
     if (dual) p.alt = dualCells(p, 1 + Math.floor(r() * dual), codes, r);
     return p;
   }

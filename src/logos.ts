@@ -9,7 +9,14 @@ const rad = (id: string, [cx, cy, r]: number[], cs: string) =>
 const ecg = 'M4 60H34L40 50L48 74L56 38L64 82L70 60H116';
 const bolt = 'M62 12L26 66H54L44 110L94 48H66L80 12Z';
 const strand = (a: number, b: number) => `M${a} 12C${a} 38 ${b} 34 ${b} 60C${b} 86 ${a} 82 ${a} 108`;
-const ringBack = 'M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
+// Loopline's M: two lines from the middle interchange out to the termini, with terminus bars.
+const metroM = (cls: string, a: number, b: number) => `<g class='${cls}' fill='none' stroke-width='12' stroke-linejoin='round'>`
+  + `<path pathLength='100' d='M60 68L24 30V98' style='stroke:var(--lg${a})'/><path pathLength='100' d='M60 68L96 30V98' style='stroke:var(--lg${b})'/>`
+  + `<path class='bar' d='M12 98H36' style='stroke:var(--lg${a})' stroke-width='7'/><path class='bar' d='M84 98H108' style='stroke:var(--lg${b})' stroke-width='7'/></g>`;
+// Polaris compass rose, 16 winds: [length, half width, first angle, step, count] per ring of arms, small to big.
+const ARMS = [[30, 4.5, 22.5, 45, 8], [40, 6.5, 45, 90, 4], [54, 8, 0, 90, 4]];
+const kite = (len: number, w: number, s: number) => `M60 ${60 - len}L${60 + s * w} ${60 - w}L60 60Z`;
+const ringBack ='M6 60A54 15 0 0 1 114 60', ringFront = 'M6 60A54 15 0 0 0 114 60';
 const star = (x: number, y: number, r: number) => `M${x} ${y - r}L${x + r * .3} ${y - r * .3}L${x + r} ${y}L${x + r * .3} ${y + r * .3}L${x} ${y + r}L${x - r * .3} ${y + r * .3}L${x - r} ${y}L${x - r * .3} ${y - r * .3}Z`;
 
 // u: a per-render prefix, so gradient ids never clash between copies of one logo on the page.
@@ -71,6 +78,29 @@ const LOGOS: Record<string, (u: string) => string> = {
       const d = (r * Math.SQRT1_2).toFixed(1), lo = (60 - +d).toFixed(1), hi = (60 + +d).toFixed(1);
       return `<path class='lg-wave' style='animation-delay:${i * .3}s' d='M${hi} ${lo}A${r} ${r} 0 0 1 ${hi} ${hi}M${lo} ${lo}A${r} ${r} 0 0 0 ${lo} ${hi}'/>`;
     }).join('') + `</g><circle cx='60' cy='60' r='9' style='fill:var(--lg2)'/>`,
+  // Loopline Metro: an M drawn as two metro lines meeting at a white interchange; now and then each line's colour
+  // runs out of the interchange to the terminus (the overlay copy with swapped colours, wiped in style.css).
+  loopline: () => metroM('', 1, 2) + metroM('lg-wipe', 2, 1)
+    + [[24, 30], [96, 30]].map(([x, y]) => `<circle cx='${x}' cy='${y}' r='4.5' style='fill:var(--lg3)'/>`).join('')
+    + `<circle cx='60' cy='68' r='9' style='fill:var(--lg3)' stroke='${BG}' stroke-width='3.5'/>`,
+  // Coming soon. Polaris Air Control: a 16-wind compass rose in polar colours, north in aurora; a snowy sheen slides across it.
+  polaris: (u) => {
+    // Each arm is two faces: [left colour, opacity, right colour, opacity] per ring of arms.
+    const faces = [[2, .35, 2, .6], [2, .7, 1, .55], [2, 1, 1, 1]];
+    const arms = ARMS.map(([len, w, r0, step, n], i) => Array.from({ length: n }, (_, k) => {
+      const [a, oa, b, ob] = faces[i];
+      return `<g transform='rotate(${r0 + step * k} 60 60)'><path d='${kite(len, w, -1)}' style='fill:var(--lg${i === 2 && !k ? 3 : a})' fill-opacity='${oa}'/>`
+        + `<path d='${kite(len, w, 1)}' style='fill:var(--lg${b})' fill-opacity='${ob}'/></g>`;
+    }).join('')).join('');
+    const clip = ARMS.flatMap(([len, w, r0, step, n]) => Array.from({ length: n }, (_, k) =>
+      `<path transform='rotate(${r0 + step * k} 60 60)' d='M60 ${60 - len}L${60 + w} ${60 - w}L60 60L${60 - w} ${60 - w}Z'/>`)).join('');
+    return `<defs><clipPath id='${u}c'>${clip}</clipPath><linearGradient id='${u}w' x1='0' x2='1'><stop offset='0' style='stop-color:var(--lg1)' stop-opacity='0'/>`
+      + `<stop offset='.5' style='stop-color:var(--lg1)' stop-opacity='.85'/><stop offset='1' style='stop-color:var(--lg1)' stop-opacity='0'/></linearGradient></defs>`
+      + `<circle cx='60' cy='60' r='22' fill='none' style='stroke:var(--lg2)' stroke-width='1.5' opacity='.6'/>`
+      + `<g stroke='${BG}' stroke-width='1.4' stroke-linejoin='round'>${arms}</g>`
+      + `<g clip-path='url(#${u}c)'><g transform='rotate(25 60 60)'><rect class='lg-sheen' x='-50' y='-30' width='26' height='180' fill='url(#${u}w)'/></g></g>`
+      + `<circle cx='60' cy='60' r='3.5' style='fill:var(--lg3)' stroke='${BG}' stroke-width='1.5'/>`;
+  },
 };
 
 const LOCKED = "<circle class='lg-ring dashed' cx='60' cy='60' r='54'/><text class='lg-q' x='60' y='78'>?</text>";

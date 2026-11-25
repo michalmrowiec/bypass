@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Loopline · plansze</title>
+<style>
+.page{max-width:980px;margin:0 auto;padding:24px 20px 60px}
+h1{font-size:22px;margin:0 0 6px;color:var(--mint)}
+.note{color:var(--ink);opacity:.85;font-size:13px;max-width:900px}
+.room{margin-top:26px}
+.room .board{margin-top:8px}
+.room .side p{margin:0 0 8px;font-size:13px}
+</style></head>
+<body><main class="page wrap">
+<h1>Loopline Metro · plansze z gry</h1>
+<p class="note">Każda plansza to prawdziwy <code>dealBoard</code> z generatora gry i prawdziwy <code>cellView</code>, na <code>style.css</code> gry, w kolumnie macierzy o tej samej szerokości (440 px). Linia startowa (górny rząd) świeci jak w grze.</p>
+<div id="rooms"></div>
+</main>
+<script type="module">
+import '../../src/style.css';
+import { BLOCK } from '../../src/generator';
+import { COMPANIES, newRunState, roomIce } from '../../src/roguelike';
+import { dealBoard, cellView } from '../../src/matrix';
+
+const PORT_NAMES = [':21', ':22', ':23', ':25', ':53', ':80', ':110', ':143', ':443', ':445', ':3306', ':3389', ':5432', ':8080'];
+const co = COMPANIES.findIndex((c) => c.id === 'loopline'), C = COMPANIES[co];
+const roomSize = (z) => (z.mask?.filter((m) => m.includes('.')).length ?? z.n) + '×' + (z.mask ? Math.max(...z.mask.map((m) => m.lastIndexOf('.') + 1)) : z.n) + (z.ports ? ' ⇄' : '');
+
+// Same markup as render() in ui.ts: headers, cells, port frame/ring/tag, Dual halves; fully masked rows take no space.
+function grid(b) {
+  const { grid } = b.puzzle, n = grid.length, all = grid[0].length;
+  const live = [...Array(all).keys()].filter((c) => !b.puzzle.shape || grid.some((row) => row[c] !== BLOCK)), cols = live.length;
+  let h = `<div class='grid' style='grid-template-columns:auto repeat(${cols},minmax(0,1fr))${cols < 6 ? ';max-width:calc(' + cols + ' / 6 * 100%);margin-inline:auto' : ''}'><div class='hx'></div>`;
+  for (const c of live) h += `<div class='hx${b.run.axis === 'col' && c === b.run.idx ? ' on' : ''}'>${C.colLabel(c)}</div>`;
+  const pairs = b.puzzle.ports ?? [];
+  for (let r = 0; r < n; r++) {
+    if (b.puzzle.shape && grid[r].every((v) => v === BLOCK)) continue;
+    h += `<div class='hx${b.run.axis === 'row' && r === b.run.idx ? ' on' : ''}'>${C.rowLabel(r)}</div>`;
+    for (const c of live) {
+      const v = cellView(b, r, c);
+      const k = pairs.findIndex(([p, q]) => (p[0] === r && p[1] === c) || (q[0] === r && q[1] === c));
+      const body = v.alt ? `<span class='dh'>${v.code}</span><span class='dh dalt'>${v.alt}</span><i class='dsplit'></i>` : v.hidden ? '??' : v.code;
+      const port = k >= 0 ? `<i class='pframe'></i><i class='pring'></i><i class='ptag'>${PORT_NAMES[k * 5 + 3]}</i>` : '';
+      h += `<button class='cell ${v.cls.join(' ')}${k >= 0 ? ' port' + (k + 1) : ''}'>${body}${port}</button>`;
+    }
+  }
+  return h + '</div>';
+}
+
+const TALL = Array(8).fill('....####');
+const show = (secs, title) => '<h2 class="note" style="margin-top:34px"><b>' + title + '</b></h2>' + secs.map(([sec, section]) => {
+  const s = { ...newRunState(7, co), section };
+  C.sections[section] = sec;
+  const b = dealBoard(11 + section, s), ice = roomIce(s);
+  return `<div class='room'><div class='board'><section class='pane'><p class='label'>matrix</p><p class='hint'>Pick a code in the top row</p>${grid(b)}</section>`
+    + `<section class='side'><p><b>${section + 1} · ${sec.name}</b> · ${roomSize(sec.size)} · ${sec.matrices} ${sec.matrices > 1 ? 'macierze' : 'macierz'}</p><p class='note'>${sec.brief}</p>`
+    + `<p class='note'>cele: ${b.puzzle.targets.map((t) => t.join(' ')).join(' · ')} · bufor ${b.puzzle.l}${ice.length ? ' · ICE: ' + ice.join(', ') : ''}</p></section></div></div>`;
+}).join('');
+const base = C.sections.map((sec, i) => [sec, i]);
+const tall = base.filter(([sec]) => sec.size.n === 8).map(([sec, i]) => [{ ...sec, size: { ...sec.size, mask: TALL } }, i]);
+document.getElementById('rooms').innerHTML = show(base, 'W grze: długie plansze 8×4, komórki jak na 6×6');
+base.forEach(([sec, i]) => (C.sections[i] = sec));
+</script>
+</body></html>
