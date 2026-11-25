@@ -36,7 +36,7 @@ export interface Entry {
   id: string; name: string; traits: string[];
   startItems?: ItemId[]; payLevels?: Partial<Record<PayloadId, number>>; quotaMult?: number;
   quotaGrowth?: number; // per-iteration quota growth instead of QUOTA_GROWTH; iteration 1 unchanged
-  shelf?: number; offer?: number; priceDelta?: number; always?: IceId[]; calmStart?: boolean; // calmStart: no entry ICE in the first room of iteration 1
+  shelf?: number; offer?: number; priceDelta?: number; always?: IceId[];
   noDisconnect?: boolean; pickBossIce?: boolean; doublePatch?: boolean;
   family?: Family; // daemon offers come only from this family
   noSell?: true | ItemId[]; // true: nothing sells; a list locks those items and their upgrades
@@ -173,8 +173,8 @@ export const COMPANIES: Company[] = [{
     // The loop in Loopline: a free Loopback from the first room.
     { id: 'loopticket', name: 'Loop ticket', traits: ['Start with Loopback v1.0.', 'Loopback cannot be sold.', 'No Mux in the shop.', 'Quotas ×3.2 per iteration (from iteration 2).'],
       startItems: ['loopback1'], noSell: ['loopback1'], banned: ['mux'], quotaGrowth: 3.2 },
-    { id: 'signalroom', name: 'Signal room', traits: ['Root daemons only.', 'Encryption in every room but the very first.', 'Quotas ×3 per iteration (from iteration 2).'],
-      family: 'Root', always: ['encryption'], calmStart: true, quotaGrowth: 3 }],
+    { id: 'signalroom', name: 'Signal room', traits: ['Root daemons only.', 'Throttle in every room.', 'Quotas −15%, then ×3 per iteration (from iteration 2).'],
+      family: 'Root', always: ['throttle'], quotaMult: 0.85, quotaGrowth: 3 }],
 },...(import.meta.env.DEV ? [LAB] : [])];
 // The first company is always open; breaching one opens the next.
 export const companyOpen = (breached: string[], i: number) => i === 0 || !!COMPANIES[i]?.dev || breached.includes(COMPANIES[i - 1]?.id);
@@ -214,7 +214,7 @@ export const revealed = (s: RunState, p: Patch) => s.loop > p.loop || s.section 
 
 // The ICE rules in a room: the boss rule plus the patches deployed there.
 export const roomIce = (s: RunState, i = s.section): IceId[] =>
-  [...new Set([...(COMPANIES[s.company].always ?? []), ...(entryOf(s).calmStart && !s.loop && !i ? [] : entryOf(s).always ?? []), ...(sections(s)[i].ice ?? []),
+  [...new Set([...(COMPANIES[s.company].always ?? []), ...(entryOf(s).always ?? []), ...(sections(s)[i].ice ?? []),
     ...(i === sections(s).length - 1 && s.ice ? [s.ice] : []), ...live(s).filter((p) => p.room === i).map((p) => p.ice)])];
 
 // Corruption lasts one move per Corruption patch (at least 1), for good from the third.
