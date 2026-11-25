@@ -208,8 +208,14 @@ const altHalf = (el: HTMLElement, e: MouseEvent) => {
   const at = el.getBoundingClientRect();
   return (e.clientX - at.left) / at.width + (e.clientY - at.top) / at.height > 1;
 };
+// Every dual cell tracks the half under the mouse, pickable or not, so each code echoes on its own.
+function trackHalf(el: HTMLElement) {
+  el.onmousemove = (e) => {
+    const h = altHalf(el, e);
+    if (h !== el.classList.contains('hb')) { el.classList.toggle('hb', h); applyCross(); }
+  };
+}
 function dualClick(el: HTMLElement, code: string, alt: string, then: (alt: boolean) => void) {
-  el.onmousemove = (e) => el.classList.toggle('hb', altHalf(el, e));
   return (e: MouseEvent) => ((e as PointerEvent).pointerType === 'mouse' ? then(altHalf(el, e)) : dualMenu(el, [code, alt], then));
 }
 function dualMenu(el: HTMLElement, codes: string[], then: (alt: boolean) => void) {
@@ -308,7 +314,7 @@ function render() {
     b.className = 'cell';
     b.id = 'c' + r + c;
     const v = cellView(bd, r, c);
-    if (v.alt) b.innerHTML = "<span class='dh'>" + v.code + "</span><span class='dh dalt'>" + v.alt + "</span><i class='dsplit'></i>";
+    if (v.alt) { b.innerHTML = "<span class='dh'>" + v.code + "</span><span class='dh dalt'>" + v.alt + "</span><i class='dsplit'></i>"; trackHalf(b); }
     else b.textContent = v.hidden ? '??' : v.code;
     b.classList.add(...v.cls);
     if (moved && v.cls.includes('belt')) b.classList.add('shift');
@@ -1960,9 +1966,12 @@ function applyCross() {
   const open = !!code && code !== BLOCK && !isUsed(cursor![0], cursor![1]) && !burning(S.run, cursor![0], cursor![1]);
   const now = !!cursor && legal(cursor[0], cursor[1]);
   const run = S.mode === 'run'; // the other modes keep the plain echo
+  // Dual cell: echo only the half under the mouse.
+  const el = cursor && $('c' + cursor[0] + cursor[1]);
+  const half = el?.querySelectorAll('.dh')[+el.classList.contains('hb')]?.textContent;
   document.querySelectorAll<HTMLElement>('#targets .codes span').forEach((s) => {
     const hit = s.classList.contains('hit');
-    const m = !!code && (run ? (open || now) && !s.closest('.fail, .done') : now && !hit) && fits(code, s.textContent ?? '');
+    const m = !!code && (run ? (open || now) && !s.closest('.fail, .done') : now && !hit) && fits(half ?? code!, s.textContent ?? '');
     s.classList.toggle('peek', m && now && !hit);
     s.classList.toggle('far', m && (!now || hit));
   });
