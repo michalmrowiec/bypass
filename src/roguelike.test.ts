@@ -1220,4 +1220,10 @@ describe('Loopline Metro', () => {
       expect((p.path ?? []).some(sealed)).toBe(false);
     }
   });
+  it('Signal room spares only the first room of iteration 1 from Encryption', () => {
+    const s = { ...newRunState(1, COMPANIES.findIndex((c) => c.id === 'loopline')), entry: 'signalroom' };
+    expect(roomIce({ ...s, section: 0 })).not.toContain('encryption');
+    expect(roomIce({ ...s, section: 1 })).toContain('encryption');
+    expect(roomIce({ ...s, section: 0, loop: 1 })).toContain('encryption');
+  });
 });
