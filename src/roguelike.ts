@@ -1,5 +1,5 @@
 import { contains, fits, newRun, partner, pick, stageSeed, WILD, type Run } from './game';
-import { beltSrc, BLOCK, CODES, generate, hashStr, rng, SIZES, type Puzzle, type Size } from './generator';
+import { beltSrc, BLOCK, CODES, generate, hashStr, rng, rowsOf, SIZES, type Puzzle, type Size } from './generator';
 import { canComplete } from './solver';
 
 // Roguelike mode: a run breaches one company, a chain of sections (rooms); each plays a few matrices and must reach its data quota by then.
@@ -63,6 +63,9 @@ const LAB: Company = {
   patches: [],
   entries: [standard('bench', 'Bench')],
 };
+
+// A long 4×8 board: an 8×8 with its bottom four rows masked away.
+const LONG = [...Array(4).fill('........'), ...Array(4).fill('########')];
 
 export const COMPANIES: Company[] = [{
   id: 'kestrel',
@@ -151,16 +154,17 @@ export const COMPANIES: Company[] = [{
   id: 'loopline',
   name: 'Loopline Metro',
   text: 'City metro operator. A circle line, a cross-town line, and two interchanges everyone gets lost in.',
-  codes: ['M1', 'C4', 'R8', 'X2', 'N6'],
+  codes: ['M1', 'C4', 'R8', 'X2', 'U5'],
   rowLabel: (r) => 'L' + (r + 1), // line
   colLabel: (c) => 'S' + String(c + 1).padStart(2, '0'), // station
-  // Only two long targets, always chained: one long script per matrix on Lab boards (Dual, solo ports, shapes, port boards).
+  // Only two long targets, always chained, one long trip per matrix. Boards are lines and loops: long 4×8 boards,
+  // port pairs inside one matrix, one L; Dual cells only in the SOC (no ports there, so every boss ICE fits).
   sections: [
-    { name: 'Platform', quota: 80, matrices: 1, size: { n: 5, lens: [3, 5], links: [1], slack: 0, dual: 3 }, brief: 'Ticket barriers and a departure board that shows two lines in every slot.' },
+    { name: 'Platform', quota: 80, matrices: 1, size: { n: 8, lens: [3, 5], links: [1], slack: 0, mask: LONG }, brief: 'One long platform, eight doors, a departure board nobody reads.' },
     { name: 'Circle Line', quota: 170, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true }, brief: 'The loop line: one port pair jumps across the same board.' },
-    { name: 'Tunnels', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'Service tunnels behind the platforms. Half the map is solid rock.' },
-    { name: 'Interchange', quota: 300, matrices: 2, size: { n: 5, lens: [4, 5], links: [1], slack: 0, ports: 2 }, brief: 'Two lines and two transfer corridors between them.' },
-    { name: 'SOC', quota: 420, matrices: 2, size: { n: 7, lens: [4, 5], links: [1], slack: 0, mask: ['##...##', '##...##', '.......', '.......', '.......', '##...##', '##...##'] }, brief: 'Line control where every route crosses. Two long trains, one dispatcher.' },
+    { name: 'Tunnels', quota: 220, matrices: 2, size: { n: 6, lens: [4, 5], links: [1], slack: 0, ports: 1, solo: true, mask: ['......', '......', '......', '...###', '...###', '...###'] }, brief: 'Service tunnels behind the platforms: half the map is solid rock, one shaft cuts through it.' },
+    { name: 'Interchange', quota: 300, matrices: 2, size: { n: 8, lens: [4, 5], links: [1], slack: 0, ports: 2, solo: true, mask: LONG }, brief: 'A long line with two transfer corridors that jump along it.' },
+    { name: 'SOC', quota: 420, matrices: 2, size: { n: 8, lens: [4, 5], links: [1], slack: 0, dual: 2, mask: LONG }, brief: 'Line control: two long trains on one long board, and a display that shows two codes on some stations.' },
   ],
   ice: ['firewall', 'throttle', 'blackout', 'encryption', 'honeypot', 'deadcells'],
   patches: ['firewall', 'throttle', 'blackout', 'corruption', 'encryption', 'honeypot', 'deadcells', 'conveyor'],
@@ -1315,7 +1319,7 @@ export function dealRunMatrix(seed: number, s: RunState): Puzzle {
   if (rules.includes('firewall')) {
     const r = rng(hashStr(seed + '/ice'));
     const row = r() < 0.5;
-    size = { ...size, block: row ? ['row', 1 + Math.floor(r() * (size.n - 1))] : ['col', Math.floor(r() * size.n)] };
+    size = { ...size, block: row ? ['row', 1 + Math.floor(r() * (rowsOf(size) - 1))] : ['col', Math.floor(r() * size.n)] };
   }
   const deal = (sd: number) => (rules.includes('deadcells') ? killCells(sd, generate(sd, size)) : generate(sd, size));
   let p = deal(seed);

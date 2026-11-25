@@ -1141,6 +1141,10 @@ describe('Loopline Metro', () => {
       expect(Math.min(...p.targets.map((t) => t.length))).toBeGreaterThanOrEqual(3);
       // The boss room runs a boss ICE (Throttle can cut the chain), so only the plain rooms must clear every target.
       if (!roomIce(s).length) expect([section, canComplete(newRun(), p)]).toEqual([section, true]);
+      // Masked cells are not there: no port and no planted pick may sit on one.
+      const sealed = ([r, c]: [number, number]) => p.grid[r][c] === '##';
+      expect((p.ports ?? []).flat().some(sealed)).toBe(false);
+      expect((p.path ?? []).some(sealed)).toBe(false);
     }
   });
 });
