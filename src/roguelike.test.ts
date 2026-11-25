@@ -1135,6 +1135,15 @@ describe('entries', () => {
     expect(seen).toBeGreaterThan(50);
   });
 
+  it('a two-family pack holds both families', () => {
+    let duos = 0;
+    for (let seed = 0; seed < 300; seed++) for (const p of offerPacks(newRunState(seed))) if (p.kind === 'duo') {
+      duos++;
+      expect(new Set(p.cards.map((id) => DAEMONS[id].family)).size).toBe(2);
+    }
+    expect(duos).toBeGreaterThan(50);
+  });
+
   it('the legendary bonus is one pack of two legendaries', () => {
     const s = newRunState(3);
     s.legendOffer = true;

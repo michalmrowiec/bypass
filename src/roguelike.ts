@@ -1010,7 +1010,9 @@ function fillPack(s: RunState, fams: Family[], size: number, tier: DaemonPack['t
   if (tier) { const g = pool.find((id) => rarityOf(id) === tier) ?? (tier === 'legendary' ? pool.find((id) => rarityOf(id) === 'rare') : undefined); if (g) out.push(g); }
   while (out.length < size && out.length < pool.length) {
     const x = r(), t: Rarity = x < RARITY.legendary ? 'legendary' : x < RARITY.legendary + RARITY.rare ? 'rare' : 'common';
-    const left = pool.filter((id) => !out.includes(id));
+    let left = pool.filter((id) => !out.includes(id));
+    const has = new Set(out.map((id) => DAEMONS[id].family));
+    if (fams.length === 2 && out.length === size - 1 && has.size < 2) { const miss = left.filter((id) => !has.has(DAEMONS[id].family)); if (miss.length) left = miss; } // a duo's last card shows the missing family
     out.push(left.find((id) => rarityOf(id) === t) ?? left[0]);
   }
   return out.sort((a, b) => RANK[rarityOf(a)] - RANK[rarityOf(b)]); // common → rare → legendary: the best card opens last
