@@ -111,7 +111,7 @@ Nowy efekt na matrycy dostaje **nowy, wolny kolor** albo wyraźny tag.
   - **Payroll** (common): +$1 po macierzy z co najmniej **2** wgranymi targetami;
   - **Patch** (common): +10 data za każdy wgrany target (sim 23.11: +15 za mocne na K/M);
   - **Polyglot** (rare): ×1,3 + 0,3 za każdą inną rodzinę w racku (max ×2,2);
-  - **Superuser** (legendary): ×1,8 zawsze;
+  - **Superuser** (legendary): ×1,7 zawsze (×1,8 dorównywało warunkowemu Full stackowi w Loopline);
   - **Failsafe** (rare): ×1,25, a ×1,6 gdy wgrasz wszystkie targety;
 - Signal flaw nie dotyczy Root (ma na stałe Runnera). Więcej daemonów nie dodajemy (3 common, 2 rare, 1 legendary);
 - **Paczki daemonów zamiast 3 kart** (pomysł gracza 2026-11-23, odłożony do playtestów z Root): w ofercie 2 paczki po ok. 3 daemony, każda oznaczona rodziną (np. Ghost, Splicer/Cron albo „mix”); gdy rodzina jest prawie wyczerpana, gra daje paczkę innej rodziny albo mix. Wariant: jedna paczka z pewną legendą za dopłatą. Uwaga: gracz widzi ok. 6 daemonów zamiast 3 (silniejszy wybór, balans do sima), a paczki kojarzą się z Balatro.

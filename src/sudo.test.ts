@@ -20,6 +20,13 @@ describe('Sudo budget', () => {
     expect(book('ice', 'ice:flood', run, sv, '0.2')).toBe(true);
   });
 
+  it('reactions (legendaries) skip the room rule but never repeat', () => {
+    const [run, sv] = fresh();
+    expect(book('close', 'close', run, sv, '0.1')).toBe(true);
+    expect(book('legend2', 'legend2', run, sv, '0.1')).toBe(true);
+    expect(book('legend2', 'legend2', run, sv, '0.2')).toBe(false);
+  });
+
   it('three comments per run, a wow up to five, each kind once', () => {
     const [run, sv] = fresh();
     expect(['close', 'split1', 'script'].map((id, i) => book(id as 'close', id, run, sv, '0.' + i))).toEqual([true, true, true]);

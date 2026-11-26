@@ -4,7 +4,7 @@ import { canComplete } from './solver';
 import { BLOCK, generate } from './generator';
 import {
   buy, canExitRoom, exitRoom, EXIT_CREDIT, EXIT_FULL_CREDIT, DATA_BY_LEN, daemonsAfterMatrix, endMatrix, finishMatrix, forSale, matrixData, movePreview, newRunState, nextSection, offerDaemons, offerPacks, played, shareSquares,
-  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, splitTarget, canSplit, stockShop, lockItem,
+  beltRow, LOOPS, NO_PORT_ICE, sections, burnOf, COMPANIES, roomIce, companyOpen, quota, revealed, coverage, cutMarks, dealRunMatrix, placeCells, sideDoor, swapDaemon, SWAP_COST, swapCost, scoreMatrix, buySlot, restartMatrix, sell, slotCost, RACK_BASE, sectionMatrix, SHELF, fitPaint, splitTarget, canSplit, stockShop, lockItem,
   setMiner, minerIdle, entryOf, payLevel, priceOf, zipPrice, setBossIce, canDisconnect, needsStartChoice, DAEMONS, bountyMet, claimReward, rewardsFor, bountyFor, bountyHere, BOUNTIES_PER_LOOP, plantRepeat, rarityOf, daemonSlots, DAEMON_SLOTS, trapCell, firstTargetData, sellValue, payloadFor, PAYLOADS, rewardPatch, rewardText, migratePayloads, buyZip, pickZip, zipSold, ZIP_PRICE, type DaemonId, type ItemId,
 } from './roguelike';
 
@@ -489,6 +489,16 @@ describe('movement items', () => {
     // A, then down column 0 to G, then back to A: only Loopback v2.0 reaches a used cell off the lane.
     expect(canComplete(newRun(), { grid, targets: [['A', 'G', 'H', 'A']], l: 4 }, undefined, { loop: true })).toBe(false);
     expect(canComplete(newRun(), { grid, targets: [['A', 'G', 'H', 'A']], l: 4 }, undefined, { loop: true, loopAny: true })).toBe(true);
+  });
+
+  it('Painter: paint off the new board moves to the nearest free cell, the count stays, ICE ## keeps it', () => {
+    const s = newRunState(1);
+    s.paintFaded = ['1,5'];
+    s.paint = { '0,0': 5, '0,5': 9, '1,5': 3, '1,1': 4, '0,2': 2 };
+    fitPaint(s, { grid: [['A', 'B', '##'], ['D', '##', 'F']], mask: ['..#', '...'] });
+    // 0,2 is masked away: it moves; 1,1 is ICE ##: it stays there (lost this matrix)
+    expect(s.paint).toEqual({ '1,1': 4, '0,0': 5, '0,1': 9, '1,2': 3, '1,0': 2 });
+    expect(s.paintFaded).toEqual(['1,2']);
   });
 
   it('Side door: a side edge goes on along its row, a corner frees the next axis', () => {

@@ -3,7 +3,7 @@ import { altOf, burning, contains, halfOf, inLane, isLegal, newRun, partner, pic
 import { canComplete } from './solver';
 import { BLOCK, type Puzzle } from './generator';
 import {
-  beltRow, beltSrc, bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
+  beltRow, beltSrc, bountyFor, bountyHere, burnOf, cutMarks, DATA_BY_LEN, dealRunMatrix, globTarget, isCorner, fitPaint, placeCells, plantRepeat, rewardsFor, roomIce, sideDoor, trapCell,
   type BountyId, type DaemonId, type IceId, type ItemId, type RewardId, type RunState,
 } from './roguelike';
 
@@ -44,7 +44,14 @@ export const standAt = (b: Board): Cell | undefined => {
   return p && (b.m.stay?.includes(i) ? p : partner(b.puzzle, ...p) ?? p);
 };
 // On a port board only the left matrix has a Side door edge.
-const onEdge = (b: Board, r: number, c: number) => { const n = b.puzzle.grid.length, w = b.puzzle.half ?? n; return c < w && (r === 0 || c === 0 || r === n - 1 || c === w - 1); };
+// Shaped boards (8×4 is an 8×8 with its right half masked) end at their last row/column that has cells.
+const extent = (p: Board['puzzle']): [number, number] => {
+  if (!p.shape) return [p.grid.length, p.half ?? p.grid[0].length];
+  let n = 0, w = 0;
+  p.grid.forEach((row, r) => row.forEach((v, c) => { if (v !== BLOCK) { n = Math.max(n, r + 1); w = Math.max(w, c + 1); } }));
+  return [n, w];
+};
+const onEdge = (b: Board, r: number, c: number) => { const [n, w] = extent(b.puzzle); return c < w && (r === 0 || c === 0 || r === n - 1 || c === w - 1); };
 // Mux: the next pick may take the row or the column of the last picked cell.
 const muxLane = (b: Board, r: number, c: number) => { const p = standAt(b); return !!p && inLane({ axis: 'row', idx: 0, free: p }, r, c, b.puzzle); };
 // Side door: before the first pick, any edge cell is open.
@@ -123,6 +130,7 @@ export function cellView(b: Board, r: number, c: number): CellView {
 export function dealBoard(seed: number, s: RunState): Board {
   const has = (id: ItemId) => s.items.includes(id);
   const puzzle = dealRunMatrix(seed, s);
+  if (s.daemons.includes('painter')) fitPaint(s, puzzle);
   // Target data is set before Repeater and Glob reshape the targets.
   const worth = puzzle.targets.map((t) => DATA_BY_LEN[t.length]);
   // The Repeater reads only path cells, which the Wildcard never takes, so it can go first and keep $ cells off it.
@@ -168,7 +176,7 @@ export function applyPick(b: Board, r: number, c: number, alt = false): PickResu
   pick(run, puzzle, r, c, back, alt);
   if (back) m.stay = [...(m.stay ?? []), run.path.length - 1];
   if (same(m.rep, r, c) && run.buffer.length < puzzle.l) run.buffer.push(run.buffer.at(-1)!);
-  if (door) sideDoor(run, r, c, puzzle.grid.length);
+  if (door) sideDoor(run, r, c, ...extent(puzzle));
   if ((tool === 'jump' || tool === 'loop') && offLane) m.jumps.push(run.path.length - 1);
   if (tool === 'jump') m.jump = false;
   if (tool === 'loop') m.loop = false;

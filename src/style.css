@@ -804,6 +804,8 @@ button.unit{cursor:var(--hit)}
 .upszone b{color:var(--ink)}
 .upszone small{display:block;color:var(--pink)}
 .unit.drained .led{background:var(--pink);opacity:.9;box-shadow:0 0 5px color-mix(in srgb,var(--pink) 55%,transparent)} /* UPS battery spent */
+.unit.lvup .led{background:var(--mint);box-shadow:0 0 6px var(--mint)}
+.unit.lvup .nm small>span,.cplup{color:var(--mint)} /* Compiler: a payload just gained a level */
 .zstage{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .zstage>.meta{flex:1;min-width:180px;margin:0}
 /* Glass style: a 3D case replaces the flat archive; .z3try hides the 2D fallback while three.js loads. */

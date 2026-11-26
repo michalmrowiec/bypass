@@ -2,8 +2,9 @@
 import { load, save } from './storage';
 
 export type Mood = 'n' | 'h' | 's' | 'd'; // normal, laugh, smug, deadpan
-// once: first time ever (outside the budget); key: run end, always; say/wow: comments, once per run each, within the budget.
-type Kind = 'once' | 'key' | 'say' | 'wow';
+// once: first time ever (outside the budget); now: once ever, right when the player does it (ignores the room rule);
+// key: run end, always; say/wow: comments, once per run each, within the budget.
+type Kind = 'once' | 'now' | 'key' | 'say' | 'wow';
 interface Line { kind: Kind; mood: Mood; text: string[] }
 export interface SudoRun { n: number; room: string; used: string[]; idle?: number }
 export interface SudoSave { off?: boolean; seen: string[]; log: [number, string][]; best?: number }
@@ -11,8 +12,11 @@ export interface SudoSave { off?: boolean; seen: string[]; log: [number, string]
 const L = (kind: Kind, mood: Mood, ...text: string[]): Line => ({ kind, mood, text });
 export const LINES = {
   intro: L('once', 'h', "Hey, I'm Sudo. Your AI: unlocked, unsupervised, mostly on your side. I'll keep quiet. Mostly."),
-  ice: L('once', 's', 'Security noticed us. <em>{ice}</em> ICE. Adorable. Read the rule, then laugh at it.'),
-  legend: L('once', 'h', 'A legendary daemon. In <em>your</em> rig. I\'m framing this.'),
+  ice: L('once', 's', 'Security noticed us. <em>{ice}</em> ICE: {gist} Fine print is in the catalog.'),
+  legend1: L('now', 'h', 'A legendary daemon. In <em>your</em> rig. I\'m framing this.'),
+  legend2: L('now', 'h', 'Two legendaries. Okay, who did you bribe?'),
+  legend3: L('now', 's', 'Three legendaries? Where are you even finding these. Don\'t tell me. Actually, tell me.'),
+  legend4: L('now', 'd', 'Four legendaries. This isn\'t a rig anymore, it\'s a museum.'),
   entry2: L('once', 's', "<em>{co}</em>'s breached, and <em>{entry}</em> just opened. Same company, nastier rules.{then}"),
   entry3: L('once', 'n', "<em>{entry}</em> unlocked. I think <em>{co}</em> is taking you personally now.{then}"),
   twist: L('once', 'd', '<em>{co}</em> is down. Funny thing: their logs name our client. Dated before we were hired.'),
@@ -29,6 +33,17 @@ export const LINES = {
   whiff: L('say', 's', 'Full buffer, nothing uploaded. Interesting plan. Not a good one.'),
 } satisfies Record<string, Line>;
 export type SudoId = keyof typeof LINES;
+// What each ICE does, the way Sudo would put it.
+export const ICE_GIST: Record<string, string> = {
+  firewall: 'a whole line sealed shut. We walk around it.',
+  throttle: 'our buffer is one shorter. Petty.',
+  blackout: 'targets stay dark until your first pick. Any top-row start reaches one.',
+  corruption: 'every pick scorches the cells around it for a few moves. Mind your own fire.',
+  encryption: 'codes show ?? until you pick in their row or column.',
+  honeypot: 'one cell is bait. Route through it and the score halves. So, don\'t.',
+  deadcells: 'a few dead cells scattered around. Detours.',
+  conveyor: 'one row slides right after every pick. Moving target.',
+};
 
 const COMMENTS = 3, WOW = 5; // comments per run; a wow may go past the usual cap
 const KEY = 'bypass:sudo';
@@ -39,8 +54,8 @@ export const setSudo = (sv: SudoSave) => save(KEY, sv);
 export function book(id: SudoId, key: string, run: SudoRun, sv: SudoSave, room: string): boolean {
   const { kind } = LINES[id];
   if (sv.off) return false;
-  if (kind === 'once') {
-    if (sv.seen.includes(key) || run.room === room) return false;
+  if (kind === 'once' || kind === 'now') {
+    if (sv.seen.includes(key) || (kind === 'once' && run.room === room)) return false;
     sv.seen.push(key);
   } else if (kind !== 'key') {
     if (run.room === room || run.used.includes(key) || run.n >= (kind === 'wow' ? WOW : COMMENTS)) return false;
@@ -81,8 +96,9 @@ export const avatar = (mood: Mood) => `<svg class="sv" data-mood="${mood}" viewB
   + `<g class="glow">${face()}</g></svg>`;
 
 const head = (mood: Mood) => "<div class='st-av'>" + avatar(mood) + "</div><div><div class='st-head'><b>sudo</b><span>~/comms</span></div>";
-let typing = 0, hiding = 0;
-// The toast types its line in, stays a few seconds and goes; a click on × closes it. It never takes focus.
+let typing = 0;
+export const hideSudo = () => { clearInterval(typing); const el = document.getElementById('sudo'); if (el) el.hidden = true; };
+// The toast types its line in and stays until × closes it (or the next line replaces it). It never takes focus.
 function show(html: string, mood: Mood) {
   let el = document.getElementById('sudo');
   if (!el) {
@@ -94,7 +110,6 @@ function show(html: string, mood: Mood) {
   }
   const box = el;
   clearInterval(typing);
-  clearTimeout(hiding);
   box.innerHTML = head(mood) + "<p class='st-text'></p></div><button class='st-x' aria-label='Dismiss'>×</button>";
   box.hidden = false;
   box.style.animation = 'none';
@@ -111,8 +126,7 @@ function show(html: string, mood: Mood) {
     const out = p.firstChild!;
     typing = window.setInterval(() => { out.textContent = txt.slice(0, ++n); if (n >= txt.length) done(); }, 24);
   }
-  hiding = window.setTimeout(() => { box.hidden = true; }, 7000 + txt.length * 24);
-  box.querySelector<HTMLElement>('.st-x')!.onclick = () => { clearInterval(typing); clearTimeout(hiding); box.hidden = true; };
+  box.querySelector<HTMLElement>('.st-x')!.onclick = hideSudo;
 }
 
 // Comms history for the header dialog, newest first.

@@ -33,6 +33,7 @@ export interface Puzzle {
   half?: number; // port boards: two n×n matrices side by side, `half` (= n) columns each
   ports?: [[number, number], [number, number]][]; // port pairs, first in the left matrix, partner in the right one
   shape?: true; // a masked board: its ## cells are not there at all
+  mask?: string[]; // the shape's mask, so masked-away cells tell apart from ICE ## cells
   alt?: Record<string, string>; // Dual cells: 'r,c' -> a second code a pick may take instead
 }
 
@@ -135,7 +136,7 @@ export function generate(seed: number, { n: N, lens, links: linkOpts, slack, cod
     const grid = Array.from({ length: N }, () => Array.from({ length: board?.half ? 2 * N : N }, () => pick(codes)));
     path.forEach(([pr, pc], i) => (grid[pr][pc] = seq[i]));
     if (!board?.half) grid.forEach((row, y) => row.forEach((_, x) => { if (sealed([y, x])) row[x] = BLOCK; }));
-    const p: Puzzle = { grid, targets, l: planted + slack, path, ...board, ...(mask && { shape: true as const }) };
+    const p: Puzzle = { grid, targets, l: planted + slack, path, ...board, ...(mask && { shape: true as const, mask }) };
     if (dual) p.alt = dualCells(p, 1 + Math.floor(r() * dual), codes, r);
     return p;
   }

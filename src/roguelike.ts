@@ -665,7 +665,7 @@ export const DAEMONS = {
     score: (_f, s) => ({ mult: Math.round((1.3 + 0.3 * otherFamilies(s)) * 10) / 10 }) },
   failsafe: { name: 'Failsafe', family: 'Root', rarity: 'rare', text: '×1.25, or ×1.6 when every target is uploaded',
     score: (f) => ({ mult: f.all ? 1.6 : 1.25 }) },
-  superuser: { name: 'Superuser', family: 'Root', rarity: 'legendary', text: '×1.8 on every matrix', score: () => ({ mult: 1.8 }) },
+  superuser: { name: 'Superuser', family: 'Root', rarity: 'legendary', text: '×1.7 on every matrix', score: () => ({ mult: 1.7 }) },
 } satisfies Record<string, Daemon>;
 // Polyglot: distinct non-Root families among the installed daemons.
 const otherFamilies = (s: RunState): number => new Set(s.daemons.map((id: string) => (DAEMONS as Record<string, Daemon>)[id].family).filter((f: Family) => f !== 'Root')).size;
@@ -1369,9 +1369,33 @@ export function splitTarget(targets: string[][], worth: number[], i: number, at 
   };
 }
 
+// Painter on a new board size or shape: a painted cell that is not on the board (off it, or masked away) moves to the nearest
+// cell that is, richest first, so the count of painted cells never drops; its faded mark moves with it.
+// Paint under ICE ## (Firewall, Dead cells) stays put and is lost there.
+export function fitPaint(s: RunState, { grid, mask }: Pick<Puzzle, 'grid' | 'mask'>): void {
+  if (!s.paint) return;
+  const there = (r: number, c: number) => grid[r]?.[c] !== undefined && mask?.[r]?.[c] !== '#';
+  const ok = (r: number, c: number) => there(r, c) && grid[r][c] !== BLOCK;
+  const out: Record<string, number> = {}, faded: string[] = [];
+  const entries = Object.entries(s.paint).sort((a, b) => b[1] - a[1]);
+  const move = (k: string, v: number, to: string) => { out[to] = v; if (s.paintFaded?.includes(k)) faded.push(to); };
+  const stray = entries.filter(([k, v]) => { const [r, c] = k.split(',').map(Number); if (there(r, c)) { move(k, v, k); return false; } return true; });
+  for (const [k, v] of stray) {
+    const [r0, c0] = k.split(',').map(Number);
+    let best: string | undefined, bd = Infinity;
+    grid.forEach((row, r) => row.forEach((_, c) => {
+      const d = Math.abs(r - r0) + Math.abs(c - c0), key = r + ',' + c;
+      if (d < bd && ok(r, c) && !(key in out)) { bd = d; best = key; }
+    }));
+    if (best) move(k, v, best);
+  }
+  s.paint = out;
+  s.paintFaded = faded;
+}
+
 // Side door, after a first pick on an edge: the left or right edge goes on along its row, a corner frees the next axis.
-export function sideDoor(run: Run, r: number, c: number, n: number): void {
-  const side = c === 0 || c === n - 1, end = r === 0 || r === n - 1;
+export function sideDoor(run: Run, r: number, c: number, n: number, w = n): void {
+  const side = c === 0 || c === w - 1, end = r === 0 || r === n - 1;
   if (side && end) run.free = [r, c];
   else if (side) { run.axis = 'row'; run.idx = r; }
 }

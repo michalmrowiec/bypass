@@ -36,6 +36,14 @@ describe('cell rules', () => {
     expect([canPick(b, 4, 0), canPick(b, 2, 4), canPick(b, 2, 2)]).toEqual([true, true, false]);
   });
 
+  it('side door on a long 8×4 board opens its real right edge and goes on along that row', () => {
+    const g = Array.from({ length: 8 }, (_, r) => Array.from({ length: 8 }, (_, c) => (c < 4 ? 'C' + r + c : BLOCK)));
+    const b = board({ items: ['sidedoor'] }, { puzzle: { grid: g, targets: [['C03']], l: 4, shape: true } });
+    expect([canPick(b, 3, 3), canPick(b, 3, 2), canPick(b, 7, 2)]).toEqual([true, false, true]);
+    applyPick(b, 3, 3);
+    expect([b.run.axis, b.run.idx]).toEqual(['row', 3]);
+  });
+
   it('mux opens the row and column of the last pick', () => {
     const b = at(board(), 0, 2);
     expect(canPick(b, 0, 4)).toBe(false);

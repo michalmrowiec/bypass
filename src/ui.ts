@@ -5,14 +5,14 @@ import {
 } from './game';
 import { gear, DATA_PATHS } from './gear';
 import { hacker, logo } from './logos';
-import { commsHtml, say, setSudo, sudoSave, type SudoId } from './sudo';
+import { commsHtml, hideSudo, ICE_GIST, say, setSudo, sudoSave, type SudoId } from './sudo';
 import {
   applyPick, canPick, cellView, replayRoute, ctxOf, dealBoard, hasMoves, isStuck, jumpAny, loopAny, playStep, stepOk, toolReady, SCRIPT_TOOLS, rewind, startRun, EMPTY_CTX, emptyItems, isBlackout, isDoorOpen, isEncrypted, TOOLS, type Board, type ItemState, type Step, type Tool,
 } from './matrix';
 import {
   buy, verOf, canExitRoom, exitRoom, exitCredit, EXIT_FULL_CREDIT, coverage, ROTATE_DATA, thumbData, prioId, firstTarget, PRIO_MULT, played, DAEMON_SLOTS, daemonSlots, DAEMONS, SLOTS_PER_CREDIT, IDLE_CAP, DATA_BY_LEN, finishMatrix, forSale, ITEMS, movePreview, newRunState, nextSection,
   burnOf, COMPANIES, companyOpen, isBoss, LOOPS, PATCH_COVER, PATCH_DOUBLE, overtimeCarry, quota, QUOTA_GROWTH, growthOf, revealed, roomIce, sections, ICE, nodeData, offerPacks, type DaemonPack, rerollCost, swapCost, swapDaemon, scopeOf, streakOf, rarityOf, BOUNTIES, bountySpots, bountyMet, travelledOf, claimReward, BOUNTY_STACKS, REWARDS, rewardText, type BountyId, type RewardId, restartMatrix, RACK_MAX, slotCost, rackFull, unitsOf, usedSlots, sellFor, sellValue, olderVersions, sell, canSell, leadsBonus, buySlot, scoreMatrix, sectionMatrix, splitTarget, rotateTarget, canSnapshot, takeSnapshot, nextSeed, canSplit, SPLIT_MIN, stockShop, lockItem,
-  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
+  logEvent, dmnFile, bonusKey, shareSquares, PAYLOADS, payloadFor, payLevel, payEffect, payFile, payBase, COMPILE_EVERY, setHotkey, rechargeUps, UPS_BATTERY, migratePayloads, buyZip, pickZip, zipSold, zipPrice, priceOf, entryOf, entriesOpen, entryKey, needsStartChoice, setBossIce, setMiner, minerIdle, canDisconnect, ZIP_PICKS, type PayloadId, type Company, type Entry, type Patch, type Preview, type DaemonId, type Effect, type IceId, type ItemId, type MatrixCtx, type RunState, type Score,
 } from './roguelike';
 import {
   bestRun, breached, dayNumber, dropRun, exportBackup, firstResult, load, loadRun, parseBackup, recordBest, recordFirst, recordWin, restoreBackup, save, saveRun, setBreached, setWins, utcDate, wins,
@@ -787,6 +787,11 @@ const MARK: Partial<Record<ItemId, string>> = {
   wildcard1: 'var(--pink)', wildcard2: 'var(--pink)', glob: 'var(--pink)', repeater: 'var(--violet)',
   datanode: 'var(--data)', datanode2: 'var(--data)', datanode3: 'var(--data)', ping: 'repeating-linear-gradient(var(--cyan) 0 3px,transparent 3px 6px)', // dashed, like its cell frame
 };
+// Compiler: plays counted towards the payload scoring now (n of COMPILE_EVERY); up = it just gained a level.
+const compileOf = (sc: Score, over = S.over) => {
+  const id = R.items.includes('compiler') ? sc.pay?.[0] : undefined, n = id ? R.compiled?.[id] ?? 0 : 0;
+  return id ? { id, n: n % COMPILE_EVERY, up: over && n > 0 && n % COMPILE_EVERY === 0 } : undefined;
+};
 function renderDaemons() {
   const sc = S.over && lastBill ? lastBill : scoreMatrix(runCtx(), R);
   const fired = new Map(sc.fired);
@@ -820,6 +825,8 @@ function renderDaemons() {
   const pb = planning ? planBoard().board : B();
   // Mid-matrix a streak like Heartbeat only looks broken (targets still to come), so the charge is spent once the matrix is over.
   const drained = !!R.upsUsed || (S.over && !!sc.ups);
+  const cpl = compileOf(sc);
+  const cplTag = cpl && (cpl.up ? '▲ ' + payFile(cpl.id) + ' Lv' + payBase(R, cpl.id) : '▸ ' + payFile(cpl.id) + ' ' + cpl.n + '/' + COMPILE_EVERY);
   const units = R.items.map((id) => {
     // Burner SIM acts at once like Rewind: no arming, it deals a new matrix before the first move.
     const it = ITEMS[id], t: Tool | 'sim' | undefined = id === 'sim' ? 'sim' : TOOLS[id];
@@ -841,7 +848,8 @@ function renderDaemons() {
     const mhint = miner && (miner.free ? 'mode ' + miner.mode + ' · click to switch to ' + (miner.mode === 'pool' ? 'idle' : 'pool') : 'mode ' + miner.mode + ' · locked until this matrix ends');
     return { id, t, ready, miner, cut: inScript, st: on ? 'armed' : ready ? 'ready' : id === 'ups' && drained ? 'spent' : !t ? 'online' : !spent ? 'waiting' : used ? 'spent' : 'unused',
       spec: '<b>&gt; ' + it.name.toLowerCase().replace(/ /g, '_') + (verOf(id) && '_v' + verOf(id)) + '</b> ' + rich(it.text) + (hint || mhint ? ' · <b>' + (hint || mhint) + '</b>' : '')
-        + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') + (id.startsWith('hotkey') && R.hotkey ? ' · <b>bound to ' + payFile(R.hotkey) + '</b>' : '') };
+        + (id === 'socket' && hosted ? ' · <b>hosts ' + DAEMONS[hosted].name + '</b>' : '') + (id.startsWith('hotkey') && R.hotkey ? ' · <b>bound to ' + payFile(R.hotkey) + '</b>' : '')
+        + (id === 'compiler' && cpl ? ' · <b>' + (cpl.up ? payFile(cpl.id) + ' compiled to Lv' + payBase(R, cpl.id) : payFile(cpl.id) + ' ' + cpl.n + '/' + COMPILE_EVERY + ' plays to the next level') + '</b>' : '') };
   });
   const on = units.find((u) => u.st === 'armed'), ready = units.filter((u) => u.ready);
   const lcd = on ? on.spec
@@ -863,10 +871,10 @@ function renderDaemons() {
       if (!u) return rail(i + 1) + "<div class='unit blank' tabindex='0' aria-label='Locked rack slot'>" + scr(i, 0) + "<i class='vent'></i>"
         + "<span class='lock'>locked</span><i class='vent'></i>" + scr(i, 1) + '</div>' + rail(i + 1);
       const it = ITEMS[u.id], tag = u.ready || u.miner?.free || u.cut ? 'button' : 'div';
-      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && drained ? 'drained ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
+      return rail(i + 1) + '<' + tag + " class='unit hw " + (unitsOf(u.id) === 2 ? 'u2 ' : '') + (u.id === 'ups' && drained ? 'drained ' : '') + (u.id === 'compiler' && cpl?.up ? 'lvup ' : '') + u.st + (u.t === 'wild' || u.t === 'split' || u.t === 'shift' || u.t === 'sim' ? ' pre' : '') + (u.miner ? ' miner ' + u.miner.mode : '') + (MATERIAL[u.id] ? ' m-' + MATERIAL[u.id] : '') + "'"
         + (MARK[u.id] ? " style='--k:" + MARK[u.id] + "'" : '') + (u.ready ? " data-tool='" + u.t + "'" : u.miner?.free ? " data-miner='1'" : u.cut ? " data-cut='" + u.t + "'" : " tabindex='0'")
         + " aria-label='" + it.name + (verOf(u.id) && ' v' + verOf(u.id)) + ', ' + u.st + ': ' + it.text + "'>" + (MARK[u.id] ? "<i class='strip'></i>" : '') + scr(i, 0) + gear(u.id, true)
-        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' && verOf(u.id) ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : u.id.startsWith('hotkey') && R.hotkey ? '▸ ' + payFile(R.hotkey) : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
+        + "<span class='nm'><b>" + it.name + (it.ver === '1.0' && verOf(u.id) ? ' <small>v' + it.ver + '</small>' : '') + '</b><small><span>' + (u.id === 'socket' && hosted ? '▸ ' + DAEMONS[hosted].name : u.id.startsWith('hotkey') && R.hotkey ? '▸ ' + payFile(R.hotkey) : u.id === 'compiler' && cplTag ? cplTag : it.kind) + '</span>' + (u.t ? '<em>· ' + u.st + '</em>' : u.miner ? '<em>· ' + u.miner.mode + '</em>' : '')
         + '</small></span>' + (it.ver !== '1.0' ? "<i class='vplate v" + parseInt(it.ver) + "'>v" + parseInt(it.ver) + '</i>' : '') + "<i class='led'></i>" + scr(i, 1) + '</' + tag + '>' + rail(i + 1);
     }).join('') + "<p class='lcd' id='lcd'>" + lcd + '</p>';
   const use = (tool: string) => {
@@ -1280,6 +1288,9 @@ function showOffer() {
 
 // Shop between rooms: a seeded shelf of items, a paid reroll and paid daemon removal; Continue opens the next room.
 function showShop(restock = true) {
+  // Sudo reacts right after a legendary goes in, each count once ever.
+  const legends = Math.min(4, R.daemons.filter((d) => rarityOf(d) === 'legendary').length);
+  if (legends) sudo(('legend' + legends) as SudoId, {}, legends > 1 ? 'legend' + legends : 'legend'); // 'legend': the old one-time key
   if (restock) { stockShop(R); R.legendOffer = false; R.lastOffer = offer; R.packPick = undefined; } // the offer before the shop used it
   checkpoint('shop');
   const cr = (n: number) => money(n);
@@ -1874,8 +1885,7 @@ function enterSection() {
   // Sudo: at most one line per room; one-time lines first.
   const idle = sudoRun().idle = (sudoRun().idle ?? 0) + 1;
   void (sudo('intro') || (sudoSave().seen.includes('twist') && sudo('twist2'))
-    || roomIce(R).some((id) => sudo('ice', { ice: ICE[id].name }, 'ice:' + id))
-    || (R.daemons.some((d) => rarityOf(d) === 'legendary') && sudo('legend'))
+    || roomIce(R).some((id) => sudo('ice', { ice: ICE[id].name, gist: ICE_GIST[id] }, 'ice:' + id))
     || (idle > 4 && sudo('script')));
 }
 
@@ -1901,6 +1911,7 @@ function sudoAfter(out: string, total: number, spare: number, goal: number, sc: 
 
 // Header comms: Sudo's past messages and its on/off switch.
 function showComms() {
+  hideSudo(); // a live toast can sit over the dialog's buttons; its line is in the log anyway
   const close = () => { $('modal').onkeydown = null; hideResult(); focusGrid(); };
   const draw = () => {
     const off = !!sudoSave().off;
@@ -2217,7 +2228,8 @@ function finish(sc: number, disconnected = false) {
       ? "<div class='bounty met breward'><span class='bnt'>bonus met</span><b>" + BOUNTIES[M.bounty].name + "</b> <span class='bstate' id='reel'>reward ???</span>"
         + "<button class='btn' id='claim'>Roll reward</button></div>"
       : "<p class='meta'>bonus " + (met ? 'met' : 'missed') + ' · ' + BOUNTIES[M.bounty].name + '</p>';
-    const credits = R.earned.map(line).join('') + bonus
+    const cpl = compileOf(bill, true);
+    const credits = R.earned.map(line).join('') + (cpl?.up ? "<p class='meta cplup'>▲ Compiler · " + payFile(cpl.id) + ' is now Lv' + payBase(R, cpl.id) + '</p>' : '') + bonus
       + (out === 'win' ? winUnlocks(co, next) : '');
     const btn = (id: string, label: string, cls = 'go') => "<div class='row'><button class='btn' id='viewMatrix'>View matrix</button>" + SUM_CATALOG + "<button class='btn " + cls + "' id='" + id + "'" + (claim ? ' disabled' : '') + '>' + label + '</button></div>';
     showResult(out !== 'lose' && (out !== 'continue' || bill.total > 0), out === 'continue'
